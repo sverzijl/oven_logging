@@ -10,8 +10,8 @@ This is a Streamlit-based thermal profile analyzer for optimizing bread baking p
 
 ### Setup and Installation
 ```bash
-# Create virtual environment
-python -m venv venv
+# Create virtual environment (requires Python 3)
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
@@ -20,6 +20,9 @@ pip install -r requirements.txt
 
 ### Running the Application
 ```bash
+# IMPORTANT: Always activate the virtual environment first
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Run Streamlit app
 streamlit run app.py
 
@@ -29,6 +32,9 @@ streamlit run app.py --server.port 8080
 
 ### Testing
 ```bash
+# IMPORTANT: Always activate the virtual environment first
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Run all tests
 pytest
 
@@ -41,6 +47,9 @@ pytest --cov=src tests/
 
 ### Code Quality
 ```bash
+# IMPORTANT: Always activate the virtual environment first
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Format code
 black .
 
@@ -50,6 +59,11 @@ flake8 src/ tests/
 # Type checking
 mypy src/
 ```
+
+### Python Environment
+- **Python Version**: This project requires Python 3 (use `python3` command)
+- **Virtual Environment**: Always use the virtual environment (`venv`) to avoid dependency conflicts
+- **Activation**: Remember to activate the virtual environment before running any commands
 
 ## Architecture Overview
 

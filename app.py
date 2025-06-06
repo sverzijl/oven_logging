@@ -598,12 +598,12 @@ else:
                 
                 # Add temperature zones
                 if show_zones:
-                    for zone_name, zone_temp in TEMPERATURE_ZONES.items():
+                    for zone_name, zone_config in TEMPERATURE_ZONES.items():
                         fig_compare.add_hline(
-                            y=zone_temp,
+                            y=zone_config["min"],
                             line_dash="dot",
-                            line_color="gray",
-                            annotation_text=zone_name,
+                            line_color=zone_config.get("color", "gray"),
+                            annotation_text=zone_config["name"],
                             annotation_position="right"
                         )
                 

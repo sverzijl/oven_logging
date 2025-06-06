@@ -79,7 +79,9 @@ class ThermalProfileLoader:
                 
         # Parse specific fields
         if 'Sample Period' in metadata:
-            metadata['sample_period_ms'] = int(metadata['Sample Period'])
+            # Strip trailing commas from the value
+            sample_period_str = metadata['Sample Period'].rstrip(',')
+            metadata['sample_period_ms'] = int(sample_period_str)
             metadata['sample_period_s'] = metadata['sample_period_ms'] / 1000.0
             
         if 'Created' in metadata:
@@ -108,7 +110,9 @@ class ThermalProfileLoader:
                 
         # Parse specific fields
         if 'Sample Period' in metadata:
-            metadata['sample_period_ms'] = int(metadata['Sample Period'])
+            # Strip trailing commas from the value
+            sample_period_str = metadata['Sample Period'].rstrip(',')
+            metadata['sample_period_ms'] = int(sample_period_str)
             metadata['sample_period_s'] = metadata['sample_period_ms'] / 1000.0
             
         if 'Created' in metadata:
@@ -145,7 +149,9 @@ class ThermalProfileLoader:
                 
         # Parse specific fields
         if 'Sample Period' in metadata:
-            metadata['sample_period_ms'] = int(metadata['Sample Period'])
+            # Strip trailing commas from the value
+            sample_period_str = metadata['Sample Period'].rstrip(',')
+            metadata['sample_period_ms'] = int(sample_period_str)
             metadata['sample_period_s'] = metadata['sample_period_ms'] / 1000.0
             
         if 'Created' in metadata:
