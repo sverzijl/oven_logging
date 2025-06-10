@@ -167,10 +167,14 @@ class ThermalPlotter:
         colors = []
         
         for zone_name, analysis in zone_analysis.items():
-            if analysis['total_time_minutes'] > 0:
-                zones.append(TEMPERATURE_ZONES[zone_name]['name'])
-                durations.append(analysis['total_time_minutes'])
-                colors.append(TEMPERATURE_ZONES[zone_name]['color'])
+            # Handle both old and new data formats
+            duration = analysis.get('duration', analysis.get('total_time_minutes', 0))
+            if duration > 0:
+                zone_config = TEMPERATURE_ZONES.get(zone_name, {})
+                zone_name_display = analysis.get('name', zone_config.get('name', zone_name))
+                zones.append(zone_name_display)
+                durations.append(duration)
+                colors.append(zone_config.get('color', '#1f77b4'))
         
         fig = go.Figure(data=[
             go.Bar(
@@ -322,10 +326,13 @@ class ThermalPlotter:
         """
         fig = go.Figure()
         
+        # Use the same core temperature column that was used for analysis
+        core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'CoreAverage'
+        
         # Main S-curve (core temperature vs time)
         fig.add_trace(go.Scatter(
             x=data['TimeMinutes'],
-            y=data['CoreAverage'],
+            y=data[core_col],
             name='Core Temperature (S-Curve)',
             line=dict(color='darkblue', width=3),
             hovertemplate='Time: %{x:.1f} min<br>Temp: %{y:.1f}°C<extra></extra>'
@@ -432,13 +439,16 @@ class ThermalPlotter:
             horizontal_spacing=0.1
         )
         
+        # Use the same core temperature column that was used for analysis
+        core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'CoreAverage'
+        
         # Bake-out temperature profile
         bakeout_data = data[data['TimeMinutes'] >= bakeout.start_time_minutes]
         if not bakeout_data.empty:
             fig.add_trace(
                 go.Scatter(
                     x=bakeout_data['TimeMinutes'],
-                    y=bakeout_data['CoreAverage'],
+                    y=bakeout_data[core_col],
                     name='Core Temp',
                     line=dict(color='red', width=2)
                 ),

@@ -74,7 +74,49 @@ The application processes CSV files containing temperature probe data with the f
 - Time-series data with 5-second intervals
 - Critical temperature zones for bread baking analysis
 
-**Important**: The probe firmware dynamically selects which sensors represent core, surface, and ambient based on actual temperature readings. This accounts for variations in probe insertion angle and position. The application should use these virtual assignments rather than assuming fixed sensor mappings.
+**Important - Probe Insertion Variability**: 
+- The probe is manually inserted into the dough with T1 first, but insertion depth and angle vary significantly between uses
+- **Shallow insertion**: T1 may be in the crust rather than core, with actual core being T3-T4
+- **Deep insertion**: T1 may punch through the bread, with T3-T4 being the actual core
+- **Variable depth**: Different bread sizes and probe positioning affect which sensors measure what
+- The probe firmware attempts to identify sensor roles dynamically, but may misclassify them
+- The outermost sensor (T8) might measure either surface/crust temperature OR ambient oven temperature depending on insertion depth
+
+**Zone Analysis Temperature Selection**:
+The zone analyzer now uses intelligent temperature source identification that:
+1. Analyzes temperature patterns rather than relying solely on sensor positions or virtual assignments
+2. Identifies surface sensors by looking for temperatures in the 110-180°C range (crust formation)
+3. Identifies core sensors by looking for temperatures in the 85-105°C range
+4. Distinguishes between surface and ambient by heating rates and maximum temperatures
+5. Applies appropriate temperature sources for each zone:
+   - **Core zones**: Yeast Kill, Starch Gelatinization, Protein Denaturation, Target Core
+   - **Surface zones**: Crust Formation, Maillard Reaction, Caramelization
+
+**Recent Improvements**:
+
+*Zone Analysis*:
+1. **Dynamic Temperature Source Detection**: Both `zone_analysis.py` and `thermal_analysis.py` now intelligently identify which sensors/columns represent core vs surface temperatures based on temperature patterns
+2. **Zone-Specific Uniformity Analysis**: Uniformity is now calculated using appropriate sensors for each zone type (core sensors for core zones, surface sensors for surface zones)
+3. **Separated Zone Transitions**: Core and surface zone transitions are calculated separately to avoid invalid comparisons between different temperature sources
+4. **Temperature-Type Aware Recommendations**: Optimization recommendations now consider whether issues are related to core or surface temperatures, providing more targeted advice
+5. **Additional Surface Zones**: Added Maillard Reaction (105-150°C) and Caramelization (150-200°C) zones for comprehensive surface analysis
+
+*Curve Extraction and Data Quality*:
+1. **Improved Probe Removal Detection**: Enhanced curve extraction to detect rapid temperature drops (>15°C in 5 seconds) indicating probe removal from oven
+2. **Robust Heating Consistency**: Fixed bug where heating consistency showed 0.0% when probe removal was included in data:
+   - Added IQR-based outlier detection to remove statistical anomalies
+   - Rate limiting clips extreme values at ±1.0°C/s (±60°C/min)
+   - Proper handling of insufficient data points
+3. **Better Peak Detection**: Curve extraction now correctly identifies peak temperature and stops when massive drops occur
+4. **Immediate Drop Detection**: Removed artificial delays that prevented detection of rapid drops immediately after peak temperature
+
+*User Interface*:
+1. **Beautiful Metric Cards**: Quality metrics now display with visual indicators, color coding, and expandable explanations
+2. **Zone Analysis Cards**: Each temperature zone shows with status indicators, timing assessment, and detailed explanations of the biochemical processes
+3. **Interactive Explanations**: All metrics and zones include expandable sections explaining what they measure, why they matter, and how to interpret them
+4. **Visual Quality Indicators**: Color-coded ratings (Excellent/Good/Acceptable/Poor) with specific thresholds
+5. **Context-Aware Help**: Tooltips and info boxes throughout the interface to guide users
+6. **Professional Styling**: Gradient backgrounds, icons, and consistent color schemes for better visual hierarchy
 
 ### Core Analysis Modules
 
@@ -127,8 +169,11 @@ The `_extract_all_baking_curves()` method detects and extracts all baking curves
 
 2. **End Detection**:
    - Finds peak core temperature for each curve
-   - Identifies when temperature drops >20°C from peak (indicating product removal and potential new curve)
-   - Validates with cooling rate (>1°C/minute) to confirm product removal from oven
+   - Detects rapid temperature drops indicating probe removal:
+     - Instant drops >15°C in one 5-second interval
+     - Sustained drop rates >2°C/second (120°C/min)
+   - Identifies when temperature drops >20°C from peak (indicating product removal)
+   - Validates with cooling rate to confirm product removal from oven
    - Each curve end becomes the starting point for searching the next curve
 
 3. **Validation**:

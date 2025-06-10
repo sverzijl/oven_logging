@@ -26,6 +26,18 @@ TEMPERATURE_ZONES = {
         "name": "Crust Formation",
         "color": "#F7DC6F"
     },
+    "MAILLARD_REACTION": {
+        "min": 105,
+        "max": 150,
+        "name": "Maillard Reaction",
+        "color": "#D2691E"
+    },
+    "CARAMELIZATION": {
+        "min": 150,
+        "max": 200,
+        "name": "Caramelization",
+        "color": "#8B4513"
+    },
     "TARGET_CORE": {
         "min": 93,
         "max": 98,

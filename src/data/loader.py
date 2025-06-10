@@ -2,7 +2,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple, Optional, Union
+from typing import Dict, Tuple, Optional, Union, List
 import re
 from datetime import datetime
 import io
@@ -232,9 +232,12 @@ class ThermalProfileLoader:
             print(f"  Surface: {self.sensor_assignments.get('surface', 'Unknown')} ({self.sensor_assignments.get('surface_info', {}).get('percentage', 0):.1f}% of readings)")
             print(f"  Ambient: {self.sensor_assignments.get('ambient', 'Unknown')} ({self.sensor_assignments.get('ambient_info', {}).get('percentage', 0):.1f}% of readings)")
             
+            # Validate assignments using thermodynamic principles
+            self._validate_sensor_assignments(df)
+            
         else:
-            # Method 2: Dynamic classification based on temperature patterns
-            print("Virtual sensor data not available, using dynamic classification")
+            # Method 2: Enhanced dynamic classification using thermodynamic principles
+            print("Virtual sensor data not available, using thermodynamic classification")
             df = self._classify_sensors_dynamically(df)
         
         # For backward compatibility, also create the old average columns
@@ -246,9 +249,18 @@ class ThermalProfileLoader:
         
         return df
     
+    def get_sensor_assignments(self) -> dict:
+        """
+        Get the sensor role assignments from the last loaded data.
+        
+        Returns:
+            dict: Dictionary with 'core', 'surface', 'ambient' keys containing sensor identifiers
+        """
+        return getattr(self, 'sensor_assignments', {})
+    
     def _classify_sensors_dynamically(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Dynamically classify sensors based on temperature patterns.
+        Dynamically classify sensors using thermodynamic principles.
         
         This is a fallback method when virtual sensor data is not available.
         """
@@ -264,6 +276,40 @@ class ThermalProfileLoader:
                 df['SurfaceTemperature'] = df[['T7', 'T8']].mean(axis=1)
             df['AmbientTemperature'] = df[available_sensors].max(axis=1) if available_sensors else 0
             return df
+        
+        # Try thermodynamic classification first
+        try:
+            from ..data.thermodynamic_sensor_classifier import ThermodynamicSensorClassifier
+            classifier = ThermodynamicSensorClassifier(df, available_sensors)
+            assignments = classifier.classify_sensors()
+            
+            # Use thermodynamic assignments
+            core_sensors = assignments.get('core', [])
+            surface_sensors = assignments.get('surface', [])
+            ambient_sensors = assignments.get('ambient', [])
+            
+            # Calculate temperatures based on classification
+            df['CoreTemperature'] = df[core_sensors].mean(axis=1) if core_sensors else df[available_sensors[:2]].mean(axis=1)
+            df['SurfaceTemperature'] = df[surface_sensors].mean(axis=1) if surface_sensors else df[available_sensors[2:4]].mean(axis=1)
+            df['AmbientTemperature'] = df[ambient_sensors].mean(axis=1) if ambient_sensors else df[available_sensors[-2:]].mean(axis=1)
+            
+            # Store assignments
+            self.sensor_assignments = {
+                'core': core_sensors[0] if core_sensors else 'Unknown',
+                'surface': surface_sensors[0] if surface_sensors else 'Unknown', 
+                'ambient': ambient_sensors[0] if ambient_sensors else 'Unknown',
+                'method': 'thermodynamic_classification'
+            }
+            
+            print(f"Thermodynamic sensor classification:")
+            for role, sensors in assignments.items():
+                print(f"  {role.upper()}: {', '.join(sensors)}")
+            
+            return df
+            
+        except Exception as e:
+            print(f"Thermodynamic classification failed: {e}")
+            print("Falling back to simple temperature-based classification")
         
         # Calculate statistics for each sensor
         sensor_stats = {}
@@ -536,14 +582,33 @@ class ThermalProfileLoader:
             if start_idx is None:
                 break
             
-            # Find curve peak
+            # Find curve peak - stop searching if we hit room temperature
             peak_idx = start_idx
             peak_temp = df.iloc[start_idx][core_col]
+            room_temp_count = 0
             
             for j in range(start_idx + 1, len(df)):
-                if df.iloc[j][core_col] > peak_temp:
-                    peak_temp = df.iloc[j][core_col]
+                current_temp = df.iloc[j][core_col]
+                
+                # Update peak if we find a higher temperature
+                if current_temp > peak_temp:
+                    peak_temp = current_temp
                     peak_idx = j
+                    room_temp_count = 0
+                
+                # If we've found a peak and temperature drops to room temp, stop searching
+                if peak_temp > 70 and current_temp < ROOM_TEMP_MAX:
+                    room_temp_count += 1
+                    # If temp stays at room temp for 20+ samples (100+ seconds), we're done
+                    if room_temp_count >= 20:
+                        break
+                else:
+                    room_temp_count = 0
+                
+                # Also stop if we see a massive drop (probe removal)
+                if j > start_idx + 20 and peak_temp > 70:
+                    if peak_temp - current_temp > 40:
+                        break
             
             # Find curve end - more sophisticated detection
             end_idx = None
@@ -589,21 +654,51 @@ class ThermalProfileLoader:
                                 end_idx = j - window_size
                             break
                 
-                # End condition 3: Major temperature drop (>40°C) from peak
+                # End condition 3: Rapid temperature drop indicating probe removal
+                # Check for extreme drop rate that indicates probe removal
+                # Changed: Allow detection immediately after peak (was j > peak_idx + 10)
+                if j > peak_idx:  # Any time after peak
+                    # First check for instant massive drops (probe removal signature)
+                    if j > 0:
+                        instant_drop = df.iloc[j-1][core_col] - df.iloc[j][core_col]
+                        # If temperature drops >15°C in one sample (5 seconds), it's definitely probe removal
+                        if instant_drop > 15:
+                            end_idx = j - 1
+                            break
+                    
+                    # Also check drop rate over last few samples
+                    lookback = min(5, j - search_start)
+                    if lookback > 0:
+                        recent_drop = df.iloc[j-lookback][core_col] - temp
+                        time_span = df.iloc[j]['Timestamp'] - df.iloc[j-lookback]['Timestamp']
+                        if time_span > 0:
+                            drop_rate_per_sec = recent_drop / time_span
+                            
+                            # If temperature drops more than 2°C/second (120°C/min), it's probe removal
+                            if drop_rate_per_sec > 2.0:
+                                # Find exactly where the rapid drop started
+                                for k in range(j, max(j-lookback-5, peak_idx), -1):
+                                    if k > 0:
+                                        instant_drop = df.iloc[k-1][core_col] - df.iloc[k][core_col]
+                                        # Drops > 15°C in one 5-second interval clearly indicate probe removal
+                                        if instant_drop > 15:
+                                            end_idx = k - 1
+                                            break
+                                        # Or sustained high drop rate
+                                        elif instant_drop > 5 and k < j:
+                                            end_idx = k
+                                            break
+                                if end_idx is None:
+                                    end_idx = j - 1
+                                break
+                
+                # End condition 4: Major temperature drop (>40°C) from peak with verification
                 if peak_temp - temp > 40 and j > peak_idx + 10:
                     # Verify this is a real drop, not noise
                     if j + 3 < len(df):
                         future_temps = df[core_col].iloc[j:j+3]
                         if future_temps.max() < temp + 5:  # Stays low
-                            # Find the start of the rapid drop
-                            for k in range(j, peak_idx, -1):
-                                if k > 0:
-                                    drop_rate = df.iloc[k-1][core_col] - df.iloc[k][core_col]
-                                    if drop_rate > 10:  # 10°C drop in one interval
-                                        end_idx = k - 1
-                                        break
-                            if end_idx is None:
-                                end_idx = j
+                            end_idx = j
                             break
             
             if end_idx is None:
@@ -683,6 +778,79 @@ class ThermalProfileLoader:
         if self.all_curves and 0 <= self.current_curve_index < len(self.all_curves):
             return self.all_curves[self.current_curve_index]
         return None
+    
+    def _validate_sensor_assignments(self, df: pd.DataFrame) -> None:
+        """
+        Validate sensor assignments using thermodynamic principles.
+        Issues warnings if assignments seem incorrect.
+        """
+        # Get temperature columns
+        temp_cols = [col for col in df.columns if col.startswith('T') and col[1:].isdigit()]
+        if len(temp_cols) < 3:
+            return
+        
+        # Calculate average temperatures for assigned sensors
+        role_temps = {}
+        for role in ['core', 'surface', 'ambient']:
+            sensor = self.sensor_assignments.get(role)
+            if sensor and sensor in temp_cols:
+                role_temps[role] = {
+                    'sensor': sensor,
+                    'mean': df[sensor].mean(),
+                    'max': df[sensor].max()
+                }
+        
+        warnings = []
+        
+        # Check temperature ordering (core < surface < ambient)
+        if 'core' in role_temps and 'surface' in role_temps:
+            if role_temps['core']['mean'] > role_temps['surface']['mean']:
+                warnings.append(f"⚠️  Core sensor ({role_temps['core']['sensor']}) has higher average temperature than surface sensor ({role_temps['surface']['sensor']})")
+        
+        if 'surface' in role_temps and 'ambient' in role_temps:
+            if role_temps['surface']['mean'] > role_temps['ambient']['mean']:
+                warnings.append(f"⚠️  Surface sensor ({role_temps['surface']['sensor']}) has higher average temperature than ambient sensor ({role_temps['ambient']['sensor']})")
+        
+        # Check heating rates in first 5 minutes
+        mask = df['TimeMinutes'] <= 5.0
+        if mask.sum() > 2:
+            for role, expected_range in [('core', (0.2, 3)), ('surface', (2, 15)), ('ambient', (10, 50))]:
+                if role in role_temps:
+                    sensor = role_temps[role]['sensor']
+                    temps = df.loc[mask, sensor]
+                    times = df.loc[mask, 'TimeMinutes']
+                    if len(temps) > 2:
+                        coeffs = np.polyfit(times, temps, 1)
+                        heat_rate = coeffs[0]
+                        min_rate, max_rate = expected_range
+                        if heat_rate < min_rate or heat_rate > max_rate:
+                            warnings.append(f"⚠️  {role.capitalize()} sensor ({sensor}) has unusual heating rate: {heat_rate:.1f}°C/min (expected {min_rate}-{max_rate}°C/min)")
+        
+        # Check for sensor assignment consistency
+        for role, info in [('core', 'core_info'), ('surface', 'surface_info'), ('ambient', 'ambient_info')]:
+            if info in self.sensor_assignments:
+                percentage = self.sensor_assignments[info].get('percentage', 100)
+                if percentage < 80:
+                    warnings.append(f"⚠️  {role.capitalize()} sensor assignment changes frequently ({percentage:.1f}% consistency) - probe may not be properly inserted")
+        
+        # Print warnings if any
+        if warnings:
+            print("\nSensor Assignment Validation Warnings:")
+            for warning in warnings:
+                print(f"  {warning}")
+            
+            # Run thermodynamic classification for comparison
+            try:
+                from ..data.thermodynamic_sensor_classifier import ThermodynamicSensorClassifier
+                classifier = ThermodynamicSensorClassifier(df, temp_cols)
+                thermo_assignments = classifier.classify_sensors()
+                
+                print("\n  Alternative thermodynamic classification suggests:")
+                for role, sensors in thermo_assignments.items():
+                    print(f"    {role.upper()}: {', '.join(sensors)}")
+            except Exception as e:
+                # Silently fail if thermodynamic classifier not available
+                pass
     
 
 def validate_thermal_data(df: pd.DataFrame) -> Tuple[bool, list]:

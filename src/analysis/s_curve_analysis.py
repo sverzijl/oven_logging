@@ -119,6 +119,7 @@ class SCurveAnalyzer:
             zones['critical_change'] = {
                 'duration_minutes': len(critical) * self.sample_period / 60,
                 'percentage_of_bake': (len(critical) / len(self.data)) * 100,
+                'max_temp_reached': critical[core_col].max(),
                 'avg_heating_rate': critical[core_col].diff().mean() / (self.sample_period / 60),
                 'transformations': self._identify_transformations(critical)
             }
