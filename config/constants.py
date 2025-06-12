@@ -211,3 +211,19 @@ PRODUCT_MOISTURE = {
         "crust_factor": 0.85
     }
 }
+
+# Physics-based surface detection configuration
+SURFACE_DETECTION_CONFIG = {
+    "USE_PHYSICS_BASED_DETECTION": True,  # Enable physics-based surface sensor detection
+    "CONFIDENCE_THRESHOLD": 60,  # Minimum confidence % to apply correction
+    "LOG_CORRECTIONS": True,  # Log when corrections are applied
+    "SHOW_IN_UI": True  # Show detection status in UI
+}
+
+# Internal sensor detection configuration
+INTERNAL_SENSOR_CONFIG = {
+    "TEMP_THRESHOLD": 103.0,  # Max temperature for internal crumb (100°C + 3°C margin)
+    "TIME_THRESHOLD": 0.1,  # Max fraction of time above 100°C (10%)
+    "USE_TIME_BASED_FILTERING": False,  # Whether to also check time spent >100°C
+    "ALWAYS_INCLUDE_CORE": True  # Always include core sensor even if >100°C
+}

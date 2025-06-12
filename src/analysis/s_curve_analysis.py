@@ -33,18 +33,18 @@ class BakeOutAnalysis:
 class SCurveAnalyzer:
     """Analyze S-curve characteristics for bread quality optimization."""
     
-    def __init__(self, data: pd.DataFrame, metadata: Dict):
+    def __init__(self, data: pd.DataFrame, metadata: Dict, loader=None):
         self.data = data
         self.metadata = metadata
         self.sample_period = metadata.get('sample_period_s', 5.0)
         self.total_bake_time = len(data) * self.sample_period / 60.0
+        self.loader = loader
         
     def identify_landmarks(self) -> Dict[str, SCurveLandmark]:
         """Identify critical landmarks on the S-curve."""
         landmarks = {}
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in self.data.columns else 'CoreAverage'
-        core_temp = self.data[core_col]
+        # Always use standardized CoreTemperature column
+        core_temp = self.data['CoreTemperature']
         
         # Yeast Kill (56°C)
         yeast_kill_idx = self._find_temperature_crossing(core_temp, 56)

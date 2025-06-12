@@ -16,6 +16,7 @@ from src.data.loader import ThermalProfileLoader, validate_thermal_data
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.analysis.zone_analysis import ZoneAnalyzer
 from src.analysis.s_curve_analysis import SCurveAnalyzer
+from src.analysis.curve_comparison import CurveComparison, transform_sensor_assignments_to_roles
 from src.visualization.plots import ThermalPlotter
 from src.visualization.metric_cards import create_metric_card, create_metric_dashboard, create_simple_metric
 from src.visualization.zone_cards import create_zone_summary_dashboard
@@ -80,41 +81,40 @@ def get_default_sensors(loader):
     if not loader:
         return ['T1', 'T4', 'T6', 'T8']  # Fallback defaults
     
-    assignments = loader.get_sensor_assignments()
     defaults = []
     
-    # Add primary core sensor
-    if 'core' in assignments and assignments['core'] and assignments['core'].startswith('T'):
-        defaults.append(assignments['core'])
-    else:
-        defaults.append('T1')  # Fallback
+    # Get current curve index from session state if available
+    curve_index = st.session_state.get('current_curve_index', 0) if hasattr(st, 'session_state') else 0
     
-    # Add primary surface sensor
-    if 'surface' in assignments and assignments['surface'] and assignments['surface'].startswith('T'):
-        defaults.append(assignments['surface'])
-    else:
-        defaults.append('T8')  # Fallback
+    # Add core sensor
+    core_sensor = loader.get_core_sensor(curve_index)
+    if core_sensor:
+        defaults.append(core_sensor)
     
-    # Add primary ambient sensor if different from surface
-    if 'ambient' in assignments and assignments['ambient'] and assignments['ambient'].startswith('T'):
-        if assignments['ambient'] not in defaults:
-            defaults.append(assignments['ambient'])
+    # Add surface sensor
+    surface_sensor = loader.get_surface_sensor(curve_index)
+    if surface_sensor and surface_sensor not in defaults:
+        defaults.append(surface_sensor)
     
-    # Add a middle sensor if we don't have enough
-    if len(defaults) < 3:
-        for sensor in ['T4', 'T5', 'T6']:
-            if sensor not in defaults:
-                defaults.append(sensor)
-                if len(defaults) >= 3:
-                    break
-    
-    # Ensure we have at least 4 sensors for good visualization
-    all_sensors = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
-    for sensor in all_sensors:
-        if sensor not in defaults and len(defaults) < 4:
+    # Add one or two internal sensors (not core) for showing spread
+    internal_sensors = loader.get_internal_sensors(curve_index)
+    for sensor in internal_sensors:
+        if sensor != core_sensor and sensor not in defaults:
             defaults.append(sensor)
+            if len(defaults) >= 3:  # Limit to show core + surface + 1 internal
+                break
     
-    return defaults[:4]  # Return max 4 sensors
+    # Add one ambient sensor if space
+    if len(defaults) < 4:
+        ambient_sensors = loader.get_ambient_sensors(curve_index)
+        if ambient_sensors and ambient_sensors[0] not in defaults:
+            defaults.append(ambient_sensors[0])
+    
+    # Ensure we have at least some sensors
+    if not defaults:
+        defaults = ['T1', 'T4', 'T7']
+    
+    return sorted(defaults, key=lambda x: int(x[1]))
 
 # Custom CSS
 st.markdown("""
@@ -237,8 +237,8 @@ with st.sidebar:
                 st.session_state.loader = first_curve['loader']
                 st.session_state.metadata = first_curve['metadata']
                 st.session_state.data = first_curve['curve_data']['data']
-                st.session_state.analyzer = ThermalAnalyzer(st.session_state.data, st.session_state.metadata)
-                st.session_state.s_curve_analyzer = SCurveAnalyzer(st.session_state.data, st.session_state.metadata)
+                st.session_state.analyzer = ThermalAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
+                st.session_state.s_curve_analyzer = SCurveAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
                 st.session_state.global_curve_index = 0
     
     # File and curve selection
@@ -290,8 +290,8 @@ with st.sidebar:
             st.session_state.loader.set_current_curve(selected_curve['file_curve_index'])
             
             # Recreate analyzers
-            st.session_state.analyzer = ThermalAnalyzer(st.session_state.data, st.session_state.metadata)
-            st.session_state.s_curve_analyzer = SCurveAnalyzer(st.session_state.data, st.session_state.metadata)
+            st.session_state.analyzer = ThermalAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
+            st.session_state.s_curve_analyzer = SCurveAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
         
         # Display current curve info
         if st.session_state.global_curve_index < len(st.session_state.all_curves):
@@ -340,26 +340,141 @@ with st.sidebar:
                     else:
                         st.info("Sensor assignments not available for this dataset")
     
+    # Sensor Role Configuration
+    if st.session_state.data is not None and st.session_state.loader:
+        st.divider()
+        st.header("🎯 Sensor Role Configuration")
+        
+        # Show current assignments
+        assignments = st.session_state.loader.get_sensor_assignments_with_overrides(
+            st.session_state.current_curve_index
+        )
+        
+        # Display automatic vs override status
+        if assignments.get('has_overrides'):
+            st.info("📝 Using manual sensor assignments for this curve")
+            if st.button("Reset to Automatic Detection"):
+                st.session_state.loader.clear_sensor_overrides(st.session_state.current_curve_index)
+                # Recreate analyzers with new assignments
+                st.session_state.analyzer = ThermalAnalyzer(
+                    st.session_state.data, 
+                    st.session_state.metadata,
+                    st.session_state.loader
+                )
+                st.session_state.s_curve_analyzer = SCurveAnalyzer(
+                    st.session_state.data,
+                    st.session_state.metadata,
+                    st.session_state.loader
+                )
+                st.rerun()
+        else:
+            st.info("🤖 Using automatic sensor detection")
+        
+        # Manual override controls
+        with st.expander("Override Sensor Assignments", expanded=False):
+            st.markdown("Select which sensors represent each role for this specific curve:")
+            st.markdown("*Note: Internal and ambient sensors are automatically inferred based on surface position*")
+            
+            # Core sensor (single selection)
+            current_core = st.session_state.loader.get_core_sensor(st.session_state.current_curve_index)
+            core_sensor = st.selectbox(
+                "Core Sensor (single sensor for core temperature)",
+                options=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
+                index=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'].index(current_core) if current_core else 0,
+                key=f"core_override_{st.session_state.current_curve_index}",
+                help="Select the sensor that best represents the core temperature"
+            )
+            
+            # Surface sensor (single selection)
+            current_surface = st.session_state.loader.get_surface_sensor(st.session_state.current_curve_index)
+            surface_sensor = st.selectbox(
+                "Surface/Crust Sensor (interface between core and ambient)",
+                options=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
+                index=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'].index(current_surface) if current_surface else 6,
+                key=f"surface_override_{st.session_state.current_curve_index}",
+                help="Select the sensor at the bread surface. Internal sensors (below) and ambient sensors (above) will be automatically determined."
+            )
+            
+            # Show inferred sensor groups based on surface selection
+            st.markdown("### Inferred Sensor Groups")
+            if surface_sensor:
+                surface_num = int(surface_sensor[1])
+                
+                # Internal sensors (below surface)
+                internal_sensors = [f'T{i}' for i in range(1, surface_num)]
+                if internal_sensors:
+                    st.info(f"**Internal sensors**: {', '.join(internal_sensors)} (all sensors below surface)")
+                else:
+                    st.warning("No internal sensors (surface is T1)")
+                
+                # Surface
+                st.info(f"**Surface sensor**: {surface_sensor}")
+                
+                # Ambient sensors (above surface)
+                ambient_sensors = [f'T{i}' for i in range(surface_num + 1, 9)]
+                if ambient_sensors:
+                    st.info(f"**Ambient sensors**: {', '.join(ambient_sensors)} (all sensors above surface)")
+                else:
+                    st.warning("No ambient sensors (surface is T8)")
+            
+            if st.button("Apply Overrides"):
+                # Validation function
+                def validate_sensor_assignments(core, surface):
+                    errors = []
+                    
+                    # Check for required selections
+                    if not core:
+                        errors.append("Please select a core sensor")
+                    if not surface:
+                        errors.append("Please select a surface sensor")
+                    
+                    # Check that sensors are different
+                    if core and surface and core == surface:
+                        errors.append("Core and surface sensors must be different")
+                    
+                    # Check logical order: core < surface
+                    if core and surface:
+                        core_num = int(core[1])
+                        surface_num = int(surface[1])
+                        
+                        if core_num >= surface_num:
+                            errors.append("Core sensor must have a lower number than surface sensor")
+                    
+                    return errors
+                
+                # Validate selections
+                errors = validate_sensor_assignments(core_sensor, surface_sensor)
+                
+                if errors:
+                    for error in errors:
+                        st.error(error)
+                else:
+                    # Apply overrides (single sensors)
+                    st.session_state.loader.set_sensor_override(
+                        st.session_state.current_curve_index, 'core', core_sensor
+                    )
+                    st.session_state.loader.set_sensor_override(
+                        st.session_state.current_curve_index, 'surface', surface_sensor
+                    )
+                    # Recreate analyzers with new assignments
+                    st.session_state.analyzer = ThermalAnalyzer(
+                        st.session_state.data, 
+                        st.session_state.metadata,
+                        st.session_state.loader
+                    )
+                    st.session_state.s_curve_analyzer = SCurveAnalyzer(
+                        st.session_state.data,
+                        st.session_state.metadata,
+                        st.session_state.loader
+                    )
+                    st.rerun()
+    
     # Analysis settings
     if st.session_state.data is not None:
         st.divider()
         st.header("⚙️ Analysis Settings")
         
-        show_all_sensors = st.checkbox("Show all sensors", value=False)
-        if not show_all_sensors:
-            # Get dynamic sensor names and defaults based on actual assignments
-            dynamic_sensor_names = get_dynamic_sensor_names(st.session_state.loader)
-            default_sensors = get_default_sensors(st.session_state.loader)
-            
-            selected_sensors = st.multiselect(
-                "Select sensors to display",
-                options=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
-                default=default_sensors,
-                format_func=lambda x: f"{x} - {dynamic_sensor_names.get(x, SENSOR_NAMES.get(x, 'Unknown'))}"
-            )
-        else:
-            selected_sensors = None
-        
+        # Move sensor display selection to tabs
         show_zones = st.checkbox("Show temperature zones", value=show_zones)
         smooth_data = st.checkbox("Apply smoothing", value=smooth_data)
         
@@ -479,12 +594,71 @@ else:
     with tab1:
         st.header("Temperature Profile Analysis")
         
+        # Display options for this tab
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            show_all_sensors = st.checkbox("Show all sensors", value=False, key="temp_profile_show_all")
+        
+        if not show_all_sensors:
+            with col2:
+                # Get sensor role assignments for labeling
+                assignments = st.session_state.loader.get_sensor_assignments_with_overrides(st.session_state.current_curve_index)
+                
+                # Create labels showing sensor roles
+                sensor_labels = {}
+                core_sensor = assignments.get('core_sensor')
+                surface_sensor = assignments.get('surface_sensor')
+                internal_sensors = assignments.get('internal_sensors', [])
+                ambient_sensors = assignments.get('ambient_sensors', [])
+                
+                for sensor in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']:
+                    if sensor == core_sensor:
+                        sensor_labels[sensor] = f"{sensor} (Core)"
+                    elif sensor == surface_sensor:
+                        sensor_labels[sensor] = f"{sensor} (Surface)"
+                    elif sensor in internal_sensors:
+                        sensor_labels[sensor] = f"{sensor} (Internal)"
+                    elif sensor in ambient_sensors:
+                        sensor_labels[sensor] = f"{sensor} (Ambient)"
+                    else:
+                        sensor_labels[sensor] = sensor
+                
+                default_sensors = get_default_sensors(st.session_state.loader)
+                selected_sensors = st.multiselect(
+                    "Select sensors to display on graph",
+                    options=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
+                    default=default_sensors,
+                    format_func=lambda x: sensor_labels.get(x, x),
+                    key="temp_profile_sensor_select"
+                )
+        else:
+            selected_sensors = None
+        
+        # Build sensor roles dictionary for visualization
+        sensor_roles = {}
+        assignments = st.session_state.loader.get_sensor_assignments_with_overrides()
+        core_sensor = assignments.get('core_sensor')
+        surface_sensor = assignments.get('surface_sensor')
+        internal_sensors = assignments.get('internal_sensors', [])
+        ambient_sensors = assignments.get('ambient_sensors', [])
+        
+        for sensor in ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']:
+            if sensor == core_sensor:
+                sensor_roles[sensor] = 'core'
+            elif sensor == surface_sensor:
+                sensor_roles[sensor] = 'surface'
+            elif sensor in internal_sensors:
+                sensor_roles[sensor] = 'internal'
+            elif sensor in ambient_sensors:
+                sensor_roles[sensor] = 'ambient'
+        
         # Create main temperature plot
         plotter = ThermalPlotter()
         fig_temp = plotter.plot_temperature_profile(
             st.session_state.data,
             show_zones=show_zones,
-            sensors=selected_sensors
+            sensors=selected_sensors,
+            sensor_roles=sensor_roles
         )
         st.plotly_chart(fig_temp, use_container_width=True)
         
@@ -501,12 +675,19 @@ else:
         landmarks = s_curve_report['landmarks']
         zones = s_curve_report['zone_analysis']
         
+        # Get internal sensors for temperature spread visualization
+        internal_sensors = st.session_state.loader.get_internal_sensors(
+            st.session_state.current_curve_index, 
+            st.session_state.data
+        )
+        
         # Plot S-curve
         fig_s_curve = plotter.plot_s_curve(
             st.session_state.data,
             landmarks,
             zones,
-            show_targets=True
+            show_targets=True,
+            internal_sensors=internal_sensors
         )
         st.plotly_chart(fig_s_curve, use_container_width=True)
         
@@ -549,7 +730,8 @@ else:
         # Zone analysis
         zone_analyzer = ZoneAnalyzer(
             st.session_state.data,
-            st.session_state.metadata['sample_period_s']
+            st.session_state.metadata['sample_period_s'],
+            st.session_state.loader
         )
         zone_analysis = st.session_state.analyzer.analyze_temperature_zones()
         
@@ -904,162 +1086,195 @@ else:
             if len(selected_curves) < 2:
                 st.info("📊 Please select at least 2 curves to compare")
             else:
-                # Create comparison plot
-                fig_compare = go.Figure()
-                
-                colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
-                
-                for idx, global_curve_idx in enumerate(selected_curves):
-                    curve_info = st.session_state.all_curves[global_curve_idx]
-                    curve_data = curve_info['curve_data']['data']
-                    filename = curve_info['filename']
-                    file_curve_idx = curve_info['file_curve_index']
-                    color = colors[idx % len(colors)]
+                # Prepare curves for comparison
+                curves_for_comparison = []
+                for idx in selected_curves:
+                    curve_info = st.session_state.all_curves[idx]
                     
-                    # Create descriptive name
-                    if len(st.session_state.files[filename]['curves']) > 1:
-                        curve_name = f"{filename} - Curve {file_curve_idx+1}"
-                    else:
-                        curve_name = filename
+                    # Get sensor roles for this curve
+                    sensor_roles = {}
+                    if 'loader' in curve_info:
+                        # Temporarily set to this curve to get sensor roles
+                        original_idx = curve_info['loader'].current_curve_index
+                        curve_info['loader'].set_current_curve(curve_info['file_curve_index'])
+                        sensor_assignments = curve_info['loader'].get_sensor_assignments()
+                        sensor_roles = transform_sensor_assignments_to_roles(sensor_assignments)
+                        curve_info['loader'].set_current_curve(original_idx)
                     
-                    # Plot core temperature
-                    fig_compare.add_trace(go.Scatter(
-                        x=curve_data['TimeMinutes'],
-                        y=curve_data['CoreTemperature'],
-                        mode='lines',
-                        name=f'{curve_name} - Core',
-                        line=dict(color=color, width=2),
-                        legendgroup=f'curve{global_curve_idx}'
-                    ))
-                    
-                    # Plot surface temperature
-                    fig_compare.add_trace(go.Scatter(
-                        x=curve_data['TimeMinutes'],
-                        y=curve_data['SurfaceTemperature'],
-                        mode='lines',
-                        name=f'{curve_name} - Surface',
-                        line=dict(color=color, width=2, dash='dash'),
-                        legendgroup=f'curve{global_curve_idx}'
-                    ))
-                
-                # Add temperature zones
-                if show_zones:
-                    for zone_name, zone_config in TEMPERATURE_ZONES.items():
-                        fig_compare.add_hline(
-                            y=zone_config["min"],
-                            line_dash="dot",
-                            line_color=zone_config.get("color", "gray"),
-                            annotation_text=zone_config["name"],
-                            annotation_position="right"
-                        )
-                
-                fig_compare.update_layout(
-                    title="Temperature Profile Comparison",
-                    xaxis_title="Time (minutes)",
-                    yaxis_title="Temperature (°C)",
-                    height=600,
-                    hovermode='x unified'
-                )
-                
-                st.plotly_chart(fig_compare, use_container_width=True)
-                
-                # Comparison metrics
-                st.subheader("Curve Comparison Metrics")
-                
-                comparison_data = []
-                for global_curve_idx in selected_curves:
-                    curve_info = st.session_state.all_curves[global_curve_idx]
-                    curve_data = curve_info['curve_data']['data']
-                    filename = curve_info['filename']
-                    file_curve_idx = curve_info['file_curve_index']
-                    
-                    # Create descriptive name
-                    if len(st.session_state.files[filename]['curves']) > 1:
-                        curve_name = f"{filename} - Curve {file_curve_idx+1}"
-                    else:
-                        curve_name = filename
-                    
-                    # Calculate metrics
-                    max_core = curve_data['CoreTemperature'].max()
-                    time_to_56 = curve_data[curve_data['CoreTemperature'] >= 56]['TimeMinutes'].min() if any(curve_data['CoreTemperature'] >= 56) else None
-                    time_to_93 = curve_data[curve_data['CoreTemperature'] >= 93]['TimeMinutes'].min() if any(curve_data['CoreTemperature'] >= 93) else None
-                    
-                    comparison_data.append({
-                        'Curve': curve_name,
-                        'Duration (min)': f"{curve_info['curve_data']['duration']:.1f}",
-                        'Max Core Temp (°C)': f"{max_core:.1f}",
-                        'Time to 56°C (min)': f"{time_to_56:.1f}" if time_to_56 else "N/A",
-                        'Time to 93°C (min)': f"{time_to_93:.1f}" if time_to_93 else "N/A",
-                        'Samples': curve_info['curve_data']['samples']
+                    curves_for_comparison.append({
+                        'curve_data': {'data': curve_info['curve_data']['data']},
+                        'sensor_roles': sensor_roles,
+                        'metadata': curve_info.get('metadata', {}),
+                        'filename': curve_info['filename'],
+                        'file_curve_index': curve_info['file_curve_index']
                     })
                 
-                st.table(pd.DataFrame(comparison_data))
+                # Create comparison object
+                comparison = CurveComparison(curves_for_comparison)
                 
-                # S-curve comparison
-                st.subheader("S-Curve Comparison")
+                # Create tabs for different comparison views
+                comp_tab1, comp_tab2, comp_tab3, comp_tab4, comp_tab5 = st.tabs([
+                    "Temperature Profiles", "Zone Analysis", "S-Curve Analysis", 
+                    "Heating Rates", "Quality Metrics"
+                ])
                 
-                fig_s_compare = go.Figure()
-                
-                for idx, global_curve_idx in enumerate(selected_curves):
-                    curve_info = st.session_state.all_curves[global_curve_idx]
-                    curve_data = curve_info['curve_data']['data']
-                    metadata = curve_info['metadata']
-                    filename = curve_info['filename']
-                    file_curve_idx = curve_info['file_curve_index']
-                    color = colors[idx % len(colors)]
+                # Temperature Profile Comparison
+                with comp_tab1:
+                    st.subheader("Role-Based Temperature Comparison")
                     
-                    # Create descriptive name
-                    if len(st.session_state.files[filename]['curves']) > 1:
-                        curve_name = f"{filename} - Curve {file_curve_idx+1}"
-                    else:
-                        curve_name = filename
+                    # Get role-based data
+                    role_data = comparison.get_role_based_data()
                     
-                    # Create S-curve analyzer for this curve
-                    temp_analyzer = SCurveAnalyzer(curve_data, metadata)
-                    landmarks = temp_analyzer.identify_landmarks()
+                    # Create columns for different roles
+                    col1, col2 = st.columns(2)
                     
-                    # Plot S-curve
-                    fig_s_compare.add_trace(go.Scatter(
-                        x=curve_data['TimeMinutes'],
-                        y=curve_data['CoreTemperature'],
-                        mode='lines',
-                        name=curve_name,
-                        line=dict(color=color, width=2)
-                    ))
+                    with col1:
+                        # Core temperature comparison
+                        st.markdown("### Core Temperature")
+                        fig_core = plotter.plot_role_based_comparison(role_data, 'core', show_zones)
+                        st.plotly_chart(fig_core, use_container_width=True)
+                        
+                        # Ambient temperature comparison
+                        st.markdown("### Ambient Temperature")
+                        fig_ambient = plotter.plot_role_based_comparison(role_data, 'ambient', False)
+                        st.plotly_chart(fig_ambient, use_container_width=True)
                     
-                    # Add landmarks for this curve
-                    for landmark_name, landmark in landmarks.items():
-                        if landmark.time_minutes is not None:
-                            fig_s_compare.add_trace(go.Scatter(
-                                x=[landmark.time_minutes],
-                                y=[landmark.temperature],
-                                mode='markers+text',
-                                marker=dict(size=10, color=color),
-                                text=[f"{landmark.time_percentage:.0f}%"],
-                                textposition="top center",
-                                showlegend=False,
-                                hovertext=f"{landmark_name}: {landmark.temperature}°C at {landmark.time_minutes:.1f} min"
-                            ))
+                    with col2:
+                        # Surface temperature comparison
+                        st.markdown("### Surface Temperature")
+                        fig_surface = plotter.plot_role_based_comparison(role_data, 'surface', show_zones)
+                        st.plotly_chart(fig_surface, use_container_width=True)
+                        
+                        # Internal temperature comparison
+                        st.markdown("### Internal Temperature Range")
+                        fig_internal = plotter.plot_role_based_comparison(role_data, 'internal', False)
+                        st.plotly_chart(fig_internal, use_container_width=True)
                 
-                # Add reference lines
-                for temp in [56, 82, 93]:
-                    fig_s_compare.add_hline(
-                        y=temp,
-                        line_dash="dot",
-                        line_color="gray",
-                        annotation_text=f"{temp}°C",
-                        annotation_position="right"
-                    )
+                # Zone Analysis Comparison
+                with comp_tab2:
+                    st.subheader("Temperature Zone Duration Comparison")
+                    
+                    # Get zone comparison data
+                    zone_comparison = comparison.compare_zone_durations()
+                    
+                    # Display zone comparison chart
+                    fig_zones = plotter.plot_zone_duration_comparison(zone_comparison)
+                    st.plotly_chart(fig_zones, use_container_width=True)
+                    
+                    # Display zone comparison table
+                    st.markdown("### Zone Duration Details")
+                    st.dataframe(zone_comparison, use_container_width=True)
                 
-                fig_s_compare.update_layout(
-                    title="S-Curve Comparison with Landmarks",
-                    xaxis_title="Time (minutes)",
-                    yaxis_title="Core Temperature (°C)",
-                    height=600,
-                    hovermode='x unified'
-                )
+                # S-Curve Analysis Comparison
+                with comp_tab3:
+                    st.subheader("S-Curve Comparison with Landmarks")
+                    
+                    # Prepare S-curve data
+                    s_curve_data = []
+                    landmark_comparison = comparison.compare_s_curve_landmarks()
+                    
+                    for idx in selected_curves:
+                        curve_info = st.session_state.all_curves[idx]
+                        curve_data = curve_info['curve_data']['data']
+                        
+                        # Get landmarks for this curve
+                        s_curve_analyzer = SCurveAnalyzer(curve_data, curve_info.get('metadata', {}))
+                        landmarks = s_curve_analyzer.identify_landmarks()
+                        
+                        # Create descriptive name
+                        if len(st.session_state.files[curve_info['filename']]['curves']) > 1:
+                            curve_name = f"{curve_info['filename']} - Curve {curve_info['file_curve_index']+1}"
+                        else:
+                            curve_name = curve_info['filename']
+                        
+                        s_curve_data.append({
+                            'data': curve_data,
+                            'landmarks': landmarks,
+                            'name': curve_name
+                        })
+                    
+                    # Plot S-curve comparison
+                    fig_s_curve = plotter.plot_s_curve_comparison(s_curve_data)
+                    st.plotly_chart(fig_s_curve, use_container_width=True)
+                    
+                    # Display landmark comparison table
+                    st.markdown("### Landmark Comparison")
+                    st.dataframe(landmark_comparison, use_container_width=True)
                 
-                st.plotly_chart(fig_s_compare, use_container_width=True)
+                # Heating Rate Comparison
+                with comp_tab4:
+                    st.subheader("Heating Rate Analysis")
+                    
+                    # Get heating rate data
+                    heating_data = comparison.get_heating_rate_comparison()
+                    
+                    # Plot heating rate comparison
+                    fig_heating = plotter.plot_heating_rate_comparison(heating_data)
+                    st.plotly_chart(fig_heating, use_container_width=True)
+                    
+                    # Display consistency scores
+                    if heating_data['consistency_scores']:
+                        st.markdown("### Heating Consistency Scores")
+                        consistency_df = pd.DataFrame(heating_data['consistency_scores'])
+                        
+                        # Create metric columns
+                        cols = st.columns(len(consistency_df))
+                        for idx, (col, row) in enumerate(zip(cols, consistency_df.itertuples())):
+                            with col:
+                                st.metric(
+                                    label=row.curve_name,
+                                    value=f"{row.score:.1f}%",
+                                    delta=None
+                                )
+                
+                # Quality Metrics Comparison
+                with comp_tab5:
+                    st.subheader("Quality Metrics Comparison")
+                    
+                    # Get quality metrics
+                    quality_metrics = comparison.compare_quality_metrics()
+                    
+                    # Display metrics table
+                    st.dataframe(quality_metrics, use_container_width=True)
+                    
+                    # Create visual metrics dashboard
+                    st.markdown("### Quality Score Overview")
+                    
+                    # Extract quality scores for visualization
+                    quality_scores = []
+                    for _, row in quality_metrics.iterrows():
+                        try:
+                            score = float(row['Quality Score'])
+                            quality_scores.append({
+                                'Curve': row['Curve'],
+                                'Score': score
+                            })
+                        except:
+                            pass
+                    
+                    if quality_scores:
+                        # Create bar chart of quality scores
+                        scores_df = pd.DataFrame(quality_scores)
+                        fig_quality = go.Figure(data=[
+                            go.Bar(
+                                x=scores_df['Curve'],
+                                y=scores_df['Score'],
+                                marker_color=['green' if s >= 80 else 'orange' if s >= 60 else 'red' 
+                                            for s in scores_df['Score']],
+                                text=[f"{s:.1f}" for s in scores_df['Score']],
+                                textposition='auto'
+                            )
+                        ])
+                        
+                        fig_quality.update_layout(
+                            title="Quality Score Comparison",
+                            xaxis_title="Curve",
+                            yaxis_title="Quality Score",
+                            yaxis=dict(range=[0, 100]),
+                            showlegend=False
+                        )
+                        
+                        st.plotly_chart(fig_quality, use_container_width=True)
 
 # Footer
 st.divider()

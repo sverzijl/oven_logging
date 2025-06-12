@@ -22,7 +22,8 @@ class ThermalPlotter:
     
     def plot_temperature_profile(self, data: pd.DataFrame, 
                                show_zones: bool = True,
-                               sensors: Optional[List[str]] = None) -> go.Figure:
+                               sensors: Optional[List[str]] = None,
+                               sensor_roles: Optional[Dict[str, str]] = None) -> go.Figure:
         """
         Create main temperature profile plot.
         
@@ -30,21 +31,43 @@ class ThermalPlotter:
             data: Temperature data
             show_zones: Show critical temperature zones
             sensors: List of sensors to plot (default: all)
+            sensor_roles: Dict mapping sensor names to roles (core, surface, internal, ambient)
         """
         if sensors is None:
             sensors = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
         
         fig = go.Figure()
         
+        # Define colors and styles for different roles
+        role_styles = {
+            'core': {'color': 'darkblue', 'width': 3, 'dash': 'solid'},
+            'surface': {'color': 'red', 'width': 3, 'dash': 'solid'},
+            'internal': {'color': 'steelblue', 'width': 2, 'dash': 'dot'},
+            'ambient': {'color': 'orange', 'width': 2, 'dash': 'dash'}
+        }
+        
         # Add temperature traces
         for sensor in sensors:
             if sensor in data.columns:
+                # Determine role and styling
+                role = sensor_roles.get(sensor, 'unknown') if sensor_roles else 'unknown'
+                style = role_styles.get(role, {'color': None, 'width': 2, 'dash': 'solid'})
+                
+                # Build sensor label
+                label = SENSOR_NAMES.get(sensor, sensor)
+                if role != 'unknown':
+                    label = f"{label} ({role.capitalize()})"
+                
                 fig.add_trace(go.Scatter(
                     x=data['TimeMinutes'],
                     y=data[sensor],
-                    name=SENSOR_NAMES.get(sensor, sensor),
+                    name=label,
                     mode='lines',
-                    line=dict(width=2)
+                    line=dict(
+                        color=style['color'],
+                        width=style['width'],
+                        dash=style['dash']
+                    )
                 ))
         
         # Add temperature zones as horizontal bands
@@ -314,7 +337,8 @@ class ThermalPlotter:
         return fig
     
     def plot_s_curve(self, data: pd.DataFrame, landmarks: Dict[str, SCurveLandmark],
-                     zones: Dict[str, Dict], show_targets: bool = True) -> go.Figure:
+                     zones: Dict[str, Dict], show_targets: bool = True,
+                     internal_sensors: Optional[List[str]] = None) -> go.Figure:
         """
         Plot the S-curve with zones and landmarks.
         
@@ -323,11 +347,42 @@ class ThermalPlotter:
             landmarks: S-curve landmarks
             zones: Zone analysis results
             show_targets: Show target benchmark ranges
+            internal_sensors: List of internal sensors to show temperature spread
         """
         fig = go.Figure()
         
         # Use the same core temperature column that was used for analysis
         core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'CoreAverage'
+        
+        # Add internal temperature spread if sensors provided
+        if internal_sensors and len(internal_sensors) > 1:
+            # Calculate min and max of internal sensors at each time point
+            internal_data = data[internal_sensors].values
+            internal_min = np.min(internal_data, axis=1)
+            internal_max = np.max(internal_data, axis=1)
+            
+            # Add shaded area for internal temperature range
+            fig.add_trace(go.Scatter(
+                x=data['TimeMinutes'],
+                y=internal_max,
+                fill=None,
+                mode='lines',
+                line_color='rgba(0,100,80,0)',
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=data['TimeMinutes'],
+                y=internal_min,
+                fill='tonexty',
+                mode='lines',
+                line_color='rgba(0,100,80,0)',
+                name='Internal Temperature Range',
+                fillcolor='rgba(70, 130, 180, 0.2)',
+                hovertemplate='Min: %{y:.1f}°C<br>Max: %{customdata:.1f}°C<extra></extra>',
+                customdata=internal_max
+            ))
         
         # Main S-curve (core temperature vs time)
         fig.add_trace(go.Scatter(
@@ -612,6 +667,311 @@ class ThermalPlotter:
         
         fig.update_layout(
             title="Quality Issues Breakdown",
+            **self.default_layout
+        )
+        
+        return fig
+    
+    def plot_role_based_comparison(self, role_data: Dict[str, List[Dict]], 
+                                  role: str = 'core',
+                                  show_zones: bool = True) -> go.Figure:
+        """
+        Plot temperature comparison for a specific sensor role across curves.
+        
+        Args:
+            role_data: Dictionary from CurveComparison.get_role_based_data()
+            role: Which role to plot ('core', 'surface', 'ambient', 'internal')
+            show_zones: Whether to show temperature zones
+        """
+        fig = go.Figure()
+        
+        # Define colors for different curves
+        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
+        
+        # Get data for the specified role
+        if role not in role_data or not role_data[role]:
+            return fig
+        
+        # Plot each curve
+        for idx, curve_data in enumerate(role_data[role]):
+            color = colors[idx % len(colors)]
+            
+            if role == 'internal' and len(curve_data['temperature'].shape) > 1:
+                # For internal sensors, plot min/max range
+                temp_data = curve_data['temperature']
+                min_temp = np.min(temp_data, axis=1)
+                max_temp = np.max(temp_data, axis=1)
+                mean_temp = np.mean(temp_data, axis=1)
+                
+                # Add shaded area
+                fig.add_trace(go.Scatter(
+                    x=curve_data['time'],
+                    y=max_temp,
+                    fill=None,
+                    mode='lines',
+                    line_color='rgba(0,0,0,0)',
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+                
+                # Use short name for legend, full name for hover
+                short_name = curve_data.get('curve_short_name', curve_data['curve_name'])
+                full_name = curve_data['curve_name']
+                
+                fig.add_trace(go.Scatter(
+                    x=curve_data['time'],
+                    y=min_temp,
+                    fill='tonexty',
+                    mode='lines',
+                    line_color='rgba(0,0,0,0)',
+                    name=f"{short_name} - Range",
+                    fillcolor=f'rgba({int(255*idx/len(colors))}, {int(100)}, {int(255*(1-idx/len(colors)))}, 0.2)',
+                    hovertemplate=f'{full_name} - Internal Range<br>Time: %{{x:.1f}} min<br>Min: %{{y:.1f}}°C<extra></extra>'
+                ))
+                
+                # Add mean line
+                fig.add_trace(go.Scatter(
+                    x=curve_data['time'],
+                    y=mean_temp,
+                    mode='lines',
+                    name=f"{short_name} - Mean",
+                    line=dict(color=color, width=2),
+                    hovertemplate=f'{full_name} - Internal Mean<br>Time: %{{x:.1f}} min<br>Temp: %{{y:.1f}}°C<extra></extra>'
+                ))
+            else:
+                # Regular single line plot
+                short_name = curve_data.get('curve_short_name', curve_data['curve_name'])
+                full_name = curve_data['curve_name']
+                
+                fig.add_trace(go.Scatter(
+                    x=curve_data['time'],
+                    y=curve_data['temperature'],
+                    mode='lines',
+                    name=short_name,
+                    line=dict(color=color, width=3),
+                    hovertemplate=f'{full_name}<br>Time: %{{x:.1f}} min<br>Temp: %{{y:.1f}}°C<extra></extra>'
+                ))
+        
+        # Add temperature zones if requested
+        if show_zones and role in ['core', 'surface']:
+            for zone_name, zone_config in TEMPERATURE_ZONES.items():
+                # Only show relevant zones for the role
+                if role == 'surface' and zone_name in ['yeast_kill', 'starch_gelatinization']:
+                    continue
+                if role == 'core' and zone_name in ['maillard_reaction', 'caramelization']:
+                    continue
+                    
+                fig.add_hrect(
+                    y0=zone_config['min'],
+                    y1=zone_config['max'],
+                    fillcolor=zone_config['color'],
+                    opacity=0.15,
+                    layer="below",
+                    line_width=0,
+                    annotation_text=zone_config['name'],
+                    annotation_position="right"
+                )
+        
+        # Update layout
+        title_map = {
+            'core': 'Core Temperature',
+            'surface': 'Surface Temperature',
+            'ambient': 'Ambient Temperature',
+            'internal': 'Internal Temperature Range'
+        }
+        
+        fig.update_layout(
+            title=f"{title_map.get(role, role.capitalize())} Comparison",
+            xaxis_title="Time (minutes)",
+            yaxis_title="Temperature (°C)",
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.15,
+                xanchor="center",
+                x=0.5
+            ),
+            margin=dict(b=100),  # Add bottom margin for legend
+            **self.default_layout
+        )
+        
+        return fig
+    
+    def plot_zone_duration_comparison(self, zone_comparison: pd.DataFrame) -> go.Figure:
+        """
+        Create grouped bar chart comparing zone durations across curves.
+        
+        Args:
+            zone_comparison: DataFrame from CurveComparison.compare_zone_durations()
+        """
+        if zone_comparison.empty:
+            return go.Figure()
+        
+        # Melt the dataframe for easier plotting
+        zone_cols = [col for col in zone_comparison.columns if col != 'Curve']
+        melted = zone_comparison.melt(id_vars=['Curve'], value_vars=zone_cols,
+                                     var_name='Zone', value_name='Duration')
+        
+        # Create grouped bar chart
+        fig = px.bar(melted, x='Zone', y='Duration', color='Curve',
+                    title='Temperature Zone Duration Comparison',
+                    labels={'Duration': 'Duration (minutes)'},
+                    barmode='group')
+        
+        # Update layout
+        fig.update_layout(
+            xaxis_tickangle=-45,
+            **self.default_layout
+        )
+        
+        return fig
+    
+    def plot_heating_rate_comparison(self, heating_data: Dict) -> go.Figure:
+        """
+        Plot heating rate comparison across curves.
+        
+        Args:
+            heating_data: Dictionary from CurveComparison.get_heating_rate_comparison()
+        """
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=("Core Heating Rate Comparison", "Surface Heating Rate Comparison"),
+            shared_xaxes=True,
+            vertical_spacing=0.1
+        )
+        
+        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
+        
+        # Plot core heating rates
+        for idx, rate_data in enumerate(heating_data.get('core_rates', [])):
+            color = colors[idx % len(colors)]
+            short_name = rate_data.get('curve_short_name', rate_data['curve_name'])
+            full_name = rate_data['curve_name']
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=rate_data['time'],
+                    y=rate_data['rate'],
+                    name=short_name,
+                    line=dict(color=color, width=2),
+                    legendgroup=f"curve{idx}",
+                    showlegend=True,
+                    hovertemplate=f'{full_name}<br>Time: %{{x:.1f}} min<br>Rate: %{{y:.3f}}°C/s<extra></extra>'
+                ),
+                row=1, col=1
+            )
+        
+        # Plot surface heating rates
+        for idx, rate_data in enumerate(heating_data.get('surface_rates', [])):
+            color = colors[idx % len(colors)]
+            short_name = rate_data.get('curve_short_name', rate_data['curve_name'])
+            full_name = rate_data['curve_name']
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=rate_data['time'],
+                    y=rate_data['rate'],
+                    name=short_name,
+                    line=dict(color=color, width=2),
+                    legendgroup=f"curve{idx}",
+                    showlegend=False,
+                    hovertemplate=f'{full_name}<br>Time: %{{x:.1f}} min<br>Rate: %{{y:.3f}}°C/s<extra></extra>'
+                ),
+                row=2, col=1
+            )
+        
+        # Update axes
+        fig.update_xaxes(title_text="Time (minutes)", row=2, col=1)
+        fig.update_yaxes(title_text="Heating Rate (°C/s)", row=1, col=1)
+        fig.update_yaxes(title_text="Heating Rate (°C/s)", row=2, col=1)
+        
+        # Add zero line
+        fig.add_hline(y=0, line_dash="dash", line_color="gray", row=1, col=1)
+        fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
+        
+        layout_params = {k: v for k, v in self.default_layout.items() if k != 'height'}
+        fig.update_layout(
+            title="Heating Rate Comparison",
+            height=800,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.1,
+                xanchor="center",
+                x=0.5
+            ),
+            margin=dict(b=100),  # Add bottom margin for legend
+            **layout_params
+        )
+        
+        return fig
+    
+    def plot_s_curve_comparison(self, curves_data: List[Dict]) -> go.Figure:
+        """
+        Enhanced S-curve comparison with better visualization.
+        
+        Args:
+            curves_data: List of dictionaries with curve data, landmarks, and metadata
+        """
+        fig = go.Figure()
+        
+        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
+        
+        for idx, curve_info in enumerate(curves_data):
+            color = colors[idx % len(colors)]
+            data = curve_info['data']
+            landmarks = curve_info.get('landmarks', {})
+            curve_name = curve_info.get('name', f'Curve {idx + 1}')
+            
+            # Plot S-curve
+            core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'T1'
+            fig.add_trace(go.Scatter(
+                x=data['TimeMinutes'],
+                y=data[core_col],
+                mode='lines',
+                name=curve_name,
+                line=dict(color=color, width=3),
+                legendgroup=f'curve{idx}'
+            ))
+            
+            # Add landmarks
+            for landmark_name, landmark in landmarks.items():
+                if landmark and hasattr(landmark, 'time_minutes') and landmark.time_minutes is not None:
+                    symbol = 'circle' if landmark.is_within_target else 'x'
+                    fig.add_trace(go.Scatter(
+                        x=[landmark.time_minutes],
+                        y=[landmark.temperature],
+                        mode='markers',
+                        marker=dict(size=10, color=color, symbol=symbol),
+                        name=f"{curve_name} - {landmark_name}",
+                        legendgroup=f'curve{idx}',
+                        showlegend=False,
+                        hovertemplate=f'{landmark_name}<br>Time: {landmark.time_minutes:.1f} min<br>' +
+                                     f'Percentage: {landmark.time_percentage:.1f}%<extra></extra>'
+                    ))
+        
+        # Add reference temperature lines
+        for temp, label in [(56, "Yeast Kill"), (82, "Starch Complete"), (93, "Arrival Temp")]:
+            fig.add_hline(
+                y=temp,
+                line_dash="dot",
+                line_color="gray",
+                annotation_text=f"{label} ({temp}°C)",
+                annotation_position="right"
+            )
+        
+        fig.update_layout(
+            title="S-Curve Comparison with Landmarks",
+            xaxis_title="Time (minutes)",
+            yaxis_title="Core Temperature (°C)",
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.15,
+                xanchor="center",
+                x=0.5
+            ),
+            margin=dict(b=100),  # Add bottom margin for legend
             **self.default_layout
         )
         

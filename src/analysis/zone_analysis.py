@@ -9,19 +9,20 @@ from config.constants import TEMPERATURE_ZONES
 class ZoneAnalyzer:
     """Analyze time and behavior in critical temperature zones."""
     
-    def __init__(self, data: pd.DataFrame, sample_period: float):
+    def __init__(self, data: pd.DataFrame, sample_period: float, loader=None):
         self.data = data
         self.sample_period = sample_period
-        self.surface_temp_column = None
-        self.core_temp_column = None
-        self.ambient_temp_column = None
-        self._identify_temperature_sources()
+        self.loader = loader
+        # Use standardized column names
+        self.core_temp_column = 'CoreTemperature'
+        self.surface_temp_column = 'SurfaceTemperature'
+        self.ambient_temp_column = 'AmbientTemperature'
         
     def get_zone_profiles(self) -> Dict:
         """Get detailed temperature profiles for each zone."""
         zone_profiles = {}
         
-        for zone_name, zone_config in TEMPERATURE_ZONES.items():
+        for zone_key, zone_config in TEMPERATURE_ZONES.items():
             zone_data = self._extract_zone_data(zone_config)
             
             if not zone_data.empty:
@@ -36,7 +37,7 @@ class ZoneAnalyzer:
                 if temp_col is None or temp_col not in zone_data.columns:
                     temp_col = 'CoreTemperature' if 'CoreTemperature' in zone_data.columns else 'CoreAverage'
                 
-                zone_profiles[zone_name] = {
+                zone_profiles[zone_key] = {
                     'data': zone_data,
                     'entry_temp': zone_data.iloc[0][temp_col] if len(zone_data) > 0 else None,
                     'exit_temp': zone_data.iloc[-1][temp_col] if len(zone_data) > 0 else None,
@@ -46,7 +47,7 @@ class ZoneAnalyzer:
                     'temperature_type': 'surface' if zone_config.get('name') in ['Crust Formation', 'Maillard Reaction', 'Caramelization'] else 'core'
                 }
             else:
-                zone_profiles[zone_name] = None
+                zone_profiles[zone_key] = None
                 
         return zone_profiles
     
@@ -311,189 +312,21 @@ class ZoneAnalyzer:
     
     def _get_core_sensors(self) -> List[str]:
         """Get list of physical sensors identified as core sensors."""
-        if not hasattr(self, '_core_sensor_list'):
-            self._identify_physical_sensors()
-        return self._core_sensor_list
+        if self.loader:
+            return self.loader.get_core_sensors()
+        else:
+            # Fallback to traditional sensors
+            return ['T1', 'T2', 'T3', 'T4']
     
     def _get_surface_sensors(self) -> List[str]:
         """Get list of physical sensors identified as surface sensors."""
-        if not hasattr(self, '_surface_sensor_list'):
-            self._identify_physical_sensors()
-        return self._surface_sensor_list
-    
-    def _identify_physical_sensors(self):
-        """Identify which physical sensors (T1-T8) measure core vs surface."""
-        # Get all T sensors
-        t_sensors = [col for col in self.data.columns if col.startswith('T') and col[1:].isdigit()]
-        
-        # Calculate max temperature for each sensor
-        sensor_max_temps = {sensor: self.data[sensor].max() for sensor in t_sensors}
-        
-        # Classify sensors based on max temperature
-        self._core_sensor_list = []
-        self._surface_sensor_list = []
-        
-        for sensor, max_temp in sensor_max_temps.items():
-            if max_temp < 105:  # Core sensors rarely exceed 105°C
-                self._core_sensor_list.append(sensor)
-            elif max_temp >= 105 and max_temp <= 180:  # Surface/crust range
-                self._surface_sensor_list.append(sensor)
-            # Sensors above 180°C are likely ambient and not included
-        
-        # If no surface sensors found by temperature, use position heuristic
-        if not self._surface_sensor_list and t_sensors:
-            # Assume highest numbered sensors are closer to surface
-            sensor_numbers = [(s, int(s[1])) for s in t_sensors]
-            sensor_numbers.sort(key=lambda x: x[1], reverse=True)
-            # Take the 2 highest numbered sensors as surface
-            self._surface_sensor_list = [s[0] for s in sensor_numbers[:2]]
-            # Rest are core
-            self._core_sensor_list = [s[0] for s in sensor_numbers[2:] if s[0] not in self._surface_sensor_list]
-        
-        # Ensure we have at least some sensors in each category
-        if not self._core_sensor_list and t_sensors:
-            # Take lower numbered sensors as core
-            self._core_sensor_list = sorted(t_sensors)[:4]
-        
-        print(f"Physical sensor classification:")
-        print(f"  Core sensors: {self._core_sensor_list}")
-        print(f"  Surface sensors: {self._surface_sensor_list}")
-    
-    def _identify_temperature_sources(self):
-        """Intelligently identify which columns represent core, surface, and ambient temperatures.
-        
-        This method accounts for variable probe insertion depth and orientation by analyzing
-        temperature patterns rather than relying solely on sensor positions or virtual assignments.
-        """
-        # Get all temperature columns
-        temp_cols = [col for col in self.data.columns if col.startswith('T') and col[1:].isdigit()]
-        virtual_cols = ['VirtualCoreTemperature', 'VirtualSurfaceTemperature', 'VirtualAmbientTemperature']
-        
-        # Calculate temperature statistics for each sensor
-        sensor_stats = {}
-        for col in temp_cols:
-            sensor_stats[col] = {
-                'max': self.data[col].max(),
-                'mean': self.data[col].mean(),
-                'final': self.data[col].iloc[-1] if len(self.data) > 0 else 0,
-                'heating_rate': self._calculate_initial_heating_rate(col)
-            }
-        
-        # Also check virtual temperature columns
-        for vcol in virtual_cols:
-            if vcol in self.data.columns:
-                sensor_stats[vcol] = {
-                    'max': self.data[vcol].max(),
-                    'mean': self.data[vcol].mean(),
-                    'final': self.data[vcol].iloc[-1] if len(self.data) > 0 else 0,
-                    'heating_rate': self._calculate_initial_heating_rate(vcol)
-                }
-        
-        # Identify temperature ranges
-        # Core: typically 90-100°C max
-        # Surface: typically 110-180°C max  
-        # Ambient: typically >150°C max
-        
-        # Find candidates for each role
-        core_candidates = []
-        surface_candidates = []
-        ambient_candidates = []
-        
-        for col, stats in sensor_stats.items():
-            max_temp = stats['max']
-            
-            if 85 <= max_temp <= 105:
-                # Likely core temperature
-                core_candidates.append((col, stats))
-            elif 105 <= max_temp <= 185:
-                # Likely surface temperature
-                surface_candidates.append((col, stats))
-            elif max_temp > 150:
-                # Could be ambient or surface
-                if max_temp > 180:
-                    ambient_candidates.append((col, stats))
-                else:
-                    # Check heating rate - ambient heats faster
-                    if stats['heating_rate'] > 5:  # °C/min
-                        ambient_candidates.append((col, stats))
-                    else:
-                        surface_candidates.append((col, stats))
-        
-        # Select best candidates
-        # Core: lowest max temperature in range
-        if core_candidates:
-            self.core_temp_column = min(core_candidates, key=lambda x: x[1]['max'])[0]
+        if self.loader:
+            return self.loader.get_surface_sensors()
         else:
-            # Fallback to virtual or average
-            if 'VirtualCoreTemperature' in self.data.columns:
-                self.core_temp_column = 'VirtualCoreTemperature'
-            elif 'CoreTemperature' in self.data.columns:
-                self.core_temp_column = 'CoreTemperature'
-            else:
-                self.core_temp_column = 'CoreAverage'
-        
-        # Surface: temperature in crust formation range (110-180°C)
-        if surface_candidates:
-            # Prefer candidates with max temp in ideal crust range
-            ideal_surface = [c for c in surface_candidates if 110 <= c[1]['max'] <= 160]
-            if ideal_surface:
-                self.surface_temp_column = ideal_surface[0][0]
-            else:
-                self.surface_temp_column = surface_candidates[0][0]
-        else:
-            # No good surface candidate - check if any sensor reaches crust temps
-            for col in temp_cols + virtual_cols:
-                if col in self.data.columns and self.data[col].max() >= 110:
-                    self.surface_temp_column = col
-                    break
-            
-            if self.surface_temp_column is None:
-                # Last resort fallbacks
-                if 'T8' in self.data.columns:
-                    self.surface_temp_column = 'T8'
-                elif 'T7' in self.data.columns:
-                    self.surface_temp_column = 'T7'
-                else:
-                    self.surface_temp_column = self.core_temp_column
-        
-        # Ambient: highest temperature
-        if ambient_candidates:
-            self.ambient_temp_column = max(ambient_candidates, key=lambda x: x[1]['max'])[0]
-        else:
-            # Fallback to virtual or highest temp sensor
-            if 'VirtualAmbientTemperature' in self.data.columns:
-                self.ambient_temp_column = 'VirtualAmbientTemperature'
-            elif sensor_stats:
-                self.ambient_temp_column = max(sensor_stats.items(), key=lambda x: x[1]['max'])[0]
-        
-        # Log the identification results
-        print(f"\nZone Analysis Temperature Source Identification:")
-        print(f"  Core: {self.core_temp_column} (max: {self.data[self.core_temp_column].max():.1f}°C)")
-        print(f"  Surface: {self.surface_temp_column} (max: {self.data[self.surface_temp_column].max():.1f}°C)")
-        print(f"  Ambient: {self.ambient_temp_column} (max: {self.data[self.ambient_temp_column].max():.1f}°C)")
+            # Fallback to traditional sensors
+            return ['T7', 'T8']
     
-    def _calculate_initial_heating_rate(self, col: str) -> float:
-        """Calculate the initial heating rate for a temperature column."""
-        if col not in self.data.columns or len(self.data) < 10:
-            return 0.0
-        
-        # Look at first 5 minutes of data
-        mask = self.data['TimeMinutes'] <= 5.0
-        if mask.sum() < 2:
-            return 0.0
-        
-        early_data = self.data.loc[mask, col]
-        time_data = self.data.loc[mask, 'TimeMinutes']
-        
-        if len(early_data) < 2:
-            return 0.0
-        
-        # Simple linear regression for heating rate
-        try:
-            coeffs = np.polyfit(time_data, early_data, 1)
-            return coeffs[0]  # °C per minute
-        except:
-            return 0.0
+    
     
     def _extract_zone_data(self, zone_config: Dict) -> pd.DataFrame:
         """Extract data for a specific temperature zone."""

@@ -1,7 +1,8 @@
 """Zone analysis cards with explanations for critical baking zones."""
 
 import streamlit as st
-from typing import Dict, Optional
+import re
+from typing import Dict, Optional, Tuple
 
 # Zone explanations
 ZONE_EXPLANATIONS = {
@@ -64,6 +65,45 @@ ZONE_EXPLANATIONS = {
 }
 
 
+def parse_duration_range(duration_str: str) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Parse duration string like "1-2 minutes" or "5-8 minutes" into min/max values.
+    
+    Args:
+        duration_str: String containing duration range
+        
+    Returns:
+        Tuple of (min_duration, max_duration) in minutes, or (None, None) if unparseable
+    """
+    if not duration_str:
+        return None, None
+    
+    # Handle special cases
+    if "artisan only" in duration_str.lower():
+        # Parse the numeric part
+        match = re.search(r'(\d+)-(\d+)', duration_str)
+        if match:
+            return float(match.group(1)), float(match.group(2))
+    
+    # Standard pattern: "X-Y minutes"
+    match = re.search(r'(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)', duration_str)
+    if match:
+        return float(match.group(1)), float(match.group(2))
+    
+    # Single value pattern: "X minutes"
+    match = re.search(r'(\d+(?:\.\d+)?)', duration_str)
+    if match:
+        val = float(match.group(1))
+        return val, val
+    
+    # Percentage pattern for zones that use percentage of bake time
+    if "%" in duration_str and "bake time" in duration_str.lower():
+        # For percentage-based durations, return None to skip duration check
+        return None, None
+    
+    return None, None
+
+
 def create_zone_card(
     zone_key: str,
     zone_data: Dict,
@@ -85,31 +125,56 @@ def create_zone_card(
     
     # Get ideal targets
     explanation = ZONE_EXPLANATIONS.get(zone_key, {})
+    ideal_duration_str = explanation.get('ideal_duration', '')
+    ideal_timing_str = explanation.get('ideal_timing', '')
     
-    # Determine if timing is good
+    # Initialize status
     status_color = zone_config.get('color', '#1f77b4')
     status_icon = "✅"
     status_text = "Normal"
     
-    # Check timing based on zone type
-    if zone_key == "YEAST_KILL" and percentage > 0:
-        if 45 <= percentage <= 55:
-            status_icon = "✅"
-            status_text = "Optimal timing"
-        elif percentage < 45:
-            status_icon = "⚡"
-            status_text = "Too early"
-            status_color = "#ff4d4f"
-        else:
-            status_icon = "🐌"
-            status_text = "Too late"
-            status_color = "#faad14"
-    
-    # Check duration
+    # Check if zone was not detected
     if duration == 0:
         status_icon = "❌"
         status_text = "Not detected"
         status_color = "#ff4d4f"
+    else:
+        # Parse ideal duration range
+        ideal_min, ideal_max = parse_duration_range(ideal_duration_str)
+        
+        # Check duration against ideal
+        if ideal_min is not None and ideal_max is not None:
+            if duration < ideal_min:
+                status_icon = "⚡"
+                status_text = f"Too short ({duration:.1f} < {ideal_min} min)"
+                status_color = "#ff4d4f"
+            elif duration > ideal_max:
+                status_icon = "🐌"
+                status_text = f"Too long ({duration:.1f} > {ideal_max} min)"
+                status_color = "#faad14"
+            else:
+                status_icon = "✅"
+                status_text = f"Optimal ({ideal_min}-{ideal_max} min)"
+                status_color = "#52c41a"
+        
+        # Special timing checks for specific zones
+        if zone_key == "YEAST_KILL" and percentage > 0 and ideal_timing_str:
+            # Parse timing percentage range
+            timing_match = re.search(r'(\d+)-(\d+)%', ideal_timing_str)
+            if timing_match:
+                timing_min = int(timing_match.group(1))
+                timing_max = int(timing_match.group(2))
+                if timing_min <= percentage <= timing_max:
+                    if status_icon == "✅":  # Only update if duration was also good
+                        status_text = f"Optimal timing & duration"
+                elif percentage < timing_min:
+                    status_icon = "⚡"
+                    status_text = f"Too early ({percentage:.0f}% < {timing_min}%)"
+                    status_color = "#ff4d4f"
+                else:
+                    status_icon = "🐌"
+                    status_text = f"Too late ({percentage:.0f}% > {timing_max}%)"
+                    status_color = "#faad14"
     
     # Create the card using Streamlit components
     with st.container():
@@ -158,70 +223,133 @@ def create_zone_card(
             st.info(f"📡 Measured using {temp_type} temperature ({temp_source})")
 
 
+def create_compact_zone_card(
+    zone_key: str,
+    zone_data: Dict,
+    zone_config: Dict
+) -> None:
+    """Create a compact zone card for grid layout."""
+    # Determine zone status
+    duration = zone_data.get('duration', 0)
+    percentage = zone_data.get('percentage', 0)
+    
+    # Get ideal targets
+    explanation = ZONE_EXPLANATIONS.get(zone_key, {})
+    ideal_duration_str = explanation.get('ideal_duration', '')
+    
+    # Parse ideal duration range
+    ideal_min, ideal_max = parse_duration_range(ideal_duration_str)
+    
+    # Determine status
+    if duration == 0:
+        status_icon = "❌"
+        status_color = "#ff4d4f"
+        status_text = "Not detected"
+    elif ideal_min is not None and ideal_max is not None:
+        if duration < ideal_min:
+            status_icon = "⚡"
+            status_color = "#ff4d4f"
+            status_text = "Too short"
+        elif duration > ideal_max:
+            status_icon = "🐌"
+            status_color = "#faad14"
+            status_text = "Too long"
+        else:
+            status_icon = "✅"
+            status_color = "#52c41a"
+            status_text = "Optimal"
+    else:
+        status_icon = "✅"
+        status_color = "#52c41a"
+        status_text = "Normal"
+    
+    # Create compact card
+    with st.container():
+        st.markdown(f"""
+        <div style='border: 1px solid {status_color}; border-radius: 8px; padding: 10px; margin-bottom: 10px;'>
+            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                <div>
+                    <b>{status_icon} {zone_config['name']}</b><br/>
+                    <small style='color: gray;'>{zone_data.get('min', 0)}-{zone_data.get('max', 0)}°C</small>
+                </div>
+                <div style='text-align: right;'>
+                    <b>{duration:.1f} min</b><br/>
+                    <small style='color: {status_color};'>{status_text}</small>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Expandable details
+        with st.expander(f"Details", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Duration", f"{duration:.1f} min")
+                st.metric("% of Bake", f"{percentage:.1f}%")
+            with col2:
+                st.metric("Ideal", ideal_duration_str)
+                temp_type = zone_data.get('temperature_type', 'core')
+                st.metric("Sensor Type", temp_type.title())
+            
+            # Process explanation
+            st.markdown(f"**Process:** {explanation.get('process', 'N/A')}")
+            st.markdown(f"**Importance:** {explanation.get('importance', 'N/A')}")
+
+
 def create_zone_summary_dashboard(zone_analysis: Dict) -> None:
     """Create a comprehensive zone analysis dashboard."""
     
     st.markdown("### Critical Temperature Zones")
     
-    # Info box
+    # Info box (more compact)
     with st.expander("📚 Understanding Temperature Zones", expanded=False):
-        st.markdown("""
-        Bread baking involves several critical temperature zones where important chemical and physical changes occur:
-        
-        **Core Zones** (Internal Temperature):
-        • 🔥 **Yeast Kill (55-57°C)**: Final fermentation and volume expansion
-        • 🌾 **Starch Gelatinization (65-82°C)**: Crumb structure formation
-        • 🥚 **Protein Denaturation (71-85°C)**: Gluten sets permanently
-        • 🎯 **Target Core (93-98°C)**: Ensures complete baking
-        
-        **Surface Zones** (Crust Temperature):
-        • 🍞 **Crust Formation (110-180°C)**: Surface dehydration and structure
-        • 🎨 **Maillard Reaction (105-150°C)**: Browning and flavor development
-        • 🍮 **Caramelization (150-200°C)**: Deep color and complex flavors
-        
-        Click on any zone for detailed information about its importance and optimal performance.
-        """)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            **Core Zones** (Internal Temperature):
+            • 🔥 **Yeast Kill (55-57°C)**: Final fermentation
+            • 🌾 **Starch Gelat. (65-82°C)**: Crumb structure
+            • 🥚 **Protein Denat. (71-85°C)**: Gluten sets
+            • 🎯 **Target Core (93-98°C)**: Complete baking
+            """)
+        with col2:
+            st.markdown("""
+            **Surface Zones** (Crust Temperature):
+            • 🍞 **Crust Form. (110-180°C)**: Surface structure
+            • 🎨 **Maillard (105-150°C)**: Browning & flavor
+            • 🍮 **Caramelization (150-200°C)**: Deep color
+            """)
     
     # Import constants here to avoid circular imports
     from config.constants import TEMPERATURE_ZONES
     
-    # Create zone cards in logical order
-    # Core zones first
-    st.markdown("#### 🎯 Core Temperature Zones")
-    st.markdown("---")
+    # Create compact grid layout
+    st.markdown("#### Zone Analysis Summary")
     
+    # Core zones in 2 columns
+    st.markdown("**Core Temperature Zones**")
     core_zones = ['YEAST_KILL', 'STARCH_GELATINIZATION', 'PROTEIN_DENATURATION', 'TARGET_CORE']
-    for zone_key in core_zones:
+    col1, col2 = st.columns(2)
+    
+    for i, zone_key in enumerate(core_zones):
         if zone_key in zone_analysis:
-            with st.container():
-                # Add some spacing and a subtle border
-                st.markdown("""<style>
-                .stContainer > div {
-                    background-color: #f8f9fa;
-                    padding: 1rem;
-                    border-radius: 0.5rem;
-                    margin-bottom: 1rem;
-                }
-                </style>""", unsafe_allow_html=True)
-                
-                create_zone_card(
+            with col1 if i % 2 == 0 else col2:
+                create_compact_zone_card(
                     zone_key,
                     zone_analysis[zone_key],
                     TEMPERATURE_ZONES[zone_key]
                 )
-                st.markdown("---")
     
-    # Surface zones
-    st.markdown("#### 🌡️ Surface Temperature Zones")
-    st.markdown("---")
-    
+    # Surface zones in 2 columns
+    st.markdown("**Surface Temperature Zones**")
     surface_zones = ['CRUST_FORMATION', 'MAILLARD_REACTION', 'CARAMELIZATION']
-    for zone_key in surface_zones:
+    col1, col2 = st.columns(2)
+    
+    for i, zone_key in enumerate(surface_zones):
         if zone_key in zone_analysis:
-            with st.container():
-                create_zone_card(
+            with col1 if i % 2 == 0 else col2:
+                create_compact_zone_card(
                     zone_key,
                     zone_analysis[zone_key],
                     TEMPERATURE_ZONES[zone_key]
                 )
-                st.markdown("---")

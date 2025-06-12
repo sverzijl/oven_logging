@@ -10,10 +10,11 @@ from config.constants import TEMPERATURE_ZONES, ANALYSIS_PARAMS
 class ThermalAnalyzer:
     """Analyze thermal profiles for bread baking optimization."""
     
-    def __init__(self, data: pd.DataFrame, metadata: Dict):
+    def __init__(self, data: pd.DataFrame, metadata: Dict, loader=None):
         self.data = data
         self.metadata = metadata
         self.sample_period = metadata.get('sample_period_s', 5.0)
+        self.loader = loader
         
     def calculate_heating_rates(self, smooth: bool = True) -> pd.DataFrame:
         """
@@ -65,11 +66,18 @@ class ThermalAnalyzer:
             core_rate = np.gradient(core_smooth, self.sample_period)
             rates['core_rate'] = np.clip(core_rate, -MAX_REASONABLE_RATE, MAX_REASONABLE_RATE)
         else:
-            # Fall back to old method
-            core_rate_cols = ['T1_rate', 'T2_rate', 'T3_rate', 'T4_rate']
-            existing_cols = [col for col in core_rate_cols if col in rates.columns]
-            if existing_cols:
-                rates['core_rate'] = rates[existing_cols].mean(axis=1)
+            # Fall back using loader if available
+            if self.loader:
+                core_sensors = self.loader.get_core_sensors()
+                core_rate_cols = [f'{s}_rate' for s in core_sensors if f'{s}_rate' in rates.columns]
+                if core_rate_cols:
+                    rates['core_rate'] = rates[core_rate_cols].mean(axis=1)
+            else:
+                # Last resort: use traditional sensors
+                core_rate_cols = ['T1_rate', 'T2_rate', 'T3_rate', 'T4_rate']
+                existing_cols = [col for col in core_rate_cols if col in rates.columns]
+                if existing_cols:
+                    rates['core_rate'] = rates[existing_cols].mean(axis=1)
             
         if 'SurfaceTemperature' in self.data.columns:
             if smooth:
@@ -80,11 +88,18 @@ class ThermalAnalyzer:
             surface_rate = np.gradient(surface_smooth, self.sample_period)
             rates['surface_rate'] = np.clip(surface_rate, -MAX_REASONABLE_RATE, MAX_REASONABLE_RATE)
         else:
-            # Fall back to old method
-            surface_rate_cols = ['T7_rate', 'T8_rate']
-            existing_cols = [col for col in surface_rate_cols if col in rates.columns]
-            if existing_cols:
-                rates['surface_rate'] = rates[existing_cols].mean(axis=1)
+            # Fall back using loader if available
+            if self.loader:
+                surface_sensors = self.loader.get_surface_sensors()
+                surface_rate_cols = [f'{s}_rate' for s in surface_sensors if f'{s}_rate' in rates.columns]
+                if surface_rate_cols:
+                    rates['surface_rate'] = rates[surface_rate_cols].mean(axis=1)
+            else:
+                # Last resort: use traditional sensors
+                surface_rate_cols = ['T7_rate', 'T8_rate']
+                existing_cols = [col for col in surface_rate_cols if col in rates.columns]
+                if existing_cols:
+                    rates['surface_rate'] = rates[existing_cols].mean(axis=1)
         
         return rates
     
@@ -112,6 +127,47 @@ class ThermalAnalyzer:
         gradients['core_uniformity'] = self.data[core_sensors].std(axis=1)
         
         return gradients
+    
+    def _identify_temperature_sources(self) -> Dict[str, str]:
+        """Identify which columns represent core and surface temperatures."""
+        temp_sources = {
+            'core': None,
+            'surface': None,
+            'ambient': None
+        }
+        
+        # First, use standardized column names if available
+        if 'CoreTemperature' in self.data.columns:
+            temp_sources['core'] = 'CoreTemperature'
+        elif 'CoreAverage' in self.data.columns:
+            temp_sources['core'] = 'CoreAverage'
+        else:
+            # Fallback to using loader or traditional sensors
+            if self.loader:
+                core_sensors = self.loader.get_core_sensors()
+                if core_sensors and all(s in self.data.columns for s in core_sensors):
+                    # Create a temporary average column
+                    temp_sources['core'] = core_sensors[0]  # Use first core sensor
+            else:
+                # Last resort: use T1
+                temp_sources['core'] = 'T1' if 'T1' in self.data.columns else None
+        
+        if 'SurfaceTemperature' in self.data.columns:
+            temp_sources['surface'] = 'SurfaceTemperature'
+        else:
+            # Fallback to using loader or traditional sensors
+            if self.loader:
+                surface_sensors = self.loader.get_surface_sensors()
+                if surface_sensors and all(s in self.data.columns for s in surface_sensors):
+                    temp_sources['surface'] = surface_sensors[0]  # Use first surface sensor
+            else:
+                # Last resort: use T8
+                temp_sources['surface'] = 'T8' if 'T8' in self.data.columns else None
+        
+        if 'AmbientTemperature' in self.data.columns:
+            temp_sources['ambient'] = 'AmbientTemperature'
+        
+        return temp_sources
     
     def analyze_temperature_zones(self) -> Dict:
         """Analyze time spent in critical temperature zones."""
@@ -168,8 +224,19 @@ class ThermalAnalyzer:
         metrics = {}
         
         # Temperature uniformity metrics
-        core_sensors = ['T1', 'T2', 'T3', 'T4']
-        core_data = self.data[core_sensors]
+        if self.loader:
+            core_sensors = self.loader.get_core_sensors()
+        else:
+            core_sensors = ['T1', 'T2', 'T3', 'T4']
+        
+        # Only use sensors that exist in the data
+        available_core = [s for s in core_sensors if s in self.data.columns]
+        
+        if not available_core:
+            # Fallback to traditional sensors if none found
+            available_core = [s for s in ['T1', 'T2', 'T3', 'T4'] if s in self.data.columns]
+        
+        core_data = self.data[available_core]
         
         # Coefficient of variation for core uniformity
         core_std = core_data.std(axis=1)
@@ -227,8 +294,12 @@ class ThermalAnalyzer:
                 metrics['heating_rate_consistency'] = rate_consistency
         
         # Maximum core temperature achieved
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in self.data.columns else 'CoreAverage'
+        # Always use standardized CoreTemperature column
+        core_col = 'CoreTemperature'
+        if core_col not in self.data.columns:
+            # Should not happen with new loader, but graceful fallback
+            core_col = 'CoreAverage' if 'CoreAverage' in self.data.columns else available_core[0]
+        
         metrics['max_core_temp'] = self.data[core_col].max()
         metrics['final_core_temp'] = self.data[core_col].iloc[-1]
         
@@ -305,13 +376,17 @@ class ThermalAnalyzer:
             score -= 5
         
         # Deduct for inconsistent heating
-        consistency = metrics['heating_rate_consistency']
-        if consistency < 0.7:
-            score -= 20
-        elif consistency < 0.8:
-            score -= 10
-        elif consistency < 0.9:
-            score -= 5
+        consistency = metrics.get('heating_rate_consistency')
+        if consistency is not None:
+            if consistency < 0.7:
+                score -= 20
+            elif consistency < 0.8:
+                score -= 10
+            elif consistency < 0.9:
+                score -= 5
+        else:
+            # No heating rate consistency data available
+            score -= 10  # Moderate penalty for missing data
         
         # Deduct if target temperature not reached
         if metrics['time_to_target_minutes'] is None:
@@ -319,64 +394,3 @@ class ThermalAnalyzer:
         
         return max(0, score)
     
-    def _identify_temperature_sources(self) -> Dict[str, str]:
-        """Identify which columns represent core and surface temperatures."""
-        # Get all temperature columns
-        temp_cols = [col for col in self.data.columns if col.startswith('T') and col[1:].isdigit()]
-        virtual_cols = ['VirtualCoreTemperature', 'VirtualSurfaceTemperature', 'VirtualAmbientTemperature']
-        
-        # Calculate temperature statistics
-        temp_stats = {}
-        for col in temp_cols + virtual_cols:
-            if col in self.data.columns:
-                temp_stats[col] = {
-                    'max': self.data[col].max(),
-                    'mean': self.data[col].mean()
-                }
-        
-        # Identify core temperature (typically 85-105°C max)
-        core_col = None
-        if 'VirtualCoreTemperature' in self.data.columns:
-            core_col = 'VirtualCoreTemperature'
-        elif 'CoreTemperature' in self.data.columns:
-            core_col = 'CoreTemperature'
-        else:
-            # Find sensor with max temp in core range
-            for col, stats in temp_stats.items():
-                if 85 <= stats['max'] <= 105:
-                    core_col = col
-                    break
-            if not core_col:
-                core_col = 'CoreAverage'
-        
-        # Identify surface temperature (typically 105-180°C max)
-        surface_col = None
-        surface_candidates = []
-        
-        # Check all columns for surface temperature range
-        for col, stats in temp_stats.items():
-            if 105 <= stats['max'] <= 180:
-                surface_candidates.append((col, stats['max']))
-        
-        if surface_candidates:
-            # Choose the one with highest max temperature
-            surface_col = max(surface_candidates, key=lambda x: x[1])[0]
-        else:
-            # Check if any virtual column has high enough temperature
-            if 'VirtualAmbientTemperature' in temp_stats and temp_stats['VirtualAmbientTemperature']['max'] >= 110:
-                surface_col = 'VirtualAmbientTemperature'
-            elif 'VirtualSurfaceTemperature' in temp_stats and temp_stats['VirtualSurfaceTemperature']['max'] >= 110:
-                surface_col = 'VirtualSurfaceTemperature'
-            else:
-                # Fallback to T8 or T7
-                if 'T8' in self.data.columns:
-                    surface_col = 'T8'
-                elif 'T7' in self.data.columns:
-                    surface_col = 'T7'
-                else:
-                    surface_col = core_col  # Last resort
-        
-        return {
-            'core': core_col,
-            'surface': surface_col
-        }
