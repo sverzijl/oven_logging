@@ -8,6 +8,7 @@ import numpy as np
 from typing import Dict, List, Optional
 from config.constants import TEMPERATURE_ZONES, SENSOR_NAMES, S_CURVE_ZONES, S_CURVE_BENCHMARKS
 from src.analysis.s_curve_analysis import SCurveLandmark, BakeOutAnalysis
+from .visualization_config import VisualizationConfig
 
 
 class ThermalPlotter:
@@ -19,6 +20,58 @@ class ThermalPlotter:
             'hovermode': 'x unified',
             'height': 600
         }
+        self.viz_config = VisualizationConfig
+    
+    def _add_internal_temperature_shading(self, fig: go.Figure, data: pd.DataFrame, 
+                                          internal_sensors: List[str],
+                                          name: str = 'Internal Temperature Range',
+                                          color: str = 'rgba(70, 130, 180, 0.2)',
+                                          legendgroup: Optional[str] = None) -> None:
+        """
+        Add shaded area representing internal temperature range.
+        
+        Args:
+            fig: Plotly figure to add shading to
+            data: Temperature data DataFrame
+            internal_sensors: List of internal sensor column names
+            name: Name for the shaded area in legend
+            color: Fill color for the shaded area
+            legendgroup: Legend group for grouping related traces
+        """
+        if not internal_sensors or len(internal_sensors) < 2:
+            return
+            
+        # Calculate min and max of internal sensors at each time point
+        internal_data = data[internal_sensors].values
+        internal_min = np.min(internal_data, axis=1)
+        internal_max = np.max(internal_data, axis=1)
+        
+        # Add invisible trace for max temperature
+        fig.add_trace(go.Scatter(
+            x=data['TimeMinutes'],
+            y=internal_max,
+            fill=None,
+            mode='lines',
+            line_color='rgba(0,0,0,0)',
+            showlegend=False,
+            hoverinfo='skip',
+            legendgroup=legendgroup
+        ))
+        
+        # Add visible trace for min temperature with fill to create shaded area
+        fig.add_trace(go.Scatter(
+            x=data['TimeMinutes'],
+            y=internal_min,
+            fill='tonexty',
+            mode='lines',
+            line_color='rgba(0,0,0,0)',
+            name=name,
+            fillcolor=color,
+            hovertemplate='Min: %{y:.1f}°C<br>Max: %{customdata:.1f}°C<extra></extra>',
+            customdata=internal_max,
+            legendgroup=legendgroup,
+            showlegend=True
+        ))
     
     def plot_temperature_profile(self, data: pd.DataFrame, 
                                show_zones: bool = True,
@@ -355,34 +408,7 @@ class ThermalPlotter:
         core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'CoreAverage'
         
         # Add internal temperature spread if sensors provided
-        if internal_sensors and len(internal_sensors) > 1:
-            # Calculate min and max of internal sensors at each time point
-            internal_data = data[internal_sensors].values
-            internal_min = np.min(internal_data, axis=1)
-            internal_max = np.max(internal_data, axis=1)
-            
-            # Add shaded area for internal temperature range
-            fig.add_trace(go.Scatter(
-                x=data['TimeMinutes'],
-                y=internal_max,
-                fill=None,
-                mode='lines',
-                line_color='rgba(0,100,80,0)',
-                showlegend=False,
-                hoverinfo='skip'
-            ))
-            
-            fig.add_trace(go.Scatter(
-                x=data['TimeMinutes'],
-                y=internal_min,
-                fill='tonexty',
-                mode='lines',
-                line_color='rgba(0,100,80,0)',
-                name='Internal Temperature Range',
-                fillcolor='rgba(70, 130, 180, 0.2)',
-                hovertemplate='Min: %{y:.1f}°C<br>Max: %{customdata:.1f}°C<extra></extra>',
-                customdata=internal_max
-            ))
+        self._add_internal_temperature_shading(fig, data, internal_sensors)
         
         # Main S-curve (core temperature vs time)
         fig.add_trace(go.Scatter(
@@ -685,8 +711,8 @@ class ThermalPlotter:
         """
         fig = go.Figure()
         
-        # Define colors for different curves
-        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
+        # Get colors from config
+        colors = self.viz_config.CURVE_COLORS
         
         # Get data for the specified role
         if role not in role_data or not role_data[role]:
@@ -800,6 +826,7 @@ class ThermalPlotter:
     def plot_zone_duration_comparison(self, zone_comparison: pd.DataFrame) -> go.Figure:
         """
         Create grouped bar chart comparing zone durations across curves.
+        Bars are grouped by ZONE (not curve) for better comparison.
         
         Args:
             zone_comparison: DataFrame from CurveComparison.compare_zone_durations()
@@ -807,21 +834,158 @@ class ThermalPlotter:
         if zone_comparison.empty:
             return go.Figure()
         
-        # Melt the dataframe for easier plotting
-        zone_cols = [col for col in zone_comparison.columns if col != 'Curve']
-        melted = zone_comparison.melt(id_vars=['Curve'], value_vars=zone_cols,
-                                     var_name='Zone', value_name='Duration')
+        fig = go.Figure()
         
-        # Create grouped bar chart
-        fig = px.bar(melted, x='Zone', y='Duration', color='Curve',
-                    title='Temperature Zone Duration Comparison',
-                    labels={'Duration': 'Duration (minutes)'},
-                    barmode='group')
+        # Get unique zones and curves
+        zone_cols = [col for col in zone_comparison.columns if col != 'Curve']
+        curves = zone_comparison['Curve'].tolist()
+        
+        # Use curve colors for consistency across visualizations
+        curve_colors = self.viz_config.CURVE_COLORS
+        
+        # Create bar traces for each curve (grouped by zone)
+        for idx, curve in enumerate(curves):
+            curve_color = curve_colors[idx % len(curve_colors)]
+            
+            # Get all zone values for this curve
+            zone_values = []
+            zone_names = []
+            for zone_name in zone_cols:
+                zone_values.append(zone_comparison.loc[zone_comparison['Curve'] == curve, zone_name].values[0])
+                zone_names.append(zone_name)
+            
+            # Add bars for this curve across all zones
+            fig.add_trace(go.Bar(
+                name=curve,
+                x=zone_names,
+                y=zone_values,
+                marker_color=curve_color,
+                marker_line_color='rgba(0,0,0,0.3)',
+                marker_line_width=1,
+                text=[self.viz_config.format_duration(val) for val in zone_values],
+                textposition='outside',
+                textfont_size=10,
+                hovertemplate='<b>%{x}</b><br>' + curve + ': %{y:.1f} min<extra></extra>'
+            ))
         
         # Update layout
         fig.update_layout(
+            title='Temperature Zone Duration Comparison (Grouped by Zone)',
+            xaxis_title='Temperature Zone',
+            yaxis_title='Duration (minutes)',
+            barmode='group',
             xaxis_tickangle=-45,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.2,
+                xanchor="center",
+                x=0.5
+            ),
+            margin=dict(b=120),  # Increase bottom margin for legend
             **self.default_layout
+        )
+        
+        return fig
+    
+    def plot_zone_duration_stacked(self, zone_comparison: pd.DataFrame) -> go.Figure:
+        """
+        Create stacked bar chart showing zone composition for each curve.
+        
+        Args:
+            zone_comparison: DataFrame from CurveComparison.compare_zone_durations()
+        """
+        if zone_comparison.empty:
+            return go.Figure()
+        
+        fig = go.Figure()
+        
+        # Get unique zones and curves
+        zone_cols = [col for col in zone_comparison.columns if col != 'Curve']
+        curves = zone_comparison['Curve'].tolist()
+        
+        # Create stacked bar traces for each zone
+        for zone_name in zone_cols:
+            # Get zone color using centralized config
+            zone_color = self.viz_config.get_zone_color(zone_name)
+            
+            # Add bars for this zone
+            fig.add_trace(go.Bar(
+                name=zone_name,
+                x=curves,
+                y=zone_comparison[zone_name].tolist(),
+                marker_color=zone_color,
+                marker_line_color='rgba(0,0,0,0.3)',
+                marker_line_width=1,
+                text=[self.viz_config.format_duration(val) for val in zone_comparison[zone_name]],
+                textposition='inside',
+                textfont_size=10,
+                hovertemplate='<b>%{x}</b><br>' + zone_name + ': %{y:.1f} min<extra></extra>'
+            ))
+        
+        # Update layout for stacked bars
+        fig.update_layout(
+            title='Zone Composition by Curve (Stacked View)',
+            xaxis_title='Curve',
+            yaxis_title='Total Duration (minutes)',
+            barmode='stack',
+            xaxis_tickangle=-45 if len(curves) > 3 else 0,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.2,
+                xanchor="center",
+                x=0.5
+            ),
+            margin=dict(b=120),
+            **self.default_layout
+        )
+        
+        return fig
+    
+    def plot_zone_duration_heatmap(self, zone_comparison: pd.DataFrame) -> go.Figure:
+        """
+        Create heatmap visualization of zone durations.
+        
+        Args:
+            zone_comparison: DataFrame from CurveComparison.compare_zone_durations()
+        """
+        if zone_comparison.empty:
+            return go.Figure()
+        
+        # Prepare data for heatmap
+        zone_cols = [col for col in zone_comparison.columns if col != 'Curve']
+        curves = zone_comparison['Curve'].tolist()
+        
+        # Create matrix for heatmap
+        z_values = zone_comparison[zone_cols].values
+        
+        # Use colorscale from config
+        colorscale = self.viz_config.HEATMAP_COLORSCALE
+        
+        # Create heatmap
+        fig = go.Figure(data=go.Heatmap(
+            z=z_values,
+            x=zone_cols,
+            y=curves,
+            colorscale=colorscale,
+            text=[[self.viz_config.format_duration(val) for val in row] for row in z_values],
+            texttemplate="%{text} min",
+            textfont={"size": 12},
+            hoverongaps=False,
+            hovertemplate='<b>%{y}</b><br>%{x}: %{z:.1f} min<extra></extra>'
+        ))
+        
+        # Update layout
+        # Remove height from default_layout to avoid conflict
+        layout_params = {k: v for k, v in self.default_layout.items() if k != 'height'}
+        fig.update_layout(
+            title='Zone Duration Heatmap',
+            xaxis_title='Temperature Zone',
+            yaxis_title='Curve',
+            xaxis_tickangle=-45,
+            height=300 + len(curves) * 40,  # Dynamic height based on number of curves
+            **layout_params
         )
         
         return fig
@@ -840,11 +1004,12 @@ class ThermalPlotter:
             vertical_spacing=0.1
         )
         
-        colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown']
+        # Use colors from config
+        colors = self.viz_config.CURVE_COLORS[:6]  # Use first 6 colors
         
         # Plot core heating rates
         for idx, rate_data in enumerate(heating_data.get('core_rates', [])):
-            color = colors[idx % len(colors)]
+            color = self.viz_config.get_curve_color(idx)
             short_name = rate_data.get('curve_short_name', rate_data['curve_name'])
             full_name = rate_data['curve_name']
             
@@ -863,7 +1028,7 @@ class ThermalPlotter:
         
         # Plot surface heating rates
         for idx, rate_data in enumerate(heating_data.get('surface_rates', [])):
-            color = colors[idx % len(colors)]
+            color = self.viz_config.get_curve_color(idx)
             short_name = rate_data.get('curve_short_name', rate_data['curve_name'])
             full_name = rate_data['curve_name']
             
@@ -911,7 +1076,7 @@ class ThermalPlotter:
         Enhanced S-curve comparison with better visualization.
         
         Args:
-            curves_data: List of dictionaries with curve data, landmarks, and metadata
+            curves_data: List of dictionaries with curve data, landmarks, metadata, and optionally internal_sensors
         """
         fig = go.Figure()
         
@@ -922,6 +1087,19 @@ class ThermalPlotter:
             data = curve_info['data']
             landmarks = curve_info.get('landmarks', {})
             curve_name = curve_info.get('name', f'Curve {idx + 1}')
+            internal_sensors = curve_info.get('internal_sensors', [])
+            
+            # Add internal temperature shading if sensors are provided
+            if internal_sensors:
+                # Use different opacity for each curve to avoid visual confusion
+                opacity = 0.15 + (0.05 * (idx % 3))  # Vary opacity between 0.15-0.25
+                shading_color = f'rgba({int(255*0.27)}, {int(255*0.51)}, {int(255*0.71)}, {opacity})'
+                self._add_internal_temperature_shading(
+                    fig, data, internal_sensors,
+                    name=f'{curve_name} - Internal Range',
+                    color=shading_color,
+                    legendgroup=f'curve{idx}'
+                )
             
             # Plot S-curve
             core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'T1'

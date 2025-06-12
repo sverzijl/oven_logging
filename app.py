@@ -1125,6 +1125,50 @@ else:
                     # Get role-based data
                     role_data = comparison.get_role_based_data()
                     
+                    # For internal sensors, we need to get the properly filtered list from each curve
+                    # This ensures we only show sensors that are actually inside the loaf
+                    internal_data_filtered = []
+                    for idx in selected_curves:
+                        curve_info = st.session_state.all_curves[idx]
+                        curve_data = curve_info['curve_data']['data']
+                        curve_loader = curve_info['loader']
+                        
+                        # Get filtered internal sensors using the same logic as S-curve analysis
+                        internal_sensors = curve_loader.get_internal_sensors(
+                            curve_info['file_curve_index'], 
+                            curve_data
+                        )
+                        
+                        if internal_sensors:
+                            # Extract temperature data for these sensors
+                            internal_temps = []
+                            for sensor in internal_sensors:
+                                if sensor in curve_data.columns:
+                                    internal_temps.append(curve_data[sensor].values)
+                            
+                            if internal_temps:
+                                # Get curve name from existing role_data
+                                curve_name = None
+                                curve_short_name = None
+                                for existing_data in role_data.get('internal', []):
+                                    # Match by time array length (simple but effective)
+                                    if len(existing_data['time']) == len(curve_data['TimeMinutes']):
+                                        curve_name = existing_data['curve_name']
+                                        curve_short_name = existing_data['curve_short_name']
+                                        break
+                                
+                                if curve_name:
+                                    internal_data_filtered.append({
+                                        'time': curve_data['TimeMinutes'].values,
+                                        'temperature': np.array(internal_temps).T,  # Time x Sensors
+                                        'curve_name': curve_name,
+                                        'curve_short_name': curve_short_name,
+                                        'sensors': internal_sensors
+                                    })
+                    
+                    # Replace the internal data with filtered version
+                    role_data['internal'] = internal_data_filtered
+                    
                     # Create columns for different roles
                     col1, col2 = st.columns(2)
                     
@@ -1181,6 +1225,14 @@ else:
                         s_curve_analyzer = SCurveAnalyzer(curve_data, curve_info.get('metadata', {}))
                         landmarks = s_curve_analyzer.identify_landmarks()
                         
+                        # Get internal sensors for this curve
+                        # Note: We need to get the curve-specific sensor assignments
+                        curve_loader = curve_info['loader']
+                        internal_sensors = curve_loader.get_internal_sensors(
+                            curve_info['file_curve_index'], 
+                            curve_data
+                        )
+                        
                         # Create descriptive name
                         if len(st.session_state.files[curve_info['filename']]['curves']) > 1:
                             curve_name = f"{curve_info['filename']} - Curve {curve_info['file_curve_index']+1}"
@@ -1190,7 +1242,8 @@ else:
                         s_curve_data.append({
                             'data': curve_data,
                             'landmarks': landmarks,
-                            'name': curve_name
+                            'name': curve_name,
+                            'internal_sensors': internal_sensors
                         })
                     
                     # Plot S-curve comparison
