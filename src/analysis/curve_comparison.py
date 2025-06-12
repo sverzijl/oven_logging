@@ -159,7 +159,7 @@ class CurveComparison:
             zone_results = analyzer.analyze_temperature_zones()
             
             # Extract durations
-            row_data = {'Curve': self._get_curve_name(curve, i)}
+            row_data = {'Curve': self._get_short_curve_name(curve, i)}
             
             for zone_name, zone_info in zone_results.items():
                 if zone_name in TEMPERATURE_ZONES:
@@ -204,7 +204,7 @@ class CurveComparison:
             time_to_93 = self._get_time_to_temp(data, 93)
             
             row_data = {
-                'Curve': self._get_curve_name(curve, i),
+                'Curve': self._get_short_curve_name(curve, i),
                 'Duration': f"{duration:.1f} min",
                 'Max Core Temp': f"{max_core_temp:.1f}°C",
                 'Time to 56°C': f"{time_to_56:.1f} min" if time_to_56 else "N/A",
@@ -235,7 +235,7 @@ class CurveComparison:
             s_curve_analyzer = SCurveAnalyzer(data, metadata)
             landmarks = s_curve_analyzer.identify_landmarks()
             
-            row_data = {'Curve': self._get_curve_name(curve, i)}
+            row_data = {'Curve': self._get_short_curve_name(curve, i)}
             
             # Add landmark data
             for landmark_name, landmark in landmarks.items():

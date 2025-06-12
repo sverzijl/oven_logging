@@ -119,6 +119,25 @@ The application uses a multi-stage transformation pipeline for temperature data:
 - Preserve transformation flags when switching between curves
 - Test with multi-curve files to ensure transformations persist
 
+### Data Structures
+
+#### curve_info Structure
+The `curve_info` dictionary is used throughout the application to track individual curves:
+
+```python
+curve_info = {
+    'filename': str,              # Original CSV filename
+    'file_curve_index': int,      # Index of curve within the file (0-based)
+    'curve_data': {
+        'data': DataFrame         # Pandas DataFrame with temperature data
+    },
+    'loader': ThermalProfileLoader,  # Loader instance (at top level, NOT in curve_data)
+    'metadata': dict              # Metadata from CSV header
+}
+```
+
+**Important**: The `loader` is stored at the top level of `curve_info`, not inside `curve_data`.
+
 ### TransformationManager (New Architecture)
 
 A new `TransformationManager` class has been implemented in `src/data/transformation_manager.py` to prevent column overwrite issues:
@@ -163,3 +182,42 @@ The system automatically generates concise probe identifiers from CSV metadata:
 - Short legends prevent graph compression
 - Full probe information available in hover tooltips
 - Unique identification for multi-curve files
+
+### Zone Analysis Improvements
+
+#### Color-Coded Zone Visualization
+The Zone Analysis comparison now uses **zone-based coloring** instead of curve-based coloring:
+- Each temperature zone maintains its distinctive color across all visualizations
+- Consistent color mapping between single curve and comparison views
+- Makes it easy to identify and compare specific zones across curves
+
+#### Multiple Visualization Options
+Three visualization types are available for Zone Analysis comparison:
+
+1. **Grouped Bar Chart** (Default)
+   - Bars colored by zone, not by curve
+   - Side-by-side comparison of zone durations
+   - Best for comparing specific zones across curves
+
+2. **Stacked Bar Chart**
+   - Shows total baking time and zone composition
+   - Each bar represents one curve
+   - Best for understanding zone proportions
+
+3. **Heatmap View**
+   - Curves on Y-axis, zones on X-axis
+   - Color intensity indicates duration
+   - Best for large comparisons (5+ curves)
+
+#### Visualization Configuration
+All visualization settings are centralized in `VisualizationConfig`:
+- Consistent color schemes across all plots
+- Standardized formatting for durations, temperatures, and percentages
+- Reusable configuration for future visualizations
+
+### Heating Rate Analysis
+The heating rate comparison shows:
+- Core and surface heating rates on separate subplots
+- Consistent curve colors between subplots
+- Consistency scores displayed as metrics
+- Horizontal legend below the plot
