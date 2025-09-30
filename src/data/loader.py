@@ -957,7 +957,7 @@ class ThermalProfileLoader:
                 # Check if data starts with probe already warming (rising from start)
                 # This is common when probe is inserted before oven entry and logging starts during warmup
                 RISE_WINDOW = 30  # samples to confirm sustained rise from beginning
-                RISE_THRESHOLD = 0.05  # min °C/sample for sustained rise (0.05°C/sample = 0.6°C/min)
+                RISE_THRESHOLD = 0.04  # min °C/sample for sustained rise (0.04°C/sample = 0.48°C/min)
                 START_TEMP_MAX = 40  # Must start below this temp
 
                 if len(df) >= RISE_WINDOW:
