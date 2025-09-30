@@ -924,33 +924,58 @@ class ThermalProfileLoader:
         while i < len(df):
             # Find curve start
             start_idx = None
-            
+
             # Method 1: PredictionState change
             if 'PredictionState' in df.columns:
                 for j in range(i, len(df) - 1):
-                    if (df.iloc[j]['PredictionState'] == 'Probe Not Inserted' and 
+                    if (df.iloc[j]['PredictionState'] == 'Probe Not Inserted' and
                         df.iloc[j+1]['PredictionState'] != 'Probe Not Inserted'):
                         start_idx = j + 1
                         break
-            
+
             # Method 2: Rapid temperature rise from low temperature
             if start_idx is None:
                 for j in range(i, len(df) - 1):
                     current_temp = df.iloc[j][core_col]
                     next_temp = df.iloc[j+1][core_col]
-                    
+
                     # Temperature rise from below 40°C
                     if current_temp < 40 and next_temp - current_temp > 5:
                         start_idx = j
                         break
-                    
+
                     # Or sustained rise after room temperature period
                     if j >= 5:
                         recent_avg = df[core_col].iloc[j-5:j].mean()
                         if recent_avg < ROOM_TEMP_MAX and current_temp > recent_avg + 3:
                             start_idx = j - 5
                             break
-            
+
+            # Method 3: Probe already inserted - detect oven entry by sustained heating
+            # This handles cases where probe is in bread before oven entry and warming has already started
+            if start_idx is None and i == 0:  # Only for first curve search
+                # Check if data starts with probe already warming (rising from start)
+                # This is common when probe is inserted before oven entry and logging starts during warmup
+                RISE_WINDOW = 30  # samples to confirm sustained rise from beginning
+                RISE_THRESHOLD = 0.05  # min °C/sample for sustained rise (0.05°C/sample = 0.6°C/min)
+                START_TEMP_MAX = 40  # Must start below this temp
+
+                if len(df) >= RISE_WINDOW:
+                    first_temp = df[core_col].iloc[0]
+
+                    # Only apply this method if we start at reasonable room/warm temperature
+                    if first_temp < START_TEMP_MAX:
+                        # Check for sustained rise from the beginning
+                        initial_window = df[core_col].iloc[0:RISE_WINDOW]
+                        slope = (initial_window.iloc[-1] - initial_window.iloc[0]) / RISE_WINDOW
+                        rising_count = (initial_window.diff() > 0).sum()
+
+                        # If temperature is consistently rising from the start, use row 0 as start
+                        if slope > RISE_THRESHOLD and rising_count >= RISE_WINDOW * 0.7:
+                            start_idx = 0
+                            print(f"  Detected oven entry at row 0 (probe already warming)")
+                            print(f"    Initial temp: {first_temp:.1f}°C, slope: {slope:.3f}°C/sample")
+
             if start_idx is None:
                 break
             
