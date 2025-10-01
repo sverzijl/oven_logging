@@ -20,7 +20,7 @@ from src.analysis.curve_comparison import CurveComparison, transform_sensor_assi
 from src.visualization.plots import ThermalPlotter
 from src.visualization.metric_cards import create_metric_card, create_metric_dashboard, create_simple_metric
 from src.visualization.zone_cards import create_zone_summary_dashboard
-from config.constants import TEMPERATURE_ZONES, QUALITY_THRESHOLDS, SENSOR_NAMES, BAKEOUT_TARGETS
+from config.constants import TEMPERATURE_ZONES, QUALITY_THRESHOLDS, SENSOR_NAMES, BAKEOUT_TARGETS, FUZZY_DETECTION_CONFIG
 
 # Page configuration
 st.set_page_config(
@@ -115,6 +115,62 @@ def get_default_sensors(loader):
         defaults = ['T1', 'T4', 'T7']
     
     return sorted(defaults, key=lambda x: int(x[1]))
+
+def format_contributing_factors(factors_dict, top_n=3):
+    """
+    Format contributing factors for display in UI.
+
+    Args:
+        factors_dict: Dictionary of factor names to confidence values
+        top_n: Number of top factors to return
+
+    Returns:
+        list: List of (name, value) tuples for top factors
+    """
+    if not factors_dict:
+        return []
+
+    # Sort by value descending and get top N
+    sorted_factors = sorted(factors_dict.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    return sorted_factors
+
+def get_confidence_color(confidence):
+    """
+    Get color for confidence score.
+
+    Args:
+        confidence: Confidence value (0.0-1.0)
+
+    Returns:
+        str: Color name for Streamlit
+    """
+    if confidence >= 0.90:
+        return "green"
+    elif confidence >= 0.75:
+        return "blue"
+    elif confidence >= 0.65:
+        return "normal"
+    else:
+        return "orange"
+
+def get_confidence_label(confidence):
+    """
+    Get label for confidence score.
+
+    Args:
+        confidence: Confidence value (0.0-1.0)
+
+    Returns:
+        str: Descriptive label
+    """
+    if confidence >= 0.90:
+        return "Excellent"
+    elif confidence >= 0.75:
+        return "Good"
+    elif confidence >= 0.65:
+        return "Acceptable"
+    else:
+        return "Low (Fallback)"
 
 # Custom CSS
 st.markdown("""
@@ -339,7 +395,102 @@ with st.sidebar:
                                         st.text(f"  {sensor}: {percentage:.1f}%")
                     else:
                         st.info("Sensor assignments not available for this dataset")
-    
+
+            # Display Detection Method and Confidence
+            if FUZZY_DETECTION_CONFIG.get('SHOW_CONFIDENCE_IN_UI', True):
+                with st.expander("🧠 Detection Method & Confidence"):
+                    curve_info = current_curve['curve_data']
+                    detection_method = curve_info.get('detection_method', 'classic')
+
+                    # Show detection method with icon
+                    if detection_method == 'fuzzy_logic':
+                        st.markdown("**Method:** 🧠 Fuzzy Logic ✨")
+                    else:
+                        st.markdown("**Method:** 🔧 Classic Detection")
+
+                    # Show fuzzy detection status
+                    if FUZZY_DETECTION_CONFIG.get('USE_FUZZY_DETECTION'):
+                        st.caption(f"🟢 Fuzzy Detection: Enabled (Threshold: {FUZZY_DETECTION_CONFIG.get('CONFIDENCE_THRESHOLD', 0.65):.0%})")
+                    else:
+                        st.caption("🔴 Fuzzy Detection: Disabled")
+
+                    # Display confidence scores if fuzzy logic was used
+                    if detection_method == 'fuzzy_logic' and 'start_confidence' in curve_info:
+                        st.divider()
+
+                        # Confidence scores
+                        start_conf = curve_info['start_confidence']
+                        end_conf = curve_info['end_confidence']
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric(
+                                "Start Confidence",
+                                f"{start_conf:.1%}",
+                                delta=get_confidence_label(start_conf),
+                                delta_color=get_confidence_color(start_conf)
+                            )
+                        with col2:
+                            st.metric(
+                                "End Confidence",
+                                f"{end_conf:.1%}",
+                                delta=get_confidence_label(end_conf),
+                                delta_color=get_confidence_color(end_conf)
+                            )
+
+                        # Progress bars
+                        st.progress(start_conf, text=f"Start Detection: {start_conf:.1%}")
+                        st.progress(end_conf, text=f"End Detection: {end_conf:.1%}")
+
+                        # Contributing factors
+                        if 'contributing_factors' in curve_info:
+                            factors = curve_info['contributing_factors']
+
+                            if factors.get('start'):
+                                st.markdown("**Top Start Detection Factors:**")
+                                top_start = format_contributing_factors(factors['start'], top_n=3)
+                                for name, value in top_start:
+                                    # Clean up factor name for display
+                                    display_name = name.replace('_', ' ').title()
+                                    st.text(f"  • {display_name}: {value:.1%}")
+
+                            if factors.get('end'):
+                                st.markdown("**Top End Detection Factors:**")
+                                top_end = format_contributing_factors(factors['end'], top_n=3)
+                                for name, value in top_end:
+                                    display_name = name.replace('_', ' ').title()
+                                    st.text(f"  • {display_name}: {value:.1%}")
+
+                            # Show all factors in expander
+                            with st.expander("View All Factors"):
+                                if factors.get('start'):
+                                    st.markdown("**All Start Factors:**")
+                                    all_start = sorted(factors['start'].items(), key=lambda x: x[1], reverse=True)
+                                    for name, value in all_start:
+                                        display_name = name.replace('_', ' ').title()
+                                        st.text(f"  {display_name}: {value:.1%}")
+
+                                if factors.get('end'):
+                                    st.markdown("**All End Factors:**")
+                                    all_end = sorted(factors['end'].items(), key=lambda x: x[1], reverse=True)
+                                    for name, value in all_end:
+                                        display_name = name.replace('_', ' ').title()
+                                        st.text(f"  {display_name}: {value:.1%}")
+
+                    # Show explanation for classic detection
+                    elif detection_method == 'classic':
+                        if FUZZY_DETECTION_CONFIG.get('USE_FUZZY_DETECTION'):
+                            st.info("ℹ️ Fallback to classic detection was used (fuzzy confidence below threshold)")
+
+                            # Try to show what the fuzzy confidence was if available
+                            if 'start_confidence' in curve_info:
+                                fuzzy_conf = curve_info['start_confidence']
+                                st.caption(f"Fuzzy start confidence was {fuzzy_conf:.1%}, below {FUZZY_DETECTION_CONFIG.get('CONFIDENCE_THRESHOLD', 0.65):.0%} threshold")
+
+                    # Link to documentation
+                    st.divider()
+                    st.caption("📚 [Learn more about fuzzy logic detection](FUZZY_DETECTION_README.md)")
+
     # Sensor Role Configuration
     if st.session_state.data is not None and st.session_state.loader:
         st.divider()
