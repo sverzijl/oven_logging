@@ -231,7 +231,7 @@ INTERNAL_SENSOR_CONFIG = {
 # Fuzzy logic curve detection configuration
 FUZZY_DETECTION_CONFIG = {
     "USE_FUZZY_DETECTION": True,  # Enable fuzzy logic curve detection
-    "CONFIDENCE_THRESHOLD": 0.65,  # Minimum confidence (0.0-1.0) to accept detection
+    "CONFIDENCE_THRESHOLD": 0.60,  # Minimum confidence (0.0-1.0) - lowered for pre-inserted probe scenarios
     "MIN_CURVE_DURATION": 60,  # Minimum curve duration in samples (5 min at 5s intervals)
     "MIN_PEAK_TEMP": 80.0,  # Minimum peak temperature for valid curve (°C)
     "FALLBACK_TO_CLASSIC": True,  # Fall back to classic detection if fuzzy fails
