@@ -294,6 +294,18 @@ class FuzzyInferenceEngine:
         )
         factors['ambient_oven_transition'] = rule7 * 0.92
 
+        # Rule 8: High oven ambient alone (for pre-inserted probe with slow core heating)
+        # Handles case where probe is in bread, bread is in oven,
+        # ambient is high but core heats slowly due to thermal insulation
+        rule8 = self.fuzzy_and(
+            ambient_class.get('oven', 0),
+            self.fuzzy_or(
+                temp_class.get('cool', 0),
+                temp_class.get('warm', 0)
+            )
+        )
+        factors['oven_ambient_slow_core'] = rule8 * 0.68
+
         # Combine rules using fuzzy OR (max)
         confidence = self.fuzzy_or(*factors.values())
 
