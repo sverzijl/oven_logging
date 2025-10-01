@@ -136,22 +136,20 @@ def format_contributing_factors(factors_dict, top_n=3):
 
 def get_confidence_color(confidence):
     """
-    Get color for confidence score.
+    Get delta_color value for st.metric() confidence display.
 
     Args:
         confidence: Confidence value (0.0-1.0)
 
     Returns:
-        str: Color name for Streamlit
+        str: Valid delta_color value: "normal", "inverse", or "off"
     """
-    if confidence >= 0.90:
-        return "green"
-    elif confidence >= 0.75:
-        return "blue"
-    elif confidence >= 0.65:
-        return "normal"
+    if confidence >= 0.75:
+        return "normal"  # High confidence - default coloring
+    elif confidence >= 0.60:
+        return "normal"  # Medium confidence - default coloring
     else:
-        return "orange"
+        return "off"  # Low confidence - gray text
 
 def get_confidence_label(confidence):
     """
