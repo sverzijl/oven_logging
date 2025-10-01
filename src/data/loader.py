@@ -1081,8 +1081,9 @@ class ThermalProfileLoader:
                     # First check for instant massive drops (probe removal signature)
                     if j > 0:
                         instant_drop = df.iloc[j-1][core_col] - df.iloc[j][core_col]
-                        # If temperature drops >15°C in one sample (5 seconds), it's definitely probe removal
-                        if instant_drop > 15:
+                        # If temperature drops >10°C in one sample (5 seconds), it's probe removal
+                        # Lowered from 15°C to catch all observed removal patterns (10-26°C drops)
+                        if instant_drop > 10:
                             end_idx = j - 1
                             break
                     
@@ -1100,8 +1101,8 @@ class ThermalProfileLoader:
                                 for k in range(j, max(j-lookback-5, peak_idx), -1):
                                     if k > 0:
                                         instant_drop = df.iloc[k-1][core_col] - df.iloc[k][core_col]
-                                        # Drops > 15°C in one 5-second interval clearly indicate probe removal
-                                        if instant_drop > 15:
+                                        # Drops > 10°C in one 5-second interval clearly indicate probe removal
+                                        if instant_drop > 10:
                                             end_idx = k - 1
                                             break
                                         # Or sustained high drop rate
