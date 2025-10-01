@@ -886,17 +886,120 @@ class ThermalProfileLoader:
             print(f"\nTotal curves found: {len(curves)}")
         
         return curves
-    
+
+    def _extract_curves_fuzzy(self, df: pd.DataFrame) -> list:
+        """
+        Extract curves using fuzzy logic detection.
+
+        Returns:
+            List of curve info dictionaries with confidence scores
+        """
+        from ..data.fuzzy_curve_detector import detect_curves_fuzzy
+        from config.constants import FUZZY_DETECTION_CONFIG
+
+        # Get sample period
+        sample_period_ms = self.metadata.get('sample_period_ms', 5000)
+
+        # Run fuzzy detection
+        fuzzy_results = detect_curves_fuzzy(
+            df,
+            sample_period_ms=sample_period_ms,
+            min_duration=FUZZY_DETECTION_CONFIG['MIN_CURVE_DURATION'],
+            min_peak_temp=FUZZY_DETECTION_CONFIG['MIN_PEAK_TEMP'],
+            confidence_threshold=FUZZY_DETECTION_CONFIG['CONFIDENCE_THRESHOLD']
+        )
+
+        if not fuzzy_results:
+            return []
+
+        # Convert fuzzy results to curve info format
+        curves = []
+        for idx, result in enumerate(fuzzy_results):
+            # Extract curve data
+            curve_data = df.iloc[result.start_idx:result.end_idx+1].copy()
+
+            # Reset timestamps
+            curve_data['Timestamp'] = curve_data['Timestamp'] - curve_data['Timestamp'].iloc[0]
+            curve_data['TimeMinutes'] = curve_data['Timestamp'] / 60.0
+
+            # Reset index
+            curve_data = curve_data.reset_index(drop=True)
+
+            # Identify sensor roles for this specific curve
+            curve_index = len(curves)
+            curve_data = self._identify_sensor_roles_for_curve(curve_data, curve_index)
+
+            # Store curve info with fuzzy confidence scores
+            curve_info = {
+                'data': curve_data,
+                'start_idx': result.start_idx,
+                'end_idx': result.end_idx,
+                'start_time': df['Timestamp'].iloc[result.start_idx],
+                'end_time': df['Timestamp'].iloc[result.end_idx],
+                'duration': curve_data['TimeMinutes'].max(),
+                'max_temp': result.peak_temp,
+                'curve_number': idx + 1,
+                'samples': len(curve_data),
+                'detection_method': 'fuzzy_logic',
+                'start_confidence': result.start_confidence,
+                'end_confidence': result.end_confidence,
+                'contributing_factors': result.contributing_factors
+            }
+
+            curves.append(curve_info)
+
+            # Log confidence if enabled
+            if FUZZY_DETECTION_CONFIG['LOG_CONFIDENCE']:
+                print(f"\n🔍 Fuzzy Detection - Curve {idx + 1}:")
+                print(f"  Duration: {curve_info['duration']:.1f} minutes")
+                print(f"  Samples: {curve_info['samples']}")
+                print(f"  Max temperature: {curve_info['max_temp']:.1f}°C")
+                print(f"  Start confidence: {result.start_confidence:.2%}")
+                print(f"  End confidence: {result.end_confidence:.2%}")
+                print(f"  Start factors: {self._format_factors(result.contributing_factors.get('start', {}))}")
+                print(f"  End factors: {self._format_factors(result.contributing_factors.get('end', {}))}")
+
+        if curves:
+            print(f"\n✅ Fuzzy detection found {len(curves)} curve(s)")
+
+        return curves
+
+    def _format_factors(self, factors: dict) -> str:
+        """Format contributing factors for display."""
+        if not factors:
+            return "none"
+        # Show top 3 factors
+        sorted_factors = sorted(factors.items(), key=lambda x: x[1], reverse=True)[:3]
+        return ", ".join([f"{name}({val:.2%})" for name, val in sorted_factors])
+
     def _extract_all_baking_curves(self, df: pd.DataFrame) -> list:
         """
         Improved curve extraction that better handles cases where probe
         doesn't cool to room temperature between bakes.
-        
+
         Key improvements:
         1. Distinguishes between normal negative delta (in oven) vs probe removal
         2. Uses temperature trajectory to identify curve boundaries
         3. Detects room temperature plateaus between curves
+        4. Can use fuzzy logic detection for improved accuracy
         """
+        from config.constants import FUZZY_DETECTION_CONFIG
+
+        # Try fuzzy logic detection first if enabled
+        if FUZZY_DETECTION_CONFIG['USE_FUZZY_DETECTION']:
+            try:
+                curves_fuzzy = self._extract_curves_fuzzy(df)
+                if curves_fuzzy:
+                    return curves_fuzzy
+                elif not FUZZY_DETECTION_CONFIG['FALLBACK_TO_CLASSIC']:
+                    return []
+            except Exception as e:
+                print(f"Fuzzy detection failed: {e}")
+                if not FUZZY_DETECTION_CONFIG['FALLBACK_TO_CLASSIC']:
+                    return []
+                print("Falling back to classic detection method")
+
+        # Classic detection method
         curves = []
         core_col = 'CoreTemperature' if 'CoreTemperature' in df.columns else 'CoreAverage'
         

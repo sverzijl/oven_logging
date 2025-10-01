@@ -227,3 +227,14 @@ INTERNAL_SENSOR_CONFIG = {
     "USE_TIME_BASED_FILTERING": False,  # Whether to also check time spent >100°C
     "ALWAYS_INCLUDE_CORE": True  # Always include core sensor even if >100°C
 }
+
+# Fuzzy logic curve detection configuration
+FUZZY_DETECTION_CONFIG = {
+    "USE_FUZZY_DETECTION": True,  # Enable fuzzy logic curve detection
+    "CONFIDENCE_THRESHOLD": 0.65,  # Minimum confidence (0.0-1.0) to accept detection
+    "MIN_CURVE_DURATION": 60,  # Minimum curve duration in samples (5 min at 5s intervals)
+    "MIN_PEAK_TEMP": 80.0,  # Minimum peak temperature for valid curve (°C)
+    "FALLBACK_TO_CLASSIC": True,  # Fall back to classic detection if fuzzy fails
+    "LOG_CONFIDENCE": True,  # Log confidence scores for detected curves
+    "SHOW_CONFIDENCE_IN_UI": True  # Display confidence scores in UI
+}
