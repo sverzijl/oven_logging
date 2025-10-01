@@ -933,6 +933,29 @@ class ThermalProfileLoader:
                         start_idx = j + 1
                         break
 
+            # Method 1b: If probe inserted but not in oven yet, find actual oven entry
+            # Use ambient temperature as oven environment indicator
+            if start_idx is not None and ambient_col is not None:
+                # Check if there's a long room temperature period after insertion
+                # indicating probe was inserted before oven entry
+                OVEN_AMBIENT_THRESHOLD = 80  # °C - clear oven indicator
+                CONSECUTIVE_SAMPLES = 5  # samples to confirm oven entry
+
+                # Only check if we're still at room temperature at insertion point
+                if start_idx < len(df) and df.iloc[start_idx][core_col] < 40:
+                    # Scan forward to find where ambient temperature indicates oven entry
+                    for j in range(start_idx, len(df) - CONSECUTIVE_SAMPLES):
+                        # Check if ambient temp crosses oven threshold and stays there
+                        ambient_window = df[ambient_col].iloc[j:j+CONSECUTIVE_SAMPLES]
+                        if (ambient_window > OVEN_AMBIENT_THRESHOLD).all():
+                            # Found oven entry - back up a bit to catch the start of the rise
+                            oven_entry_idx = max(start_idx, j - 10)  # 10 samples (~50s) before threshold
+                            if oven_entry_idx > start_idx:
+                                print(f"  Adjusted start from row {start_idx} to {oven_entry_idx} based on ambient temp")
+                                print(f"    (Skipped {(oven_entry_idx - start_idx) * 5 / 60:.1f} min waiting period)")
+                                start_idx = oven_entry_idx
+                            break
+
             # Method 2: Rapid temperature rise from low temperature
             if start_idx is None:
                 for j in range(i, len(df) - 1):
