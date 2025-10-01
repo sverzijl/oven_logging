@@ -149,8 +149,17 @@ class FuzzyGradientClassifier:
         # Convert to °C/minute
         gradient_per_min = (gradient / self.sample_period) * 60
 
+        # Calculate memberships
+        rapid_cool = self.mf.trimf(gradient_per_min, self.rapid_cooling)
+
+        # IMPORTANT: Cap rapid_cooling at 1.0 for extreme cooling (probe removal)
+        # Probe removal can be -100°C/min or steeper, which falls outside
+        # the trimf range. Any gradient <= -20°C/min is definitely rapid cooling.
+        if gradient_per_min <= -20:
+            rapid_cool = 1.0
+
         return {
-            'rapid_cooling': self.mf.trimf(gradient_per_min, self.rapid_cooling),
+            'rapid_cooling': rapid_cool,
             'cooling': self.mf.trimf(gradient_per_min, self.cooling),
             'stable': self.mf.trimf(gradient_per_min, self.stable),
             'warming': self.mf.trimf(gradient_per_min, self.warming),
