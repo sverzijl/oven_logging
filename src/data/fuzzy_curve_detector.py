@@ -199,7 +199,7 @@ class FuzzyAmbientClassifier:
         # Ambient temperature zones
         self.room_temp = (15, 20, 40)
         self.warm_ambient = (35, 55, 80)
-        self.oven_temp = (70, 120, 200)
+        self.oven_temp = (50, 90, 160)  # Lowered from (70, 120, 200) - ambient reads 40-60°C when bread enters preheated oven
         self.peak_oven = (160, 220, 280)
 
     def classify(self, ambient_temp: float) -> Dict[str, float]:
@@ -285,7 +285,7 @@ class FuzzyInferenceEngine:
         if has_state_change:
             # Use ambient as a small boost, but base confidence is high
             ambient_boost = max(ambient_class.get('warm', 0), ambient_class.get('oven', 0))
-            rule5 = max(0.75, ambient_boost)  # Minimum 75% confidence for any state change
+            rule5 = max(0.90, ambient_boost)  # Minimum 90% confidence for any state change (increased from 75%)
             factors['state_change_ambient'] = rule5 * 0.98
 
         # Rule 6: Sustained heating from low temp = MEDIUM confidence
@@ -309,8 +309,7 @@ class FuzzyInferenceEngine:
         # Rule 8: High oven ambient with non-cooling gradient (for pre-inserted probe with slow core heating)
         # Handles case where probe is in bread, bread is in oven,
         # ambient is high but core heats slowly due to thermal insulation
-        # Weight increased to 0.75 based on real-world data analysis showing this is the
-        # most common pattern (4 out of 7 test files)
+        # Weight reduced to 0.60 to prevent overriding state change signals
         # IMPORTANT: Must NOT fire during cooling phase (negative gradient)
         # Check raw gradient to catch extreme cooling that falls outside fuzzy membership ranges
         if raw_gradient >= -0.1:  # Allow tiny negative fluctuations but block real cooling
@@ -321,7 +320,7 @@ class FuzzyInferenceEngine:
                     temp_class.get('warm', 0)
                 )
             )
-            factors['oven_ambient_slow_core'] = rule8 * 0.75
+            factors['oven_ambient_slow_core'] = rule8 * 0.60  # Reduced from 0.75
         else:
             factors['oven_ambient_slow_core'] = 0.0
 
@@ -567,10 +566,9 @@ class FuzzyCurveDetector:
             if 'PredictionState' in df.columns and i > 0:
                 prev_state = df.iloc[i-1]['PredictionState']
                 curr_state = df.iloc[i]['PredictionState']
-                # ONLY detect the transition to "Cooking" state
-                # This indicates bread entering the oven (actual bake start)
-                # NOT "Probe Not Inserted" → "Probe Inserted" (that's just probe insertion)
-                has_state_change = (prev_state == 'Probe Inserted' and curr_state == 'Cooking')
+                # Detect ANY transition to "Cooking" state (actual bake start)
+                # This handles both "Probe Inserted" → "Cooking" and "Probe Not Inserted" → "Cooking"
+                has_state_change = (prev_state != 'Cooking' and curr_state == 'Cooking')
 
             # Classify all features
             temp_class = temp_classifier.classify(temp)
@@ -588,6 +586,10 @@ class FuzzyCurveDetector:
                 best_confidence = confidence
                 best_idx = i
                 best_factors = factors
+
+            # Commit immediately on state changes with lower threshold (firmware signals are reliable)
+            if has_state_change and confidence >= 0.70:
+                return (i, confidence, factors)
 
             # If we found a high-confidence start, commit to it
             if confidence >= 0.85:

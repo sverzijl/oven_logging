@@ -175,11 +175,11 @@ def test_ambient_classifier():
     print(f"   ✅ Room membership: {classes['room']:.2f} (>0.5)")
 
     # Test oven temperature
-    print("\n5.2 Testing oven temperature (150°C)...")
-    classes = classifier.classify(150)
+    print("\n5.2 Testing oven temperature (90°C)...")
+    classes = classifier.classify(90)
     print(f"   Classes: {', '.join([f'{k}={v:.2f}' for k, v in classes.items() if v > 0])}")
-    assert classes['oven'] > 0.3, "150°C should indicate oven"
-    print(f"   ✅ Oven membership: {classes['oven']:.2f} (>0.3)")
+    assert classes['oven'] > 0.5, "90°C should indicate oven (peak of oven membership)"
+    print(f"   ✅ Oven membership: {classes['oven']:.2f} (>0.5)")
 
     print("\n✅ All ambient classifier tests passed!")
     return True
