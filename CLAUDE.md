@@ -112,12 +112,19 @@ The application uses a multi-stage transformation pipeline for temperature data:
    - Each curve now independently identifies sensor roles based on its own data
    - Allows for different probe positions between baking sessions
 
+3. **Zone Analysis Variable Name Collision** (src/analysis/zone_analysis.py:295)
+   - KeyError occurred when loop variable `zone_name` was overwritten with zone display name
+   - Dictionary keys became display names (e.g., "Yeast Kill") instead of zone keys (e.g., "YEAST_KILL")
+   - Fixed by using separate variables: `zone_key` for dictionary keys, `zone_display_name` for display names
+   - Ensures zone lookups in `recommend_zone_optimizations()` use correct TEMPERATURE_ZONES keys
+
 ### Best Practices
 
 - Always check for existing transformations before regenerating columns
 - Use standardized column names (CoreTemperature, etc.) in analysis code
 - Preserve transformation flags when switching between curves
 - Test with multi-curve files to ensure transformations persist
+- **Avoid variable name collisions**: Use distinct variable names like `zone_key` vs `zone_display_name` when iterating over TEMPERATURE_ZONES to prevent dictionary key mismatches
 
 ### Data Structures
 

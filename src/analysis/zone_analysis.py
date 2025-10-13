@@ -179,32 +179,32 @@ class ZoneAnalyzer:
     def get_zone_heating_characteristics(self) -> Dict:
         """Analyze heating characteristics within each zone."""
         heating_chars = {}
-        
-        for zone_name, zone_config in TEMPERATURE_ZONES.items():
+
+        for zone_key, zone_config in TEMPERATURE_ZONES.items():
             zone_data = self._extract_zone_data(zone_config)
-            
+
             if len(zone_data) > 1:
                 # Determine which temperature column to use based on zone type
-                zone_name = zone_config.get('name', '')
-                if zone_name in ['Crust Formation', 'Maillard Reaction', 'Caramelization']:
+                zone_display_name = zone_config.get('name', '')
+                if zone_display_name in ['Crust Formation', 'Maillard Reaction', 'Caramelization']:
                     temp_col = self.surface_temp_column
                 else:
                     temp_col = self.core_temp_column
-                
+
                 # Ensure the column exists
                 if temp_col is None or temp_col not in zone_data.columns:
                     temp_col = 'CoreTemperature' if 'CoreTemperature' in zone_data.columns else 'CoreAverage'
-                
+
                 # Calculate heating rate within zone
                 temp_diff = zone_data[temp_col].diff()
                 time_diff = self.sample_period
                 heating_rate = (temp_diff / time_diff).mean()
-                
+
                 # Calculate acceleration
                 rate_diff = (temp_diff / time_diff).diff()
                 acceleration = rate_diff.mean()
-                
-                heating_chars[zone_name] = {
+
+                heating_chars[zone_key] = {
                     'avg_heating_rate': heating_rate,
                     'heating_acceleration': acceleration,
                     'rate_variability': (temp_diff / time_diff).std(),
@@ -212,8 +212,8 @@ class ZoneAnalyzer:
                     'temperature_type': 'surface' if zone_config.get('name') in ['Crust Formation', 'Maillard Reaction', 'Caramelization'] else 'core'
                 }
             else:
-                heating_chars[zone_name] = None
-                
+                heating_chars[zone_key] = None
+
         return heating_chars
     
     def recommend_zone_optimizations(self) -> List[Dict]:
