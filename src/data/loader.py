@@ -262,12 +262,8 @@ class ThermalProfileLoader:
         assignment_cols = ['VirtualCoreSensor', 'VirtualSurfaceSensor', 
                           'VirtualAmbientSensor']
         
-        if all(col in df.columns for col in virtual_cols + assignment_cols):
-            # Use the probe's intelligent sensor selection
-            df['CoreTemperature'] = df['VirtualCoreTemperature']
-            df['SurfaceTemperature'] = df['VirtualSurfaceTemperature']
-            df['AmbientTemperature'] = df['VirtualAmbientTemperature']
-            
+        used_virtual_path = all(col in df.columns for col in virtual_cols + assignment_cols)
+        if used_virtual_path:
             # Track most common sensor assignments for each role
             if len(df) > 0:
                 curve_assignments = {
@@ -320,25 +316,14 @@ class ThermalProfileLoader:
         if all(col in df.columns for col in ['T7', 'T8']):
             df['SurfaceAverage'] = df[['T7', 'T8']].mean(axis=1)
         
-        # Generate standardized columns - but don't overwrite if physics correction was applied
-        # Check if physics-based correction was already applied to avoid overwriting
-        curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
-        if not curve_assignments.get('physics_corrected', False):
-            self._generate_standard_columns_for_df(df)
-        else:
-            # Only generate columns that weren't already corrected
-            if 'CoreTemperature' not in df.columns:
-                if 'VirtualCoreTemperature' in df.columns:
-                    df['CoreTemperature'] = df['VirtualCoreTemperature']
-                elif 'CoreAverage' in df.columns:
-                    df['CoreTemperature'] = df['CoreAverage']
-            
-            if 'AmbientTemperature' not in df.columns:
-                if 'VirtualAmbientTemperature' in df.columns:
-                    df['AmbientTemperature'] = df['VirtualAmbientTemperature']
-                elif 'T8' in df.columns:
-                    df['AmbientTemperature'] = df['T8']
-        
+        # Generate standardized columns via the single canonical writer.
+        # Only run on the virtual-path branch: the dynamic-classification branch
+        # below already wrote Core/Surface/Ambient from thermodynamically-chosen
+        # sensors and has no Virtual* columns to fall back on, so re-running the
+        # helper there would wipe its assignment.
+        if used_virtual_path:
+            self._apply_standard_columns(df, curve_index)
+
         return df
     
     def _apply_physics_based_surface_correction(self, df: pd.DataFrame, curve_index: int) -> pd.DataFrame:
@@ -746,147 +731,6 @@ class ThermalProfileLoader:
             # No valid curves found, return original data
             return df
     
-    def _extract_all_baking_curves_old(self, df: pd.DataFrame) -> list:
-        """
-        Extract all baking curves from the dataset.
-        
-        Returns:
-            List of dictionaries, each containing:
-            - 'data': DataFrame for the curve
-            - 'start_idx': Start index in original data
-            - 'end_idx': End index in original data
-            - 'start_time': Start timestamp
-            - 'end_time': End timestamp
-            - 'duration': Duration in minutes
-            - 'max_temp': Maximum core temperature
-            - 'curve_number': Curve number (1-based)
-        """
-        curves = []
-        core_col = 'CoreTemperature' if 'CoreTemperature' in df.columns else 'CoreAverage'
-        
-        if core_col not in df.columns:
-            print("Warning: No core temperature column found")
-            return curves
-        
-        # Parameters for curve detection
-        MIN_CURVE_DURATION = 60  # Minimum 5 minutes at 5-second intervals
-        MIN_BAKING_TEMP = 80     # Minimum peak temperature for valid baking
-        TEMP_RISE_THRESHOLD = 5  # Temperature rise to detect start
-        TEMP_DROP_THRESHOLD = 20 # Temperature drop to detect curve separation
-        COOLING_RATE_THRESHOLD = -1  # °C per minute
-        
-        # Find all potential curve starts and ends
-        curve_segments = []
-        i = 0
-        
-        while i < len(df):
-            # Find start of next curve
-            start_idx = None
-            
-            # Method 1: Use PredictionState if available
-            if 'PredictionState' in df.columns:
-                # Look for transition from "Probe Not Inserted" to other states
-                for j in range(i, len(df)):
-                    if (j > 0 and 
-                        df.iloc[j-1]['PredictionState'] == 'Probe Not Inserted' and 
-                        df.iloc[j]['PredictionState'] != 'Probe Not Inserted'):
-                        start_idx = j
-                        break
-            
-            # Method 2: Detect temperature rise
-            if start_idx is None:
-                for j in range(i, len(df) - 1):
-                    if df[core_col].iloc[j+1] - df[core_col].iloc[j] > TEMP_RISE_THRESHOLD:
-                        start_idx = j
-                        break
-            
-            if start_idx is None:
-                # No more curves found
-                break
-            
-            # Find end of this curve
-            # Look for peak and subsequent drop
-            peak_idx = start_idx
-            peak_temp = df[core_col].iloc[start_idx]
-            
-            for j in range(start_idx, len(df)):
-                if df[core_col].iloc[j] > peak_temp:
-                    peak_temp = df[core_col].iloc[j]
-                    peak_idx = j
-            
-            # Find significant temperature drop after peak
-            end_idx = None
-            for j in range(peak_idx, len(df)):
-                temp_drop = peak_temp - df[core_col].iloc[j]
-                
-                if temp_drop > TEMP_DROP_THRESHOLD:
-                    # Validate with cooling rate if possible
-                    if j < len(df) - 5:
-                        cooling_rate = (df[core_col].iloc[j:j+5].diff().mean() * 12)  # Per minute
-                        if cooling_rate < COOLING_RATE_THRESHOLD:
-                            end_idx = j
-                            break
-                    else:
-                        end_idx = j
-                        break
-            
-            if end_idx is None:
-                # No clear end found, use end of data
-                end_idx = len(df) - 1
-            
-            # Validate and store curve segment
-            curve_length = end_idx - start_idx + 1
-            if curve_length >= MIN_CURVE_DURATION and peak_temp >= MIN_BAKING_TEMP:
-                curve_segments.append({
-                    'start_idx': start_idx,
-                    'end_idx': end_idx,
-                    'peak_temp': peak_temp,
-                    'peak_idx': peak_idx
-                })
-            
-            # Move to search for next curve
-            i = end_idx + 1
-        
-        # Process each valid curve segment
-        for idx, segment in enumerate(curve_segments):
-            # Extract curve data
-            curve_data = df.iloc[segment['start_idx']:segment['end_idx']+1].copy()
-            
-            # Reset timestamps
-            curve_data['Timestamp'] = curve_data['Timestamp'] - curve_data['Timestamp'].iloc[0]
-            curve_data['TimeMinutes'] = curve_data['Timestamp'] / 60.0
-            
-            # Reset index
-            curve_data = curve_data.reset_index(drop=True)
-            
-            # Calculate curve metadata
-            curve_info = {
-                'data': curve_data,
-                'start_idx': segment['start_idx'],
-                'end_idx': segment['end_idx'],
-                'start_time': df['Timestamp'].iloc[segment['start_idx']],
-                'end_time': df['Timestamp'].iloc[segment['end_idx']],
-                'duration': curve_data['TimeMinutes'].max(),
-                'max_temp': segment['peak_temp'],
-                'curve_number': idx + 1,
-                'samples': len(curve_data)
-            }
-            
-            curves.append(curve_info)
-            
-            print(f"\nCurve {idx + 1}:")
-            print(f"  Duration: {curve_info['duration']:.1f} minutes")
-            print(f"  Samples: {curve_info['samples']}")
-            print(f"  Max temperature: {curve_info['max_temp']:.1f}°C")
-            print(f"  Original timestamp range: {curve_info['start_time']:.1f}s - {curve_info['end_time']:.1f}s")
-        
-        if not curves:
-            print("Warning: No valid baking curves found in data")
-        else:
-            print(f"\nTotal curves found: {len(curves)}")
-        
-        return curves
-    
     def _extract_all_baking_curves(self, df: pd.DataFrame) -> list:
         """
         Improved curve extraction that better handles cases where probe
@@ -1281,86 +1125,85 @@ class ThermalProfileLoader:
         # Fallback - ambient is the outermost sensor(s)
         return ['T8']
     
-    def _regenerate_standard_columns(self):
-        """Regenerate standardized temperature columns based on current sensor assignments."""
-        if self.data is None:
+    def _apply_standard_columns(self, df: pd.DataFrame, curve_index: int) -> None:
+        """Single canonical writer of CoreTemperature / SurfaceTemperature / AmbientTemperature.
+
+        Layering (matches CLAUDE.md):
+          1. Virtual* firmware channels (or *Average / raw-T fallbacks).
+          2. Physics-based surface correction — preserved when
+             curve_sensor_assignments[curve_index]['physics_corrected'] is True.
+          3. Manual overrides from self._sensor_overrides[curve_index] — win
+             over physics correction (the UI rule: user > physics > firmware).
+        """
+        if df is None:
             return
-            
-        # Get current sensor assignments (with overrides)
-        core_sensor = self.get_core_sensor()
-        surface_sensor = self.get_surface_sensor()
-        ambient_sensors = self.get_ambient_sensors()
-        
-        # Generate CoreTemperature column
-        if self.current_curve_index in self._sensor_overrides and 'core' in self._sensor_overrides[self.current_curve_index]:
-            # Override mode: use single sensor value
-            if core_sensor and core_sensor in self.data.columns:
-                self.data['CoreTemperature'] = self.data[core_sensor]
-        elif 'VirtualCoreTemperature' in self.data.columns:
-            # Dynamic mode: use virtual core temperature
-            self.data['CoreTemperature'] = self.data['VirtualCoreTemperature']
-        elif 'CoreAverage' in self.data.columns:
-            self.data['CoreTemperature'] = self.data['CoreAverage']
-        
-        # Generate SurfaceTemperature column
-        if self.current_curve_index in self._sensor_overrides and 'surface' in self._sensor_overrides[self.current_curve_index]:
-            # Override mode: use single sensor value
-            if surface_sensor and surface_sensor in self.data.columns:
-                self.data['SurfaceTemperature'] = self.data[surface_sensor]
-        elif hasattr(self, 'curve_sensor_assignments') and self.current_curve_index in self.curve_sensor_assignments:
-            # Check if physics-based correction was applied for this curve
-            curve_assignments = self.curve_sensor_assignments[self.current_curve_index]
-            if curve_assignments.get('physics_corrected', False):
-                # Physics-based correction was applied - use the corrected sensor
-                if surface_sensor and surface_sensor in self.data.columns:
-                    self.data['SurfaceTemperature'] = self.data[surface_sensor]
-            elif 'VirtualSurfaceTemperature' in self.data.columns:
-                # Dynamic mode: use virtual surface temperature
-                self.data['SurfaceTemperature'] = self.data['VirtualSurfaceTemperature']
-            elif 'SurfaceAverage' in self.data.columns:
-                self.data['SurfaceTemperature'] = self.data['SurfaceAverage']
-        elif 'VirtualSurfaceTemperature' in self.data.columns:
-            # Dynamic mode: use virtual surface temperature
-            self.data['SurfaceTemperature'] = self.data['VirtualSurfaceTemperature']
-        elif 'SurfaceAverage' in self.data.columns:
-            self.data['SurfaceTemperature'] = self.data['SurfaceAverage']
-        
-        # Generate AmbientTemperature column
-        if self.current_curve_index in self._sensor_overrides and 'surface' in self._sensor_overrides[self.current_curve_index]:
-            # Override mode: use max of ambient sensors (inferred from surface position)
-            if ambient_sensors and all(s in self.data.columns for s in ambient_sensors):
-                self.data['AmbientTemperature'] = self.data[ambient_sensors].max(axis=1)
-            elif ambient_sensors and any(s in self.data.columns for s in ambient_sensors):
-                # Use available ambient sensors
-                available_ambient = [s for s in ambient_sensors if s in self.data.columns]
-                self.data['AmbientTemperature'] = self.data[available_ambient].max(axis=1)
-        elif 'VirtualAmbientTemperature' in self.data.columns:
-            # Dynamic mode: use virtual ambient temperature
-            self.data['AmbientTemperature'] = self.data['VirtualAmbientTemperature']
-    
-    def _generate_standard_columns_for_df(self, df: pd.DataFrame):
-        """Generate standardized temperature columns for a dataframe during initial load."""
-        # Generate CoreTemperature column
-        if 'VirtualCoreTemperature' in df.columns:
+
+        curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
+        overrides = self._sensor_overrides.get(curve_index, {})
+
+        # --- CoreTemperature ---
+        core_override = overrides.get('core')
+        if core_override and core_override in df.columns:
+            df['CoreTemperature'] = df[core_override]
+        elif 'VirtualCoreTemperature' in df.columns:
             df['CoreTemperature'] = df['VirtualCoreTemperature']
         elif 'CoreAverage' in df.columns:
             df['CoreTemperature'] = df['CoreAverage']
         elif all(col in df.columns for col in ['T1', 'T2', 'T3', 'T4']):
             df['CoreTemperature'] = df[['T1', 'T2', 'T3', 'T4']].mean(axis=1)
-        
-        # Generate SurfaceTemperature column  
-        if 'VirtualSurfaceTemperature' in df.columns:
+
+        # --- SurfaceTemperature ---
+        # Override wins; else physics-corrected sensor wins; else firmware virtual.
+        surface_override = overrides.get('surface')
+        physics_surface = (
+            curve_assignments.get('surface')
+            if curve_assignments.get('physics_corrected')
+            else None
+        )
+        if surface_override and surface_override in df.columns:
+            df['SurfaceTemperature'] = df[surface_override]
+        elif physics_surface and physics_surface in df.columns:
+            df['SurfaceTemperature'] = df[physics_surface]
+        elif 'VirtualSurfaceTemperature' in df.columns:
             df['SurfaceTemperature'] = df['VirtualSurfaceTemperature']
         elif 'SurfaceAverage' in df.columns:
             df['SurfaceTemperature'] = df['SurfaceAverage']
         elif all(col in df.columns for col in ['T7', 'T8']):
             df['SurfaceTemperature'] = df[['T7', 'T8']].mean(axis=1)
-        
-        # Generate AmbientTemperature column
-        if 'VirtualAmbientTemperature' in df.columns:
+
+        # --- AmbientTemperature ---
+        # A surface override implies the probe geometry changed, so recompute
+        # ambient from the inferred ambient sensors rather than the firmware pick.
+        if surface_override:
+            ambient_sensors = self.get_ambient_sensors(curve_index)
+            available_ambient = [s for s in ambient_sensors if s in df.columns]
+            if available_ambient:
+                df['AmbientTemperature'] = df[available_ambient].max(axis=1)
+            elif 'VirtualAmbientTemperature' in df.columns:
+                df['AmbientTemperature'] = df['VirtualAmbientTemperature']
+            elif 'T8' in df.columns:
+                df['AmbientTemperature'] = df['T8']
+        elif 'VirtualAmbientTemperature' in df.columns:
             df['AmbientTemperature'] = df['VirtualAmbientTemperature']
         elif 'T8' in df.columns:
             df['AmbientTemperature'] = df['T8']
+
+    def _regenerate_standard_columns(self):
+        """Regenerate standardized temperature columns based on current sensor assignments."""
+        if self.data is None:
+            return
+        self._apply_standard_columns(self.data, self.current_curve_index)
+
+    def _generate_standard_columns_for_df(self, df: pd.DataFrame):
+        """Generate standardized temperature columns for a dataframe during initial load."""
+        # Resolve curve_index by identity against all_curves so a freshly
+        # extracted curve's physics flag is honoured.
+        curve_index = self.current_curve_index
+        for idx, info in enumerate(getattr(self, 'all_curves', []) or []):
+            if info.get('data') is df:
+                curve_index = idx
+                break
+        self._apply_standard_columns(df, curve_index)
     
 
 def validate_thermal_data(df: pd.DataFrame) -> Tuple[bool, list]:
