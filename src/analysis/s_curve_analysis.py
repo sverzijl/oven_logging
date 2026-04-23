@@ -5,6 +5,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from config.constants import S_CURVE_ZONES, S_CURVE_BENCHMARKS, BAKEOUT_TARGETS, PRODUCT_MOISTURE
+from src.data.column_helpers import get_core_temperature_column
 
 
 @dataclass
@@ -99,8 +100,7 @@ class SCurveAnalyzer:
     def analyze_zones(self) -> Dict[str, Dict]:
         """Analyze the three major S-curve zones."""
         zones = {}
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in self.data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(self.data)
         core_temp = self.data[core_col]
         
         # Oven Spring Zone (up to 56°C)
@@ -138,8 +138,7 @@ class SCurveAnalyzer:
     
     def analyze_bake_out(self, product_type: str = 'white_pan') -> BakeOutAnalysis:
         """Perform detailed bake-out analysis with improved moisture model."""
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in self.data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(self.data)
         core_temp = self.data[core_col]
         bakeout_data = self.data[core_temp >= 93]
         
@@ -275,8 +274,7 @@ class SCurveAnalyzer:
     
     def _calculate_expansion_rate(self, oven_spring_data: pd.DataFrame) -> float:
         """Estimate expansion rate during oven spring."""
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in oven_spring_data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(oven_spring_data)
         # Simplified calculation based on temperature rise rate
         temp_rise = oven_spring_data[core_col].diff().mean()
         return temp_rise * 0.8  # Empirical factor
@@ -284,8 +282,7 @@ class SCurveAnalyzer:
     def _identify_transformations(self, critical_data: pd.DataFrame) -> List[str]:
         """Identify biochemical transformations in critical zone."""
         transformations = []
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in critical_data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(critical_data)
         temp_range = critical_data[core_col]
         
         if any((temp_range >= 56) & (temp_range <= 60)):
@@ -311,8 +308,7 @@ class SCurveAnalyzer:
         crust_factor = moisture_params['crust_factor']
         
         # Temperature-adjusted k factor
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in bakeout_data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(bakeout_data)
         avg_temp = bakeout_data[core_col].mean()
         temp_adjustment = 1 + (avg_temp - 93) * 0.02  # 2% increase per degree above 93°C
         k_adjusted = k_factor * temp_adjustment

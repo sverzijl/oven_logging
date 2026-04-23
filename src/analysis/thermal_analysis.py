@@ -5,6 +5,7 @@ import numpy as np
 from scipy import signal
 from typing import Dict, List, Tuple, Optional
 from config.constants import TEMPERATURE_ZONES, ANALYSIS_PARAMS
+from src.data.column_helpers import get_core_temperature_column
 
 
 class ThermalAnalyzer:
@@ -191,7 +192,7 @@ class ThermalAnalyzer:
                 temp_data = self.data[temp_col]
             else:
                 # Fallback to core temperature
-                temp_col = 'CoreTemperature' if 'CoreTemperature' in self.data.columns else 'CoreAverage'
+                temp_col = get_core_temperature_column(self.data)
                 temp_data = self.data[temp_col]
             
             # Find when temperature is in zone
@@ -321,8 +322,7 @@ class ThermalAnalyzer:
         events = {}
         
         # Probe insertion (first significant temperature rise)
-        # Use CoreTemperature if available, otherwise fall back to CoreAverage
-        core_col = 'CoreTemperature' if 'CoreTemperature' in self.data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(self.data)
         temp_diff = self.data[core_col].diff()
         insertion_idx = temp_diff[temp_diff > 2].index[0] if any(temp_diff > 2) else 0
         events['probe_insertion'] = {

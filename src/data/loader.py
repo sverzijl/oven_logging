@@ -8,6 +8,7 @@ from datetime import datetime
 import io
 from config.constants import INTERNAL_SENSOR_CONFIG
 from src.data.sensor_assignment_manager import SensorAssignmentManager
+from src.data.column_helpers import get_core_temperature_column
 
 
 class ThermalProfileLoader:
@@ -744,7 +745,7 @@ class ThermalProfileLoader:
         3. Detects room temperature plateaus between curves
         """
         curves = []
-        core_col = 'CoreTemperature' if 'CoreTemperature' in df.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(df)
         
         if core_col not in df.columns:
             print("Warning: No core temperature column found")
