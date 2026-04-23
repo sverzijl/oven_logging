@@ -1,0 +1,57 @@
+{
+  "ship_name": "HMS Argyll",
+  "captain": "Argyll",
+  "task_id": 5,
+  "timestamp": "2026-04-23T19:37:00+00:00",
+  "hull_integrity_pct": 100,
+  "hull_integrity_status": "shipshape",
+  "relief_requested": false,
+  "context_summary": "Extracted SensorAssignmentManager cleanly. TDD: 20 characterisation tests committed BEFORE extraction (passed on pre-extraction HEAD), still pass on post-extraction loader. Loader delegates via self._sensor_manager through 4 one-line stubs (kept for internal-API back-compat as permitted by the brief). Figure-hash parity against post-T4 baseline: every fixture byte-identical. Full pytest suite: 91 passed / 7 failed / 1 skipped (same 7 pre-existing failures baselined pre-mission). No regressions introduced.",
+  "loader_line_delta": -83,
+  "loader_line_count_post": 1136,
+  "extracted_methods": [
+    "_get_automatic_core_sensors",
+    "_get_automatic_surface_sensors",
+    "_get_automatic_ambient_sensors",
+    "_validate_sensor_assignments"
+  ],
+  "new_class_methods": [
+    "SensorAssignmentManager.get_automatic_core_sensors",
+    "SensorAssignmentManager.get_automatic_surface_sensors",
+    "SensorAssignmentManager.get_automatic_ambient_sensors",
+    "SensorAssignmentManager.validate_sensor_assignments"
+  ],
+  "characterisation_tests_count": 20,
+  "characterisation_test_path": "tests/test_sensor_assignment_manager.py",
+  "external_callers_found": [],
+  "external_callers_note": "All four methods were called only from within loader.py (lines 300, 436, 448, 469, 481, 494). No callers in src/analysis/, src/visualization/, app.py, or tests/ before this mission. Archive docs reference _get_automatic_core_sensors but are historical notes, not live code.",
+  "delegation_stubs_kept": "yes, 4 stubs (one-liners on ThermalProfileLoader delegating to self._sensor_manager). Brief explicitly permits this for back-compat; keeps characterisation tests meaningful as a dual pre/post check.",
+  "figure_hash_parity": "all 4 fixtures (6 figures across single+multi-curve) match post-T4 baseline exactly; compared via capture + json-diff of figure-hashes.json",
+  "commits": [
+    {
+      "sha": "d654652",
+      "subject": "test: characterise automatic sensor getters and validator (Captain Argyll)"
+    },
+    {
+      "sha": "35c2634",
+      "subject": "refactor(sensor): extract SensorAssignmentManager from loader (Captain Argyll)"
+    }
+  ],
+  "files_changed": {
+    "new": [
+      "src/data/sensor_assignment_manager.py",
+      "tests/test_sensor_assignment_manager.py"
+    ],
+    "modified": [
+      "src/data/loader.py"
+    ]
+  },
+  "coupling_note": "SensorAssignmentManager holds a reference to the owning loader and reads curve_sensor_assignments / sensor_assignments live. This preserves exact pre-extraction semantics (those dicts mutate after __init__ during load_csv). A cleaner seam with explicit state-passing is a future refactor; in scope for T5 was extract-method only.",
+  "verification": {
+    "characterisation_tests_pre_extraction": "20 passed",
+    "characterisation_tests_post_extraction": "20 passed",
+    "full_suite": "91 passed, 7 failed, 1 skipped (baseline: 72/7/1 pre-argyll-tests)",
+    "app_import": "no exceptions",
+    "grep_def_in_loader": "4 one-line delegate stubs only; no method bodies remain"
+  }
+}

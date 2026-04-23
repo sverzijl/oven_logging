@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from config.constants import TEMPERATURE_ZONES, SENSOR_NAMES, S_CURVE_ZONES, S_CURVE_BENCHMARKS
 from src.analysis.s_curve_analysis import SCurveLandmark, BakeOutAnalysis
 from .visualization_config import VisualizationConfig
+from src.data.column_helpers import get_core_temperature_column
 
 
 class ThermalPlotter:
@@ -405,7 +406,7 @@ class ThermalPlotter:
         fig = go.Figure()
         
         # Use the same core temperature column that was used for analysis
-        core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(data)
         
         # Add internal temperature spread if sensors provided
         self._add_internal_temperature_shading(fig, data, internal_sensors)
@@ -521,7 +522,7 @@ class ThermalPlotter:
         )
         
         # Use the same core temperature column that was used for analysis
-        core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'CoreAverage'
+        core_col = get_core_temperature_column(data)
         
         # Bake-out temperature profile
         bakeout_data = data[data['TimeMinutes'] >= bakeout.start_time_minutes]

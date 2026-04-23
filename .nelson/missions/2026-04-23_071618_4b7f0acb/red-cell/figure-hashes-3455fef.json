@@ -1,0 +1,32 @@
+{
+  "created_at": "2026-04-23T10:05:20.851025+00:00",
+  "fixtures": {
+    "ProbeData_100098DE_2025-05-30 13_51_07.csv": {
+      "curve_count": 1,
+      "temperature_profile_sha256": "d76ddc66f5d4256d5399d3fe8fdc89015a8c133e57c9d7671ffd3efc48df1f51"
+    },
+    "ProbeData_1000BA3C_2025-05-30 09_46_16.csv": {
+      "curve_count": 1,
+      "temperature_profile_sha256": "92f6460536feb17af6bfada040700b4d25fececc9504eda75f39a5cc54368f3c"
+    },
+    "ProbeData_1000BA3C_2025-05-30 17_59_37.csv": {
+      "curve_count": 3,
+      "curves": {
+        "curve_0": {
+          "temperature_profile_sha256": "92f6460536feb17af6bfada040700b4d25fececc9504eda75f39a5cc54368f3c"
+        },
+        "curve_1": {
+          "temperature_profile_sha256": "30d5fe9461a41c0e5b34a095bfa9c70ece314d8dc7bb55135df1f6e022e9cead"
+        },
+        "curve_2": {
+          "temperature_profile_sha256": "3f6c5c081ee8f86ddcd9b5dd0fb630f5dccfe9089f11a6c0adb896d4666e7e47"
+        }
+      }
+    },
+    "ProbeData_1000F3C1_2025-05-23 09_11_59.csv": {
+      "curve_count": 1,
+      "temperature_profile_sha256": "5ef719dce945dd337abfc7bea27a1949007f1725a9d820e6458ffc91ef0f90fa"
+    }
+  },
+  "repo_root": "C:\\Users\\simeon.Verzijl\\OneDrive - Wilmar International Limited\\Dandenong\\projects\\combustion\\oven_logging"
+}

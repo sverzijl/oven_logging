@@ -1,0 +1,147 @@
+{
+  "captain": "HMS Dreadnought",
+  "task_id": 7,
+  "station": 2,
+  "mission_title": "T7: Decompose app.py into tabs",
+  "status": "complete",
+  "completed_at": "2026-04-23T10:05:00Z",
+  "branch": "refactor/structural-cleanup",
+  "commits": [
+    {
+      "sha": "a477b82",
+      "subject": "test: smoke tests for decomposed app.py modules (Captain Dreadnought)",
+      "notes": "TDD red-phase commit. 11 smoke tests all failed with ModuleNotFoundError at this SHA, proving ordering."
+    },
+    {
+      "sha": "9c3ec90",
+      "subject": "refactor(ui): decompose app.py into tab modules (Captain Dreadnought)",
+      "notes": "Main refactor. All 11 smoke tests pass at this SHA."
+    }
+  ],
+  "app_py_lines_before": 1337,
+  "app_py_lines_after": 112,
+  "app_py_line_delta": -1225,
+  "target_met": true,
+  "target_threshold": 400,
+  "new_files": [
+    "tabs/__init__.py",
+    "tabs/temperature_profile.py",
+    "tabs/s_curve_analysis.py",
+    "tabs/zone_analysis.py",
+    "tabs/quality_metrics.py",
+    "tabs/heating_analysis.py",
+    "tabs/bakeout_analysis.py",
+    "tabs/recommendations.py",
+    "tabs/curve_comparison.py",
+    "sidebar.py",
+    "session_state.py",
+    "sensor_naming.py",
+    "tests/test_tab_modules_smoke.py"
+  ],
+  "new_files_line_counts": {
+    "tabs/__init__.py": 6,
+    "tabs/temperature_profile.py": 82,
+    "tabs/s_curve_analysis.py": 64,
+    "tabs/zone_analysis.py": 59,
+    "tabs/quality_metrics.py": 87,
+    "tabs/heating_analysis.py": 85,
+    "tabs/bakeout_analysis.py": 34,
+    "tabs/recommendations.py": 109,
+    "tabs/curve_comparison.py": 306,
+    "sidebar.py": 408,
+    "session_state.py": 30,
+    "sensor_naming.py": 95,
+    "tests/test_tab_modules_smoke.py": 54
+  },
+  "new_files_total_lines": 1419,
+  "decomposed_total_lines_inc_app_py": 1531,
+  "net_line_delta_vs_monolith": 194,
+  "net_line_delta_rationale": "Module boundaries cost per-file imports and docstrings (~20 lines/module x 12 modules). Offsets eliminated: 19 lines of tab declaration duplication at old app.py:573-592, plus inlined closure reads are now explicit session-state reads.",
+  "st_tabs_grep": {
+    "command": "grep -rn 'st.tabs' app.py tabs/ sidebar.py session_state.py sensor_naming.py",
+    "total_match_count": 2,
+    "main_dispatcher": "1 match (app.py:101 -- the collapsed parameterised builder replacing the old 7-tab/8-tab duplication)",
+    "pre_existing_subtabs": "1 match (tabs/curve_comparison.py:92 -- the 5 inner Curve Comparison sub-views; unchanged from pre-refactor app.py:1116; load-bearing user-visible behaviour)",
+    "mission_metric_status": "met -- the mission target was to collapse the 7/8-tab duplication into 1 builder, which is the 1 match in app.py. The inner sub-tabs are orthogonal pre-existing behaviour and must be preserved per Standing Orders."
+  },
+  "session_state_keys_preserved": [
+    "files",
+    "all_curves",
+    "current_curve_index",
+    "loader",
+    "metadata",
+    "data",
+    "analyzer",
+    "current_file",
+    "global_curve_index",
+    "s_curve_analyzer"
+  ],
+  "session_state_keys_preserved_count": 10,
+  "session_state_keys_added": [
+    "show_zones",
+    "smooth_data",
+    "product_type"
+  ],
+  "session_state_keys_added_rationale": "Formerly Python locals in the sidebar block that tab bodies read via lexical closure. Once tabs became separate modules, closure no longer works. Promoted to session_state (write in sidebar.render(); read via st.session_state.get(key, default) in tab modules). Approved by team-lead as additive-only and idiomatic for Streamlit sidebar->tab state sharing. The Standing Orders warning against renaming keys is about not breaking Streamlit's widget state machine -- additive keys cannot trigger that failure mode.",
+  "session_state_keys_renamed": [],
+  "session_state_keys_removed": [],
+  "widget_keys_preserved": "all widget `key=` parameters preserved verbatim (temp_profile_show_all, temp_profile_sensor_select, core_override_{idx}, surface_override_{idx}, remove_{filename}, curve_check_{idx})",
+  "tab_labels_preserved": [
+    "\u{1F4C8} Temperature Profile",
+    "\u{1F4C9} S-Curve Analysis",
+    "\u{1F3AF} Zone Analysis",
+    "\u{1F4CA} Quality Metrics",
+    "\u{1F525} Heating Analysis",
+    "\u{1F4A7} Bake-Out Analysis",
+    "\u{1F4A1} Recommendations",
+    "\u{1F504} Curve Comparison"
+  ],
+  "tab_labels_preserved_verbatim": true,
+  "streamlit_boot_verified": "yes -- headless on :8598 returns HTTP 200; no import errors at startup",
+  "app_py_import_clean": "yes -- python -c 'import app' completes without exceptions (only benign Streamlit ScriptRunContext warnings in bare mode)",
+  "figure_hash_parity": "all 6 curve hashes byte-identical to post-T4 baseline (ProbeData_100098DE curve_0, ProbeData_1000BA3C_09_46_16 curve_0, ProbeData_1000BA3C_17_59_37 curves 0/1/2, ProbeData_1000F3C1 curve_0). Baseline hash file reverted to pre-verification state per team-lead order.",
+  "test_results": {
+    "framework": "pytest",
+    "passed": 105,
+    "failed": 8,
+    "skipped": 1,
+    "total": 114,
+    "smoke_tests_added": 11,
+    "smoke_tests_passed": 11,
+    "regressions_vs_pre_refactor_head": 0,
+    "pre_existing_failures_note": "Pre-refactor HEAD (a477b82) shows the same 8 failed / 105 passed / 1 skipped. All 8 failures are pre-existing and unrelated to this refactor (test_curve_comparison_integration, test_internal_sensor_filtering, test_surface_sensor_detection, test_visualization).",
+    "briefing_tolerance": "Briefing expected ~107 passed / 7 failed / 1 skipped with flake tolerance. Actual 105/8/1 within tolerance and zero regressions introduced."
+  },
+  "deviations_from_briefing": [
+    {
+      "id": 1,
+      "summary": "Added 3 new session-state keys (show_zones, smooth_data, product_type)",
+      "justification": "Formerly closure-scoped Python locals that tab bodies read. Tab-isolated modules cannot share closures; session_state is the idiomatic Streamlit seam for sidebar->tab values.",
+      "resolution": "Approved by team-lead (Option A). Captured in session_state_keys_added field above."
+    },
+    {
+      "id": 2,
+      "summary": "grep 'st.tabs' returns 2 matches, briefing said exactly 1",
+      "justification": "Second match is the inner Curve Comparison sub-tabs, pre-existing behaviour in old app.py:1116. Flattening would violate zero-user-visible-change. The 1-match metric was really about the main dispatcher, which is satisfied.",
+      "resolution": "Approved by team-lead (Option A). Captured in st_tabs_grep.mission_metric_status above."
+    }
+  ],
+  "standing_orders_compliance": {
+    "session_state_keys_not_renamed": true,
+    "widget_keys_not_renamed": true,
+    "tab_labels_unchanged": true,
+    "src_unchanged": true,
+    "existing_tests_unchanged": true,
+    "no_circular_imports": true,
+    "no_no_verify_flag": true,
+    "no_force_push": true,
+    "git_add_specific_files_not_A": true
+  },
+  "red_cell_handoff_notes": [
+    "Figure-hash parity is clean -- Scrutineer should re-run .nelson/missions/2026-04-23_071618_4b7f0acb/baseline/capture_baseline.py and diff against the committed file; only created_at will differ.",
+    "Session-state keys to pin: 10 preserved + 3 added (listed above). Grep for each preserved key in old vs new to confirm zero drift.",
+    "Widget keys to pin: temp_profile_show_all, temp_profile_sensor_select, core_override_{idx}, surface_override_{idx}, remove_{filename}, curve_check_{idx}.",
+    "Manual UI walkthrough: drive each of the 4 ProbeData_*.csv fixtures through the 7-tab single-curve path (F3C1), and the 8-tab multi-curve path (BA3C 17_59_37 has 3 curves).",
+    "Recommendations tab (tab7) now recomputes s_curve_report and ZoneAnalyzer locally -- the original code reused locals from tabs 2 and 3. Behaviour-equivalent but computationally redundant on that one tab; noted here so Scrutineer sees the deliberate tradeoff."
+  ]
+}

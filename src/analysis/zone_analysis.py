@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
 from config.constants import TEMPERATURE_ZONES
+from src.data.column_helpers import get_core_temperature_column
 
 
 class ZoneAnalyzer:
@@ -35,7 +36,7 @@ class ZoneAnalyzer:
                 
                 # Ensure the column exists
                 if temp_col is None or temp_col not in zone_data.columns:
-                    temp_col = 'CoreTemperature' if 'CoreTemperature' in zone_data.columns else 'CoreAverage'
+                    temp_col = get_core_temperature_column(zone_data)
                 
                 zone_profiles[zone_key] = {
                     'data': zone_data,
@@ -193,7 +194,7 @@ class ZoneAnalyzer:
                 
                 # Ensure the column exists
                 if temp_col is None or temp_col not in zone_data.columns:
-                    temp_col = 'CoreTemperature' if 'CoreTemperature' in zone_data.columns else 'CoreAverage'
+                    temp_col = get_core_temperature_column(zone_data)
                 
                 # Calculate heating rate within zone
                 temp_diff = zone_data[temp_col].diff()
@@ -342,7 +343,7 @@ class ZoneAnalyzer:
         
         if temp_col is None or temp_col not in self.data.columns:
             # Fallback to core temperature if identification failed
-            temp_col = 'CoreTemperature' if 'CoreTemperature' in self.data.columns else 'CoreAverage'
+            temp_col = get_core_temperature_column(self.data)
         
         return self.data[
             (self.data[temp_col] >= zone_config['min']) &

@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Sentinel",
+  "timestamp": "2026-04-23T08:50:00+00:00",
+  "hull_integrity_pct": 100,
+  "hull_integrity_status": "Green",
+  "relief_requested": false,
+  "context_summary": "Pre-flight safety net complete. Three regression tests landed under tests/ and a figure-hash baseline landed under baseline/. test_physics_flag_regression.py::test_generate_standard_columns_for_df_preserves_physics FAILS on HEAD as required (catches the physics-flag race where _generate_standard_columns_for_df unconditionally copies VirtualSurfaceTemperature back over a physics-corrected SurfaceTemperature). The sibling test_regenerate_standard_columns_preserves_physics PASSES on HEAD because _regenerate_standard_columns already guards on the physics_corrected flag - this provides a second assertion Captain Resolute must keep green. test_curve_switching_side_effects.py PASSES (pins surviving override behaviour). test_column_helper_contract.py FAILS with ModuleNotFoundError pending Captain Diligent (T6) adding src/data/column_helpers.py. Figure baseline captured for all four ProbeData_*.csv fixtures including the 3-curve BA3C_17_59_37 file. No production code touched. Ready to stand down."
+}
