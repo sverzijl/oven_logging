@@ -4,220 +4,97 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Streamlit-based thermal profile analyzer for optimizing bread baking processes in manufacturing environments. The application analyzes temperature data from multi-sensor probes to provide insights on baking quality, efficiency, and yield.
+Streamlit application that analyzes CSV exports from **Combustion Inc. temperature probes** to profile bread baking in manufacturing environments. A single probe contains 8 sensors (T1–T8) arranged along its length; depending on how deep the probe is inserted into the loaf, different sensor ranges end up "in the bread" (core), "at the crust/interface" (surface), or "in the oven air" (ambient). The app infers those roles, extracts individual baking curves from the time series, and produces thermal-profile analytics.
 
 ## Key Commands
 
-### Setup and Installation
+Virtual environment lives in `venv/` (Linux/macOS) or `venv\Scripts\` (Windows); activate before any command below.
+
 ```bash
-# Create virtual environment (requires Python 3)
+# Setup
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate           # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-### Running the Application
-```bash
-# IMPORTANT: Always activate the virtual environment first
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Run Streamlit app
+# Run the app
 streamlit run app.py
-
-# Run with specific port
 streamlit run app.py --server.port 8080
-```
 
-### Testing
-```bash
-# IMPORTANT: Always activate the virtual environment first
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Tests (no pytest config file — discovery is default)
+pytest                                                # full suite under tests/
+pytest tests/test_per_curve_sensor_identification.py  # single file
+pytest tests/test_thermal_plotter.py::TestThermalPlotter::test_method_name  # single test
+pytest --cov=src tests/                               # coverage
 
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_thermal_analysis.py
-
-# Run with coverage
-pytest --cov=src tests/
-```
-
-### Code Quality
-```bash
-# IMPORTANT: Always activate the virtual environment first
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Format code
+# Quality (tools are not currently pinned in requirements.txt — install as needed)
 black .
-
-# Lint code
 flake8 src/ tests/
-
-# Type checking
 mypy src/
 ```
 
-### Python Environment
-- **Python Version**: This project requires Python 3 (use `python3` command)
-- **Virtual Environment**: Always use the virtual environment (`venv`) to avoid dependency conflicts
-- **Activation**: Remember to activate the virtual environment before running any commands
-- **Package Management**: You know you can use pip to install whatever packages you need
+**Project layout note:** `tests/` holds the real pytest suite. The many `test_*.py`, `analyze_*.py`, `debug_*.py`, and `check_*.py` files at the **repo root** are one-off investigation scripts (not pytest tests) kept as historical artifacts — do not assume `pytest` at root picks them up, and be skeptical of them as specs. Two real CSVs (`ProbeData_*.csv`) and one curated sample under `data/sample_profiles/` are used as fixtures by several ad-hoc scripts.
 
-## Architecture Overview
+## CSV Input Format
 
-The application processes CSV files containing temperature probe data with the following structure:
-- 8 temperature sensors (T1-T8) measuring different positions
-- Virtual temperature calculations (Core, Surface, Ambient) with dynamic sensor assignments
-- Time-series data with 5-second intervals
-- Critical temperature zones for bread baking analysis
+Combustion Inc. CSVs have **10 header lines of metadata** (colon-separated `key: value`) followed by the data table. The loader reads metadata with manual line splitting and then uses `pd.read_csv(..., skiprows=10)`. Columns of interest:
 
-### Data Transformation Pipeline
+- `T1`…`T8` — raw sensor temperatures
+- `Virtual{Core,Surface,Ambient}Temperature` — firmware-computed virtual channels
+- `Virtual{Core,Surface,Ambient}Sensor` — which physical sensor (e.g. `T1`, `T4`) the firmware picked for each role at that sample. **This assignment can change sample-to-sample**, so the app takes the mode over the curve.
+- Header fields used elsewhere: `Probe S/N`, `Sample Period` (ms, sometimes with trailing comma), `Created` (timestamp).
 
-The application uses a multi-stage transformation pipeline for temperature data:
+Probe-name labels shown in plots/legends are `{last4-of-S/N}_{HH:MM}[_C{n}]` (e.g. `98DE_13:51`, or `F3C1_09:11_C1` for multi-curve files) — this convention is relied on for legend compactness; falls back to filename parsing when metadata is missing.
 
-1. **Raw Data Loading**: CSV data with Virtual[Core|Surface|Ambient]Temperature columns
-2. **Curve Extraction**: Individual baking sessions are identified and extracted
-3. **Per-Curve Sensor Identification**: Each curve gets independent sensor role assignment
-4. **Physics-Based Correction**: Corrects firmware surface sensor misidentification per curve
-5. **Standardized Columns**: Creates CoreTemperature, SurfaceTemperature, AmbientTemperature
-6. **Manual Overrides**: Optional user-specified sensor assignments per curve
+## Architecture
 
-**Important Architecture Notes**:
-- **Per-Curve Identification**: Sensor roles are identified independently for each curve, allowing for different probe positions between baking sessions
-- Transformations must be applied in order to prevent overwrites
-- The `physics_corrected` flag tracks when surface correction has been applied
-- Manual overrides layer on top of physics corrections, not replace them
-- Each curve in multi-curve files maintains its own transformation state
-- Sensor assignments are stored in `curve_sensor_assignments[curve_index]`
+### Runtime shape
 
-### Critical Code Paths
+- **`app.py` (~1,340 lines)** is the Streamlit entry point and holds all UI, tab layout, and per-widget session-state wiring. It imports analyzers from `src/analysis/`, loaders from `src/data/`, and plotting from `src/visualization/`. The tab set has two variants — 7 tabs for a single curve, 8 when multiple curves are loaded (adds **Curve Comparison**).
+- **Multi-file / multi-curve session state** — `st.session_state.files` is `{filename: {loader, metadata, curves}}`. `st.session_state.all_curves` is a flat list across files; `global_curve_index` indexes into it; `current_curve_index` is the index **within the loader for the currently selected file**. When the user switches curves, the app rebuilds `ThermalAnalyzer` and `SCurveAnalyzer` from scratch — analyzers are not shared across curves.
+- `curve_info` dicts (built in `app.py`) have `loader` at the **top level**, not nested inside `curve_data`. Don't look for it in `curve_data`.
 
-1. **Initial Load**: `_clean_data()` prepares data, `_extract_all_baking_curves()` identifies curves
-2. **Curve Identification**: `_identify_sensor_roles_for_curve()` applies per-curve sensor detection
-3. **Physics Correction**: Applied independently for each curve during identification
-4. **Curve Switching**: `set_current_curve()` loads curve-specific sensor assignments
-5. **Manual Override**: `_regenerate_standard_columns()` respects existing corrections
+### Data transformation pipeline (the heart of the bugs this project keeps hitting)
 
-### Known Vulnerabilities Fixed
+Standardised columns `CoreTemperature`, `SurfaceTemperature`, `AmbientTemperature` are produced by layering transformations — they are **not** the same as the raw `Virtual*Temperature` columns, because physics corrections and manual overrides can swap the underlying sensor.
 
-1. **Surface Temperature Overwrite**: Physics corrections were being lost when regenerating columns
-   - Fixed by checking `physics_corrected` flag before regenerating
-   - Ensures SurfaceTemperature reflects the corrected sensor values
+Order of layers (must be preserved):
+1. **Virtual columns** copied from the CSV's firmware-picked channels.
+2. **Physics-based surface correction** (`src/data/surface_sensor_detector.py`) — overrides the firmware's surface pick when the thermodynamic classifier is more confident. Gated by `config/constants.py: SURFACE_DETECTION_CONFIG`.
+3. **Manual overrides** from the sidebar UI, layered *on top of* physics corrections (never replacing them silently).
+4. **Backward-compat averages** `CoreAverage` / `SurfaceAverage` — static means of T1–T4 / T5–T8. These **do not update with overrides** on purpose; any analysis that must respect overrides should read `CoreTemperature` / `SurfaceTemperature`.
 
-2. **Multi-Curve Sensor Assignment**: All curves were sharing the same sensor assignments
-   - Fixed by implementing per-curve sensor identification
-   - Each curve now independently identifies sensor roles based on its own data
-   - Allows for different probe positions between baking sessions
+Two implementations of this pipeline exist side by side:
 
-### Best Practices
+- **`ThermalProfileLoader` (`src/data/loader.py`, ~1,400 lines)** — the live one used by `app.py`. It mutates DataFrames in place and uses a `physics_corrected` flag on `curve_sensor_assignments[curve_index]` to prevent `_regenerate_standard_columns()` / `_generate_standard_columns_for_df()` from clobbering the corrected surface channel. `self.data` tracks the *currently selected* curve and is swapped by `set_current_curve()`.
+- **`TransformationManager` (`src/data/transformation_manager.py`)** — a newer, centralized, state-tracking replacement. **Not yet wired into the loader** — it exists and is tested but `app.py` still goes through the old path. See `TRANSFORMATION_MANAGER_INTEGRATION.md`. Expect to either finish that integration or delete it during the planned refactor.
 
-- Always check for existing transformations before regenerating columns
-- Use standardized column names (CoreTemperature, etc.) in analysis code
-- Preserve transformation flags when switching between curves
-- Test with multi-curve files to ensure transformations persist
+### Per-curve sensor identification
 
-### Data Structures
+A single CSV can contain multiple bakes (the probe is left on across runs). `_extract_all_baking_curves()` splits them; `_identify_sensor_roles_for_curve()` runs independently per curve and stores results in `curve_sensor_assignments[curve_index]`. This matters because the probe may be re-inserted at a different depth between runs, so **role→physical-sensor mapping genuinely differs per curve**. Sensor-aware getters all take an optional `curve_index` (falling back to `current_curve_index`): `get_core_sensor(i)`, `get_surface_sensor(i)`, `get_internal_sensors(i)`, `get_ambient_sensors(i)`, `get_sensor_assignments_with_overrides(i)`. Analysis/viz code should **always pass the index explicitly** when iterating multiple curves.
 
-#### curve_info Structure
-The `curve_info` dictionary is used throughout the application to track individual curves:
+### Config as source of truth
 
-```python
-curve_info = {
-    'filename': str,              # Original CSV filename
-    'file_curve_index': int,      # Index of curve within the file (0-based)
-    'curve_data': {
-        'data': DataFrame         # Pandas DataFrame with temperature data
-    },
-    'loader': ThermalProfileLoader,  # Loader instance (at top level, NOT in curve_data)
-    'metadata': dict              # Metadata from CSV header
-}
-```
+`config/constants.py` is the canonical place for domain constants — do not hardcode:
 
-**Important**: The `loader` is stored at the top level of `curve_info`, not inside `curve_data`.
+- `TEMPERATURE_ZONES`, `S_CURVE_ZONES`, `S_CURVE_BENCHMARKS` — bread-chemistry zones (yeast-kill, starch gelatinization, etc.) and their target timings.
+- `BAKEOUT_TARGETS`, `PRODUCT_MOISTURE` — per-product (white_pan, sourdough, baguette, …) bake-out windows and moisture decay parameters.
+- `SURFACE_DETECTION_CONFIG`, `INTERNAL_SENSOR_CONFIG` — tunables for the physics-based classifiers; `INTERNAL_SENSOR_CONFIG.TEMP_THRESHOLD = 103.0` (max temp counted as internal crumb) is deliberately set at 100 °C + 3 °C margin.
+- `SENSOR_NAMES` — default labels; the UI overlays dynamic role-based names on top via `app.py: get_dynamic_sensor_names()`.
 
-### TransformationManager (New Architecture)
+`src/visualization/visualization_config.py` (`VisualizationConfig`) centralises colors, formatting, and zone-based color mapping used across plots — new plots should route through it rather than re-defining palettes.
 
-A new `TransformationManager` class has been implemented in `src/data/transformation_manager.py` to prevent column overwrite issues:
+## Known Fragile Areas
 
-**Key Features**:
-- Centralized transformation logic with explicit state tracking
-- Prevents accidental overwrites of physics corrections
-- Supports transformation layering (base → physics → manual)
-- Comprehensive test coverage proving it prevents the original bug
+These are the recurring bug surfaces called out across `REFACTORING_ANALYSIS.md`, `CODE_REVIEW_SUMMARY.md`, and the `*_FIX_*.md` files (the repo has ~25 such docs — they are investigation/plan notes, not authoritative specs):
 
-**Integration Status**: Ready for integration but not yet integrated into main loader
+- **Column regeneration** — any code path that recreates `CoreTemperature` / `SurfaceTemperature` must check the `physics_corrected` flag or it will undo the surface correction. This has bitten the project more than once.
+- **Curve switching** — `set_current_curve()` has hidden side-effects (rewrites `self.data`, triggers regeneration); manual overrides and physics corrections must survive the switch.
+- **Internal-sensor filtering** — `get_internal_sensors()` is recomputed per call with no cache; if called with a stale `data` argument it returns wrong sensors.
+- **`loader.py.backup`** is an old snapshot kept in-tree — do not edit it and do not assume it is current.
 
-See `TRANSFORMATION_MANAGER_INTEGRATION.md` for integration guide.
+## Repo Hygiene Notes
 
-## Visualization Features
-
-### Curve Comparison
-
-The application supports comparing multiple thermal curves with enhanced visualization:
-
-#### Legend Positioning
-- Legends are positioned **below** graphs to maximize horizontal plotting space
-- Horizontal orientation for better readability
-- Applies to all comparison plots:
-  - Temperature Profiles
-  - Heating Rate Analysis
-  - S-Curve Comparison
-
-#### Probe Naming Convention
-The system automatically generates concise probe identifiers from CSV metadata:
-
-**Format**: `{Last 4 digits of Probe S/N}_{HH:MM}`
-- Single curve example: `98DE_13:51`
-- Multi-curve example: `F3C1_09:11_C1`, `F3C1_09:11_C2`
-
-**Metadata Sources**:
-- Probe S/N from CSV header
-- Timestamp from "Created" field in CSV header
-- Falls back to filename parsing if metadata unavailable
-
-**Benefits**:
-- Short legends prevent graph compression
-- Full probe information available in hover tooltips
-- Unique identification for multi-curve files
-
-### Zone Analysis Improvements
-
-#### Color-Coded Zone Visualization
-The Zone Analysis comparison now uses **zone-based coloring** instead of curve-based coloring:
-- Each temperature zone maintains its distinctive color across all visualizations
-- Consistent color mapping between single curve and comparison views
-- Makes it easy to identify and compare specific zones across curves
-
-#### Multiple Visualization Options
-Three visualization types are available for Zone Analysis comparison:
-
-1. **Grouped Bar Chart** (Default)
-   - Bars colored by zone, not by curve
-   - Side-by-side comparison of zone durations
-   - Best for comparing specific zones across curves
-
-2. **Stacked Bar Chart**
-   - Shows total baking time and zone composition
-   - Each bar represents one curve
-   - Best for understanding zone proportions
-
-3. **Heatmap View**
-   - Curves on Y-axis, zones on X-axis
-   - Color intensity indicates duration
-   - Best for large comparisons (5+ curves)
-
-#### Visualization Configuration
-All visualization settings are centralized in `VisualizationConfig`:
-- Consistent color schemes across all plots
-- Standardized formatting for durations, temperatures, and percentages
-- Reusable configuration for future visualizations
-
-### Heating Rate Analysis
-The heating rate comparison shows:
-- Core and surface heating rates on separate subplots
-- Consistent curve colors between subplots
-- Consistency scores displayed as metrics
-- Horizontal legend below the plot
+- The repo root is cluttered with ad-hoc `analyze_*.py`, `debug_*.py`, `check_*.py` scripts and ~25 `*_PLAN.md` / `*_SUMMARY.md` / `*_ANALYSIS.md` files. Treat them as historical context, not specs. A documented goal is to clean these up during refactoring.
+- Real CSV probe exports live at the repo root (`ProbeData_*.csv`) — several scripts load them by relative path.
+- Generated artifacts like `zone_comparison_test.html` (4.6 MB) and PNG screenshots are committed; avoid regenerating/committing more unless asked.
+- `tests/` uses class-based pytest style and injects `sys.path` in each file rather than relying on a `conftest.py` — adding new tests should either follow the same pattern or introduce a real `conftest.py`.
