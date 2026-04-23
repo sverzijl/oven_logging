@@ -7,11 +7,12 @@ import re
 from datetime import datetime
 import io
 from config.constants import INTERNAL_SENSOR_CONFIG
+from src.data.sensor_assignment_manager import SensorAssignmentManager
 
 
 class ThermalProfileLoader:
     """Load and parse thermal profile CSV files from Combustion Inc. probes."""
-    
+
     def __init__(self):
         self.metadata = {}
         self.data = None
@@ -20,6 +21,7 @@ class ThermalProfileLoader:
         self.all_curves = []  # Store all detected curves
         self.current_curve_index = 0  # Track which curve is currently selected
         self._sensor_overrides = {}  # Store sensor overrides per curve {curve_index: {'core': [...], 'surface': [...], 'ambient': [...]}}
+        self._sensor_manager = SensorAssignmentManager(self)
         
     def load_csv(self, file_path: str = None, file_buffer=None) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -1005,125 +1007,16 @@ class ThermalProfileLoader:
         return None
     
     def _validate_sensor_assignments(self, df: pd.DataFrame) -> None:
-        """
-        Validate sensor assignments using thermodynamic principles.
-        Issues warnings if assignments seem incorrect.
-        """
-        # Get temperature columns
-        temp_cols = [col for col in df.columns if col.startswith('T') and col[1:].isdigit()]
-        if len(temp_cols) < 3:
-            return
-        
-        # Calculate average temperatures for assigned sensors
-        role_temps = {}
-        for role in ['core', 'surface', 'ambient']:
-            sensor = self.sensor_assignments.get(role)
-            if sensor and sensor in temp_cols:
-                role_temps[role] = {
-                    'sensor': sensor,
-                    'mean': df[sensor].mean(),
-                    'max': df[sensor].max()
-                }
-        
-        warnings = []
-        
-        # Check temperature ordering (core < surface < ambient)
-        if 'core' in role_temps and 'surface' in role_temps:
-            if role_temps['core']['mean'] > role_temps['surface']['mean']:
-                warnings.append(f"⚠️  Core sensor ({role_temps['core']['sensor']}) has higher average temperature than surface sensor ({role_temps['surface']['sensor']})")
-        
-        if 'surface' in role_temps and 'ambient' in role_temps:
-            if role_temps['surface']['mean'] > role_temps['ambient']['mean']:
-                warnings.append(f"⚠️  Surface sensor ({role_temps['surface']['sensor']}) has higher average temperature than ambient sensor ({role_temps['ambient']['sensor']})")
-        
-        # Check heating rates in first 5 minutes
-        mask = df['TimeMinutes'] <= 5.0
-        if mask.sum() > 2:
-            for role, expected_range in [('core', (0.2, 3)), ('surface', (2, 15)), ('ambient', (10, 50))]:
-                if role in role_temps:
-                    sensor = role_temps[role]['sensor']
-                    temps = df.loc[mask, sensor]
-                    times = df.loc[mask, 'TimeMinutes']
-                    if len(temps) > 2:
-                        coeffs = np.polyfit(times, temps, 1)
-                        heat_rate = coeffs[0]
-                        min_rate, max_rate = expected_range
-                        if heat_rate < min_rate or heat_rate > max_rate:
-                            warnings.append(f"⚠️  {role.capitalize()} sensor ({sensor}) has unusual heating rate: {heat_rate:.1f}°C/min (expected {min_rate}-{max_rate}°C/min)")
-        
-        # Check for sensor assignment consistency
-        for role, info in [('core', 'core_info'), ('surface', 'surface_info'), ('ambient', 'ambient_info')]:
-            if info in self.sensor_assignments:
-                percentage = self.sensor_assignments[info].get('percentage', 100)
-                if percentage < 80:
-                    warnings.append(f"⚠️  {role.capitalize()} sensor assignment changes frequently ({percentage:.1f}% consistency) - probe may not be properly inserted")
-        
-        # Print warnings if any
-        if warnings:
-            print("\nSensor Assignment Validation Warnings:")
-            for warning in warnings:
-                print(f"  {warning}")
-            
-            # Run thermodynamic classification for comparison
-            try:
-                from ..data.thermodynamic_sensor_classifier import ThermodynamicSensorClassifier
-                classifier = ThermodynamicSensorClassifier(df, temp_cols)
-                thermo_assignments = classifier.classify_sensors()
-                
-                print("\n  Alternative thermodynamic classification suggests:")
-                for role, sensors in thermo_assignments.items():
-                    print(f"    {role.upper()}: {', '.join(sensors)}")
-            except Exception as e:
-                # Silently fail if thermodynamic classifier not available
-                pass
-    
+        return self._sensor_manager.validate_sensor_assignments(df)
+
     def _get_automatic_core_sensors(self, curve_index: int) -> List[str]:
-        """Get automatically detected core sensors for a specific curve."""
-        # Use curve-specific sensor assignments if available
-        if hasattr(self, 'curve_sensor_assignments') and curve_index in self.curve_sensor_assignments:
-            curve_assignments = self.curve_sensor_assignments[curve_index]
-            # Parse core sensor assignment
-            core_assignment = curve_assignments.get('core', '')
-            if 'core_info' in curve_assignments:
-                # Use all sensors from core_info if available
-                all_sensors = curve_assignments['core_info'].get('all_sensors', {})
-                return list(all_sensors.keys())
-            elif core_assignment and core_assignment != 'Unknown':
-                # Parse comma-separated list
-                return [s.strip() for s in core_assignment.split(',')]
-        
-        # Fallback to position-based heuristic
-        # Core sensors are the innermost consecutive sensors
-        return ['T1', 'T2', 'T3', 'T4']
-    
+        return self._sensor_manager.get_automatic_core_sensors(curve_index)
+
     def _get_automatic_surface_sensors(self, curve_index: int) -> List[str]:
-        """Get automatically detected surface sensors for a specific curve."""
-        # Use curve-specific sensor assignments if available
-        if hasattr(self, 'curve_sensor_assignments') and curve_index in self.curve_sensor_assignments:
-            curve_assignments = self.curve_sensor_assignments[curve_index]
-            # Use primary surface sensor assignment
-            surface_assignment = curve_assignments.get('surface', '')
-            if surface_assignment and surface_assignment != 'Unknown':
-                # Return as list for compatibility
-                return [surface_assignment]
-        
-        # Fallback to position-based heuristic
-        # Surface is a single sensor at the interface (between core and ambient)
-        return ['T7']
-    
+        return self._sensor_manager.get_automatic_surface_sensors(curve_index)
+
     def _get_automatic_ambient_sensors(self, curve_index: int) -> List[str]:
-        """Get automatically detected ambient sensors for a specific curve."""
-        # Use curve-specific sensor assignments if available
-        if hasattr(self, 'curve_sensor_assignments') and curve_index in self.curve_sensor_assignments:
-            curve_assignments = self.curve_sensor_assignments[curve_index]
-            # Use primary ambient sensor assignment
-            ambient_assignment = curve_assignments.get('ambient', '')
-            if ambient_assignment and ambient_assignment != 'Unknown':
-                # Return as list (ambient could be multiple sensors above surface)
-                return [ambient_assignment]
-        
-        # Fallback - ambient is the outermost sensor(s)
-        return ['T8']
+        return self._sensor_manager.get_automatic_ambient_sensors(curve_index)
     
     def _apply_standard_columns(self, df: pd.DataFrame, curve_index: int) -> None:
         """Single canonical writer of CoreTemperature / SurfaceTemperature / AmbientTemperature.
