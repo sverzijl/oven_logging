@@ -1,0 +1,58 @@
+{
+  "ship": "HMS Resolute",
+  "captain": "Resolute",
+  "station": 2,
+  "task_id": 4,
+  "status": "completed",
+  "commit_sha": "d156add",
+  "branch": "refactor/structural-cleanup",
+  "files_touched": ["src/data/loader.py"],
+  "lines_inserted": 75,
+  "lines_deleted": 232,
+  "net_line_delta": -157,
+
+  "column_regen_paths_before": 3,
+  "column_regen_paths_after": 1,
+  "column_regen_paths_after_note": "_apply_standard_columns(df, curve_index) is the sole canonical writer for the virtual-sensor path. _regenerate_standard_columns() and _generate_standard_columns_for_df() are thin (2-4 line) delegates. The dynamic-classification fallback (_classify_sensors_dynamically) is intentionally not routed through the helper — it writes sensor means from thermodynamic classification and has no Virtual* fallback, so re-running the helper would wipe its assignment. That path was not the bug surface and remains orthogonal.",
+
+  "grep_surface_assignment_count_after": 9,
+  "grep_surface_assignment_breakdown": {
+    "line_348_physics_correction": "1 write inside _apply_physics_based_surface_correction — the physics write itself",
+    "lines_625_642_699_dynamic_fallback": "3 writes inside _classify_sensors_dynamically (not-enough-sensors fallback, thermodynamic result, temperature-based fallback) — only one executes per call, and this path is only taken when Virtual* columns are missing",
+    "lines_1164_1172_canonical_helper": "5 lines inside _apply_standard_columns forming one if/elif/elif/elif/elif ladder: override > physics > virtual > SurfaceAverage > T7/T8 mean — exactly one executes per call"
+  },
+  "grep_surface_assignment_justification": "The 9 write sites collapse to exactly 2 behavioural code paths: (A) virtual-sensor path which now routes through the _apply_standard_columns ladder, and (B) dynamic-classification fallback for CSVs missing Virtual* columns. The bug was in (A); the fix removes the three duplicate fan-outs within (A) down to the single helper. Path (B) is structurally independent and was never implicated in the physics-flag race.",
+
+  "figure_hash_parity": "Output columns byte-identical to HEAD. 6/6 curve figure hashes match HEAD-reproduced reference (d76ddc66.../92f6460.../92f6460.../30d5fe94.../3f6c5c08.../5ef719dc...). Committed P0 baseline (6ed6803b.../2e46d202.../2e46d202.../dae26a2c.../b756bccc.../5a5e024a...) diverges from both HEAD and this branch — verified by stashing loader.py and re-running capture_baseline.py on clean HEAD: same hashes as this branch. Pre-existing plotly/env drift, flagged to admiral before commit.",
+
+  "test_results": {
+    "physics_flag_regression": "before: 1 FAILED, 1 PASSED — after: 2 PASSED",
+    "full_suite_before": "9 failed / 69 passed / 1 skipped (mission baseline)",
+    "full_suite_after": "7 failed / 71 passed / 1 skipped (physics test now passes; test_deep_insertion did not flake this run — both pre-existing flakes can be 7F or 8F per briefing)",
+    "pre_existing_failures_unchanged": [
+      "test_curve_comparison_integration.py::test_zone_color_consistency",
+      "test_internal_sensor_filtering.py::test_realistic_baking_profile",
+      "test_surface_sensor_detection.py::test_shallow_insertion",
+      "test_visualization.py::test_plot_zone_duration_comparison",
+      "test_visualization.py::test_single_curve_comparison",
+      "test_visualization.py::test_many_curves_comparison",
+      "test_visualization.py::test_unknown_zone_handling"
+    ],
+    "flaky_pre_existing": "test_surface_sensor_detection.py::test_deep_insertion — briefed as order-dependent; did not fire this run"
+  },
+
+  "deliverables_satisfied": {
+    "step_1_failing_test_confirmed": true,
+    "step_2_single_path_designed": "_apply_standard_columns(df, curve_index) — override > physics > virtual > average > raw-T ladder",
+    "step_3_failing_test_passes": true,
+    "step_4_dead_method_deleted": "_extract_all_baking_curves_old removed — grep shows zero hits in src/, app.py, tests/",
+    "step_5_full_suite_validated": "71 passed, physics regression resolved, no new failures",
+    "step_6_committed": "d156add, only src/data/loader.py staged, no --no-verify",
+    "step_7_damage_report": "this file"
+  },
+
+  "app_import_smoke": "python -c 'import app' — no exceptions",
+  "red_cell_notes": "Reviewer should verify: (a) my refactor produces the same output values as HEAD — run `python .nelson/missions/2026-04-23_071618_4b7f0acb/baseline/capture_baseline.py` on HEAD (with my loader stashed) and confirm hashes match what's produced now. (b) grep 'df\\[\\'SurfaceTemperature\\'\\] = ' src/data/loader.py → 9 hits across 3 distinct methods, of which the bug-surface method (the virtual path) has been collapsed to a single ladder in _apply_standard_columns. (c) physics regression test must be unmodified from Sentinel's 68a08b9.",
+
+  "follow_ups_for_next_captain": "Baseline at .nelson/.../figure-hashes.json should be refreshed before T7 (Dreadnought) uses it for parity checks — admiral to decide whether to recapture or investigate the plotly/env drift. The dynamic-classification fallback (_classify_sensors_dynamically) remains a second column-writing code path — not a bug today, but a candidate for a future unification pass if DRY is tightened further."
+}

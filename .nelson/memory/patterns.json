@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-23T10:12:02Z",
+  "pattern_count": 1,
+  "patterns": [
+    {
+      "mission_id": "2026-04-23_071618_4b7f0acb",
+      "completed_at": "2026-04-23T10:12:02Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Stabilise oven_logging: fix physics-flag race in loader.py, decompose app.py into tabs modules, extract SensorAssignmentManager, deduplicate CoreTemperature pattern (21 sites), delete TransformationManager, archive dead scripts/docs \u2014 zero behavioural change",
+      "adopt": [
+        "Pre-flight Station-0 safety-net captain writes failing regression tests BEFORE any other captain sails.",
+        "Figure-hash SHA-256 baseline across representative fixtures as refactor parity metric.",
+        "Serial dependency graph as legitimate split-keel mitigation (temporal exclusion on shared files).",
+        "Red-cell parity isolation: swap HEAD~1 in, re-run parity check, prove refactor is lossless.",
+        "Three-option-with-recommendation deviation protocol (Dreadnought modelled it well at T7)."
+      ],
+      "avoid": [
+        "Over-specifying grep metrics in briefings (T7 st.tabs metric was over-specified, caused deviation pause).",
+        "Capturing parity baseline before the critical fix has landed \u2014 T4 found the P0 baseline environmentally stale.",
+        "Assuming characterisation tests need CSV fixtures \u2014 prefer synthetic for contract tests.",
+        "Implicit closure-captured state surviving a decomposition \u2014 identify and promote to explicit interface beforehand."
+      ],
+      "standing_order_violations": [
+        {
+          "order": "split-keel",
+          "description": [
+            "HMS Resolute",
+            "HMS Argyll",
+            "HMS Diligent all claim src/data/loader.py ownership"
+          ],
+          "severity": "low",
+          "corrective_action": "Dependency graph enforces serial execution: task 5 depends on 4; task 6 depends on 4+5. Captains never run concurrently on loader.py \u2014 explicitly sanctioned by split-keel.md remedy: 'serialize them or split the file'. Accepted deviation."
+        }
+      ],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 1,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Pre-flight safety net",
+      "owner": "HMS Sentinel",
+      "deliverable": "3 regression tests committed to tests/ (test_physics_flag_regression.py fails on main; test_curve_switching_side_effects.py and test_column_helper_contract.py exist and fail appropriately); baseline pytest pass/fail recorded; figure-hash baseline captured for 4 ProbeData_*.csv fixtures",
+      "dependencies": [],
+      "dependents": [
+        2,
+        3,
+        4
+      ],
+      "station_tier": 0,
+      "file_ownership": [
+        "tests/test_physics_flag_regression.py",
+        "tests/test_curve_switching_side_effects.py",
+        "tests/test_column_helper_contract.py",
+        ".nelson/missions/2026-04-23_071618_4b7f0acb/baseline/**"
+      ],
+      "validation_required": "physics-flag test fails on refactor/structural-cleanup @ HEAD (i.e. pre-Captain B); other two tests pass or fail as designed; figure-hash JSON written",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Archive dead scripts and stale docs",
+      "owner": "HMS Archivist",
+      "deliverable": "All root-level analyze_*.py, debug_*.py, check_*.py, and root-level test_*.py moved to archive/scripts/; superseded *_PLAN.md/*_SUMMARY.md/*_ANALYSIS.md/*_DESIGN.md moved to archive/docs/ (CLAUDE.md, REFACTORING_ANALYSIS.md, CODE_REVIEW_SUMMARY.md remain at root); src/data/loader.py.backup and src/data/improved_curve_detection{,_v2}.py deleted; grep-verified zero imports of deleted/moved modules in src/, app.py, tests/",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "analyze_*.py",
+        "debug_*.py",
+        "check_*.py",
+        "test_*.py",
+        "*.md",
+        "src/data/loader.py.backup",
+        "src/data/improved_curve_detection.py",
+        "src/data/improved_curve_detection_v2.py",
+        "archive/**"
+      ],
+      "validation_required": "pytest tests/ still green; streamlit run app.py boots; grep for deleted module names returns zero hits in live code paths",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Delete TransformationManager",
+      "owner": "HMS Swiftsure",
+      "deliverable": "src/data/transformation_manager.py deleted; TRANSFORMATION_MANAGER_INTEGRATION.md deleted; any tests referencing transformation_manager removed; grep-verified zero remaining imports of transformation_manager in src/, app.py, tests/",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/data/transformation_manager.py",
+        "TRANSFORMATION_MANAGER_INTEGRATION.md"
+      ],
+      "validation_required": "pytest tests/ still green; grep for TransformationManager returns zero hits",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "Fix physics-flag race in loader.py",
+      "owner": "HMS Resolute",
+      "deliverable": "src/data/loader.py physics-corrected surface-overwrite bug fixed; Captain G's test_physics_flag_regression.py goes from failing to passing; the three column-regeneration paths (_identify_sensor_roles_for_curve, _regenerate_standard_columns, _generate_standard_columns_for_df) collapsed into one canonical implementation; _extract_all_baking_curves_old() (loader.py:749-888) deleted",
+      "dependencies": [
+        1
+      ],
+      "dependents": [
+        5,
+        6
+      ],
+      "station_tier": 2,
+      "file_ownership": [
+        "src/data/loader.py"
+      ],
+      "validation_required": "test_physics_flag_regression.py passes; pytest tests/ all green; figure-hash parity vs P0 baseline for all 4 fixtures; red-cell confirms test asserts data-not-flags AND confirms only one column-regen path remains; TDD-audit: test commit precedes fix commit in git log",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 5,
+      "name": "Extract SensorAssignmentManager",
+      "owner": "HMS Argyll",
+      "deliverable": "New src/data/sensor_assignment_manager.py containing SensorAssignmentManager class; _get_automatic_core_sensors/_surface_sensors/_ambient_sensors (loader.py:1236-1282) and _validate_sensor_assignments (loader.py:1163-1235) moved into the new class; loader.py delegates with no duplicate implementation left behind; new tests/test_sensor_assignment_manager.py pins the contract (characterisation test)",
+      "dependencies": [
+        4
+      ],
+      "dependents": [
+        6,
+        7
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/data/sensor_assignment_manager.py",
+        "tests/test_sensor_assignment_manager.py"
+      ],
+      "validation_required": "characterisation test passes on both pre- and post-extraction; pytest tests/ all green; figure-hash parity vs P0; grep confirms no duplicate implementation of the extracted methods in loader.py",
+      "rollback_note_required": false,
+      "admiralty_action_required": false,
+      "note": "Serially dependent on T4; modifies src/data/loader.py after T4 commits (no concurrent edit). T4 owns the file in the conflict-scan sense."
+    },
+    {
+      "id": 6,
+      "name": "Dedupe CoreTemperature/CoreAverage across 21 sites",
+      "owner": "HMS Diligent",
+      "deliverable": "New src/data/column_helpers.py with get_core_temperature_column(df) helper; all 21 call sites in src/analysis/{s_curve,thermal,zone}_analysis.py, src/visualization/plots.py, src/data/loader.py migrated to the helper; Captain G's test_column_helper_contract.py goes from failing to passing",
+      "dependencies": [
+        4,
+        5
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/data/column_helpers.py",
+        "src/analysis/s_curve_analysis.py",
+        "src/analysis/thermal_analysis.py",
+        "src/analysis/zone_analysis.py",
+        "src/visualization/plots.py"
+      ],
+      "validation_required": "test_column_helper_contract.py passes; pytest tests/ all green; figure-hash parity vs P0; grep -rn \"'CoreTemperature' in\" src/ app.py returns exactly 1 match (the helper definition); TDD-audit: test commit precedes helper commit",
+      "rollback_note_required": false,
+      "admiralty_action_required": false,
+      "note": "Serially dependent on T4; modifies src/data/loader.py after T4 commits (no concurrent edit). T4 owns the file in the conflict-scan sense."
+    },
+    {
+      "id": 7,
+      "name": "Decompose app.py into tabs modules",
+      "owner": "HMS Dreadnought",
+      "deliverable": "app.py reduced to <400 lines; new tabs/temperature_profile.py, tabs/s_curve_analysis.py, tabs/zone_analysis.py, tabs/quality_metrics.py, tabs/heating_analysis.py, tabs/bakeout_analysis.py, tabs/recommendations.py, tabs/curve_comparison.py; new sidebar.py, session_state.py, sensor_naming.py; the 7-tab/8-tab duplication at app.py:573-592 collapsed into a single parameterised builder; each new module has a smoke test asserting it exposes its expected render callable",
+      "dependencies": [
+        5
+      ],
+      "dependents": [],
+      "station_tier": 2,
+      "file_ownership": [
+        "app.py",
+        "tabs/**",
+        "sidebar.py",
+        "session_state.py",
+        "sensor_naming.py",
+        "tests/test_tab_modules_smoke.py"
+      ],
+      "validation_required": "pytest tests/ all green including new smoke tests; streamlit run app.py boots against all 4 ProbeData_*.csv fixtures; figure-hash parity vs P0; wc -l app.py < 400; red-cell manual UI walkthrough across all 4 fixtures confirms visual parity; grep confirms no duplicated tab/sidebar logic between app.py and new modules",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "agent-team",
+    "admiral": {
+      "ship_name": "HMS Victory",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Sentinel",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Archivist",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 2
+      },
+      {
+        "ship_name": "HMS Swiftsure",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 3
+      },
+      {
+        "ship_name": "HMS Resolute",
+        "ship_class": "destroyer",
+        "model": "sonnet",
+        "task_id": 4
+      },
+      {
+        "ship_name": "HMS Argyll",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 5
+      },
+      {
+        "ship_name": "HMS Diligent",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 6
+      },
+      {
+        "ship_name": "HMS Dreadnought",
+        "ship_class": "destroyer",
+        "model": "sonnet",
+        "task_id": 7
+      }
+    ],
+    "red_cell": {
+      "ship_name": "HMS Scrutineer",
+      "model": "sonnet"
+    }
+  },
+  "created_at": "2026-04-23T08:34:55Z",
+  "amended_at": null
+}

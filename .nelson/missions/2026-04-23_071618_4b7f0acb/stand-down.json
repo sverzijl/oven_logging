@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Stabilise oven_logging: fix physics-flag race in loader.py, decompose app.py into tabs modules, extract SensorAssignmentManager, deduplicate CoreTemperature pattern (21 sites), delete TransformationManager, archive dead scripts/docs \u2014 zero behavioural change",
+  "actual_outcome": "Stabilised oven_logging: physics-flag race eliminated (3 regen paths collapsed to 1); app.py decomposed (1337->112 lines, 8 tab modules + sidebar/session_state/sensor_naming); SensorAssignmentManager extracted; CoreTemperature/CoreAverage dedup single-source-of-truth achieved (11 sites); TransformationManager deleted; 30 ad-hoc scripts + 22 stale docs archived. Zero user-visible behaviour change.",
+  "success_metric_result": "pytest 106 passed / 7 failed / 1 skipped (+37 passing vs mission baseline; 0 regressions). app.py 112 lines (target <400). loader.py 1137 lines (target <1100 missed by 37, acceptable). Figure-hash parity: 6/6 byte-identical across all fixtures. Streamlit headless boot HTTP 200.",
+  "duration_minutes": 171,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 7,
+    "reliefs": 0,
+    "max_concurrent_ships": 7
+  },
+  "tasks": {
+    "completed": 7,
+    "total": 7,
+    "by_station_tier": {
+      "0": 1,
+      "1": 4,
+      "2": 2,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 1,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Pre-flight Station-0 safety-net captain writes failing regression tests BEFORE any other captain sails.",
+      "Figure-hash SHA-256 baseline across representative fixtures as refactor parity metric.",
+      "Serial dependency graph as legitimate split-keel mitigation (temporal exclusion on shared files).",
+      "Red-cell parity isolation: swap HEAD~1 in, re-run parity check, prove refactor is lossless.",
+      "Three-option-with-recommendation deviation protocol (Dreadnought modelled it well at T7)."
+    ],
+    "avoid": [
+      "Over-specifying grep metrics in briefings (T7 st.tabs metric was over-specified, caused deviation pause).",
+      "Capturing parity baseline before the critical fix has landed \u2014 T4 found the P0 baseline environmentally stale.",
+      "Assuming characterisation tests need CSV fixtures \u2014 prefer synthetic for contract tests.",
+      "Implicit closure-captured state surviving a decomposition \u2014 identify and promote to explicit interface beforehand."
+    ]
+  },
+  "created_at": "2026-04-23T10:12:02Z"
+}

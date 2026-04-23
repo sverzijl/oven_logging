@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Archivist",
+  "timestamp": "2026-04-23T19:05:00Z",
+  "hull_integrity_pct": 100,
+  "hull_integrity_status": "Green",
+  "relief_requested": false,
+  "context_summary": "Task #2 complete. Commit 37f5e6d on refactor/structural-cleanup. Moved 30 root-level ad-hoc scripts (10 analyze_, 5 debug_, 3 check_, 12 test_) to archive/scripts/. Moved 22 superseded planning/summary/analysis/design docs to archive/docs/. Note: TRANSFORMATION_MANAGER_INTEGRATION.md was already deleted by HMS Swiftsure (commit 685f1d5) so was not present to move; counted as part of the 22 that needed archiving but accomplished via Swiftsure's delete. Git-deleted src/data/loader.py.backup, src/data/improved_curve_detection.py, src/data/improved_curve_detection_v2.py, and zone_comparison_test.html (4.6MB). Created archive/README.md. Kept at root: CLAUDE.md, REFACTORING_ANALYSIS.md, CODE_REVIEW_SUMMARY.md, requirements.txt, app.py. Pre-deletion grep verification: zero live imports of improved_curve_detection or loader.py.backup anywhere in src/, app.py, tests/. Post-change pytest stable at baseline: 9 failed / 69 passed / 1 skipped (same as Sentinel baseline). First post-change pytest run showed 8F/70P — investigated and identified as pre-existing order-dependent flakiness in test_surface_sensor_detection.py::test_deep_insertion (not caused by my changes, which only touched files never imported). Reported flakiness to admiral for transparency. python -c 'import app' succeeds. No live imports of deleted code; no risk to downstream captains."
+}

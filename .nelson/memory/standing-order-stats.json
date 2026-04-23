@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-23T10:12:02Z",
+  "total_missions": 1,
+  "total_violations": 1,
+  "violations_per_mission": 1.0,
+  "by_order": {
+    "split-keel": {
+      "count": 1,
+      "missions": [
+        "2026-04-23_071618_4b7f0acb"
+      ]
+    }
+  },
+  "correlation": {
+    "missions_with_violations": 1,
+    "failures_with_violations": 0,
+    "successes_with_violations": 1
+  },
+  "_tracked_missions": [
+    "2026-04-23_071618_4b7f0acb"
+  ]
+}
