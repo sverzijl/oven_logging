@@ -305,6 +305,15 @@ CURVE_DETECTION_CONFIG = {
     # module clamps final scores to [0, 1] anyway.
     "SIGMOID_FIT_COMPOSITE_WEIGHT_R2": 0.6,
     "SIGMOID_FIT_COMPOSITE_WEIGHT_PROXIMITY": 0.4,
+    # Upper bound on start-refinement shifts (M4 HMS Hood, mission
+    # 2026-04-24_145238_a5f28423).  When a hint is supplied and the
+    # native start (from Method 1 / 2a / 2b) sits outside the expected-
+    # start window, the detector may shift start toward the window —
+    # but never by more than this many seconds.  Protects the recent
+    # Method 2b max-sensor start (mission 2026-04-24_105032_1b3801f8)
+    # and NC-1/NC-2 coupling with _skip_probe_pull_tail from being
+    # disturbed by a long-shift hint.
+    "EXPECTED_DURATION_MAX_START_SHIFT_SECONDS": 30.0,
 }
 
 # Physics-based core-sensor classifier configuration.

@@ -20,7 +20,7 @@ import pandas as pd
 
 from src.data._drop_rate_detection import find_confirmed_drop_start
 from src.data.column_helpers import resolve_core_temperature_series
-from src.data.sigmoid_refinement import score_end_candidate
+from src.data.sigmoid_refinement import fit_logistic, score_end_candidate
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,10 @@ class CurveBoundaryDetector:
         )
         self._duration_min_tolerance_s = float(
             config.get("EXPECTED_DURATION_MIN_TOLERANCE_SECONDS", 60.0)
+        )
+        # Upper bound on start-refinement shifts (M4 HMS Hood).
+        self._duration_max_start_shift_s = float(
+            config.get("EXPECTED_DURATION_MAX_START_SHIFT_SECONDS", 30.0)
         )
 
     # ------------------------------------------------------------------
@@ -168,6 +172,26 @@ class CurveBoundaryDetector:
             )
             if peak_idx is None:
                 break
+
+            # Start refinement (M4 HMS Hood).  Runs only when a hint is
+            # supplied AND the curve is not truncated (a truncated log's
+            # duration is undefined, so duration-based start refinement
+            # would be meaningless).  The refinement is bounded by
+            # EXPECTED_DURATION_MAX_START_SHIFT_SECONDS, the horizon
+            # (``search_from`` — prevents crossing a previous curve's
+            # tail), and the PredictionState 'Probe Not Inserted' guard.
+            if expected_dur_s is not None and not truncated:
+                start_idx, peak_idx = self._refine_start_with_hint(
+                    temps,
+                    timestamps,
+                    pred_state,
+                    start_idx=start_idx,
+                    end_idx=end_idx,
+                    peak_idx=peak_idx,
+                    expected_duration_s=expected_dur_s,
+                    horizon=search_from,
+                )
+
             peak_temp = float(temps[peak_idx])
 
             duration_s = float(timestamps[end_idx] - timestamps[start_idx])
@@ -833,6 +857,167 @@ class CurveBoundaryDetector:
             results.append((b_idx, b_kind))
 
         return results
+
+    # ------------------------------------------------------------------
+    # Start-refinement (M4 HMS Hood)
+    # ------------------------------------------------------------------
+
+    def _refine_start_with_hint(
+        self,
+        temps: np.ndarray,
+        timestamps: np.ndarray,
+        pred_state: np.ndarray | None,
+        start_idx: int,
+        end_idx: int,
+        peak_idx: int,
+        expected_duration_s: float,
+        horizon: int,
+    ) -> tuple[int, int]:
+        """Possibly shift ``start_idx`` toward the expected-start window.
+
+        Window = ``[end_time - expected*(1+tol), end_time - expected*(1-tol)]``
+        (lower bound = earliest valid start, upper bound = latest).  When
+        the native start sits inside the window, no shift occurs.  When
+        outside, the detector proposes a shift capped by
+        ``EXPECTED_DURATION_MAX_START_SHIFT_SECONDS`` samples and gated
+        by ``score_start_candidate >= SIGMOID_FIT_MIN_R2``.
+
+        Guards:
+          * ``horizon`` — shift cannot move start earlier than the outer
+            loop's ``search_from`` (protects against crossing a previous
+            curve's tail — NC-1/NC-2 coupling with ``_skip_probe_pull_tail``).
+          * ``PredictionState`` — if shift would cross a
+            ``'Probe Not Inserted'`` marker the shift is aborted and a
+            warning is emitted.
+
+        Returns ``(refined_start_idx, refined_peak_idx)``.  Peak is
+        re-derived over the refined range so that a start shift that
+        extends the curve does not leak a below-``MIN_PEAK_TEMP`` peak.
+        """
+        n = len(timestamps)
+        if n < 2 or end_idx <= start_idx:
+            return start_idx, peak_idx
+
+        dt = float(np.median(np.diff(timestamps)))
+        if dt <= 0:
+            return start_idx, peak_idx
+
+        band_width = max(
+            expected_duration_s * self._duration_tolerance_frac,
+            self._duration_min_tolerance_s,
+        )
+        t_end = float(timestamps[end_idx])
+        t_start_center = t_end - expected_duration_s
+        t_start_lo = t_start_center - band_width
+        t_start_hi = t_start_center + band_width
+        t_native_start = float(timestamps[start_idx])
+
+        # Already in window — no-op.
+        if t_start_lo <= t_native_start <= t_start_hi:
+            return start_idx, peak_idx
+
+        max_shift_samples = max(
+            int(round(self._duration_max_start_shift_s / dt)), 1
+        )
+
+        if t_native_start > t_start_hi:
+            # Detector started too late; shift EARLIER toward window.
+            target_idx = (
+                int(np.searchsorted(timestamps, t_start_hi, side="right")) - 1
+            )
+            target_idx = max(target_idx, 0)
+            shifted = max(
+                target_idx, start_idx - max_shift_samples, int(horizon)
+            )
+            direction = "earlier"
+        else:
+            # Detector started too early; shift LATER toward window.
+            target_idx = int(
+                np.searchsorted(timestamps, t_start_lo, side="left")
+            )
+            target_idx = min(target_idx, end_idx - 1)
+            shifted = min(target_idx, start_idx + max_shift_samples)
+            direction = "later"
+
+        if shifted == start_idx:
+            return start_idx, peak_idx
+
+        # PredictionState guard — abort if the proposed shift would
+        # cross a 'Probe Not Inserted' marker.  NC-1/NC-2 coupling with
+        # _skip_probe_pull_tail depends on this; a silent crossing
+        # could re-include a cooldown-tail sample as "in the bake".
+        if pred_state is not None:
+            lo, hi = (
+                (shifted, start_idx)
+                if shifted < start_idx
+                else (start_idx, shifted)
+            )
+            crossing_idxs = [
+                i
+                for i in range(lo, hi + 1)
+                if pred_state[i] == PROBE_NOT_INSERTED_STATE
+            ]
+            if crossing_idxs:
+                logger.warning(
+                    "Start-refinement %s shift from %d to %d aborted: "
+                    "would cross PredictionState='%s' at idx %s",
+                    direction,
+                    start_idx,
+                    shifted,
+                    PROBE_NOT_INSERTED_STATE,
+                    crossing_idxs,
+                )
+                return start_idx, peak_idx
+
+        # Sigmoid-shape gate.  Fit a 4-parameter logistic over the
+        # ACTUAL [shifted, end_idx] window and gate on R² alone.
+        # Rationale: for END refinement (M3) we care about *when* the
+        # bake ends so the proximity term to the expected duration is
+        # load-bearing.  For START refinement (M4) we already trust the
+        # end (it came out of M3); we only want to know whether the
+        # shifted window is a CLEAN S-curve.  Using the composite score
+        # would penalise short bakes twice (proximity=0 when
+        # actual < expected * (1 - tol)) and reject shifts that are
+        # shape-wise fine.
+        min_samples = int(self._config.get("SIGMOID_FIT_MIN_SAMPLES", 30))
+        window_len = end_idx - shifted + 1
+        if window_len >= min_samples:
+            t_fit = timestamps[shifted : end_idx + 1] - timestamps[shifted]
+            T_fit = temps[shifted : end_idx + 1]
+            fit = fit_logistic(t_fit, T_fit)
+            r2 = fit.r2 if fit.converged else 0.0
+        else:
+            r2 = 0.0
+        min_r2 = float(self._config.get("SIGMOID_FIT_MIN_R2", 0.85))
+        if r2 < min_r2:
+            logger.warning(
+                "Start-refinement %s shift from %d to %d rejected: "
+                "sigmoid R² %.3f < SIGMOID_FIT_MIN_R2 %.3f",
+                direction,
+                start_idx,
+                shifted,
+                r2,
+                min_r2,
+            )
+            return start_idx, peak_idx
+
+        # Apply shift — re-derive peak over the refined range so a
+        # longer curve cannot leak a below-MIN_PEAK_TEMP peak value
+        # (same principle as M3 A1 fix for end-refinement).
+        refined_peak_idx = shifted + int(
+            np.argmax(temps[shifted : end_idx + 1])
+        )
+        logger.info(
+            "Start refined %s: %d -> %d "
+            "(expected_dur=%.1fs, shift_samples=%d, r2=%.3f)",
+            direction,
+            start_idx,
+            shifted,
+            expected_duration_s,
+            shifted - start_idx,
+            r2,
+        )
+        return shifted, refined_peak_idx
 
     @staticmethod
     def _min_opt(a: int | None, b: int | None) -> int | None:

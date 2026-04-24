@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Refine per-curve start when expected_durations_s hint supplied, shifting native start toward the expected-duration window subject to max_start_shift_samples cap + sigmoid_score gate + PredictionState horizon guard + search_from horizon guard. Preserve Method 2b max-sensor start and NC-1/NC-2 coupling when hint is absent.",
+  "success_metric": "5+ TDD tests pass including no-shift-when-in-window, shift-earlier-when-late, shift-bounded-by-max, shift-rejected-when-low-score, horizon/pred-state guards. 33/33 existing detection tests unchanged. M3 14 hint-path tests unchanged. Red-cell verifies: no spurious start drift under \u03c3 \u2208 {0.15,0.5,1.0} across 5 real CSVs with/without hint.",
+  "deadline": "This session (M4 of 7-mission flotilla).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T14:52:38Z"
+}
