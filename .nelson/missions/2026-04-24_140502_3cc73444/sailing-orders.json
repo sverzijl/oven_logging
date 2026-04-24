@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Add optional expected_durations_s kwarg to CurveBoundaryDetector.extract_curves; switch _detect_curve_end from earliest-wins to composite-scored-in-window-wins when hint provided; add exit_candidate_kind diagnostic field; preserve plateau_fired/cliff_fired flag coupling; byte-identical output when hint is None.",
+  "success_metric": "5 new TDD tests pass: no-hint-is-byte-identical (deep equality across every fixture); hint-within-tolerance unchanged; hint-contradicts-native-cliff steers selection; fallback+warning when no candidate in window; \u03c3 noise robustness. 33/33 existing detection tests unchanged. Red-cell probe confirms no cliff FP amplification on 3 real CSVs at \u03c3 \u2208 {0.15, 0.5, 1.0}.",
+  "deadline": "This session (M3 of 7-mission flotilla).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T14:05:02Z"
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Add optional expected_durations_s kwarg to CurveBoundaryDetector.extract_curves; switch _detect_curve_end from earliest-wins to composite-scored-in-window-wins when hint provided; add exit_candidate_kind diagnostic field; preserve plateau_fired/cliff_fired flag coupling; byte-identical output when hint is None.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T14:05:02Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T14:43:32Z"
+}
