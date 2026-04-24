@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Introduce src/data/sigmoid_refinement.py (pure, no pandas/streamlit imports) with fit_logistic + score_end_candidate + score_start_candidate; add 6 new config keys to CURVE_DETECTION_CONFIG for tolerance band and fit-quality thresholds.",
+  "success_metric": "All TDD-first tests pass: clean sigmoid R\u00b2 \u2265 0.999; \u03c3=0.15 t0 variance \u2264 1 sample; insufficient-samples path returns zero without invoking curve_fit; non-sigmoid data scores < min_r2 gate. Zero regression in existing test suite.",
+  "deadline": "This session (M2 of 7-mission flotilla).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T13:53:28Z"
+}

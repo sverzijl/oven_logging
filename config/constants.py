@@ -278,6 +278,33 @@ CURVE_DETECTION_CONFIG = {
     "CLIFF_MONOTONIC_CONFIRM_SAMPLES": 5,
     # °C — VCT threshold below which the probe is treated as "no longer baking".
     "BAKE_ACTIVE_THRESHOLD_C": 40.0,
+    # -----------------------------------------------------------------
+    # Optional expected-bake-time hint + sigmoid refinement (M2 HMS
+    # Resolution, mission 2026-04-24_135328_1963f3d2).  These entries
+    # are consumed by src/data/sigmoid_refinement.py and by the hint-
+    # driven arbitration paths added in M3 Agincourt (end) and M4 Hood
+    # (start).  When the detector runs with expected_durations_s=None
+    # for a given curve, none of these thresholds are read — the
+    # existing earliest-wins behaviour is byte-identical.
+    # -----------------------------------------------------------------
+    # ±fraction around expected duration within which end candidates
+    # remain eligible for sigmoid-weighted arbitration.  0.15 = ±15 %,
+    # e.g. a 25 min expected bake accepts candidates in 21.25–28.75 min.
+    "EXPECTED_DURATION_TOLERANCE_FRAC": 0.15,
+    # Absolute floor on the tolerance band so very short bakes keep a
+    # sensible window (e.g. a 2-min expected bake isn't gated to ±18 s).
+    "EXPECTED_DURATION_MIN_TOLERANCE_SECONDS": 60.0,
+    # Minimum fit R² for the sigmoid shape to contribute to the
+    # composite candidate score.  Below this the R² term drops to 0
+    # and only the proximity term can steer arbitration.
+    "SIGMOID_FIT_MIN_R2": 0.85,
+    # Windows smaller than this skip curve_fit entirely — protects the
+    # hot path from paying solver cost on trivially short candidates.
+    "SIGMOID_FIT_MIN_SAMPLES": 30,
+    # Composite score weights.  Must sum to 1.0 by convention; the
+    # module clamps final scores to [0, 1] anyway.
+    "SIGMOID_FIT_COMPOSITE_WEIGHT_R2": 0.6,
+    "SIGMOID_FIT_COMPOSITE_WEIGHT_PROXIMITY": 0.4,
 }
 
 # Physics-based core-sensor classifier configuration.
