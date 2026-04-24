@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Pure plot-builder module src/visualization/boundary_review_plots.py with plot_raw_log_with_curves, plot_curve_detail, downsample_for_plot. Reuses VisualizationConfig palette and Plotly conventions.",
+  "success_metric": "6+ TDD tests pass: vrect-per-curve, start/end markers, hint-window vrect, override markers distinct, downsampling preserves endpoints, no downsample below threshold.",
+  "deadline": "This session (M2 of 5-mission flotilla).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T23:44:05Z"
+}

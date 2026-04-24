@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Pure plot-builder module src/visualization/boundary_review_plots.py with plot_raw_log_with_curves, plot_curve_detail, downsample_for_plot. Reuses VisualizationConfig palette and Plotly conventions.",
+  "actual_outcome": "Pure boundary_review_plots module with plot_raw_log_with_curves, plot_curve_detail, downsample_for_plot. Per-kind vrect colours; manual_override visually distinct (saturated amber); detected boundaries blue, override boundaries amber dashed; hint window translucent blue.",
+  "success_metric_result": "15/15 new M2 tests pass; full M1+detection regression unaffected.",
+  "duration_minutes": 0,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 0,
+    "reliefs": 0,
+    "max_concurrent_ships": 0
+  },
+  "tasks": {
+    "completed": 0,
+    "total": 0,
+    "by_station_tier": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [],
+    "avoid": []
+  },
+  "created_at": "2026-04-24T23:50:03Z"
+}
