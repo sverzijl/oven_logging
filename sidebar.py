@@ -13,6 +13,11 @@ from config.constants import BAKEOUT_TARGETS
 from src.analysis.s_curve_analysis import SCurveAnalyzer
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.data.loader import ThermalProfileLoader, validate_thermal_data
+from src.ui.expected_duration_widgets import (
+    build_hint_list_from_session,
+    seconds_to_minutes,
+    session_key_for_curve,
+)
 
 
 def render():
@@ -340,6 +345,13 @@ def render():
                 index=0
             )
 
+            # Expected bake time hints (M6 HMS Spartan, mission
+            # 2026-04-24_153328_f274752b).  Per-curve number_input widgets
+            # keyed by (filename, curve_number) — NOT by
+            # current_curve_index — so swapping the currently-viewed
+            # curve does not clobber hints for other curves.
+            _render_expected_duration_hints()
+
             # File management
             if st.session_state.files:
                 st.divider()
@@ -406,3 +418,69 @@ def render():
         'selected_sensors': selected_sensors,
         'product_type': product_type,
     }
+
+
+def _render_expected_duration_hints():
+    """Render per-curve Expected Bake Time hint inputs.
+
+    Placed after the Product Type selector in the Analysis Settings
+    section.  Two-pass UX: detection runs first (no hints), the user
+    sees how many curves were detected, then the sidebar exposes
+    one ``st.number_input`` per curve pre-filled with the detected
+    duration — editing a value calls
+    ``loader.set_expected_durations(...)`` which triggers a fresh
+    detection pass through cache invalidation (M5 contract).
+
+    Widget key contract: ``session_key_for_curve(filename, curve_number)``
+    produces stable, per-file, per-curve (1-indexed) keys.  Swapping
+    ``current_curve_index`` does NOT clobber hints for other curves.
+    """
+    current_file = st.session_state.get('current_file')
+    loader = st.session_state.get('loader')
+    if not current_file or loader is None:
+        return
+    all_curves = getattr(loader, 'all_curves', [])
+    if not all_curves:
+        return
+
+    with st.expander("⏱️ Expected bake time (optional)", expanded=False):
+        st.caption(
+            "Enter known bake times per curve — refines detection when "
+            "the operator-known duration is tighter than the detector's "
+            "native decision. Leave empty for automatic."
+        )
+        for curve in all_curves:
+            curve_number = int(curve.get('curve_number', 0))
+            if curve_number <= 0:
+                continue
+            key = session_key_for_curve(current_file, curve_number)
+            default_minutes = seconds_to_minutes(
+                (curve.get('duration') or 0.0) * 60.0
+            )
+            # ``curve['duration']`` is in minutes (set by the detector);
+            # multiply-then-divide is a no-op conversion retained for
+            # clarity that the widget speaks MINUTES.
+            default_minutes = float(curve.get('duration') or 0.0)
+            st.number_input(
+                f"Bake {curve_number} (min)",
+                key=key,
+                min_value=0.0,
+                max_value=240.0,
+                step=0.5,
+                value=float(st.session_state.get(key, default_minutes)),
+                help=(
+                    f"Detected: {default_minutes:.1f} min. "
+                    "Set to 0 to disable the hint for this bake."
+                ),
+            )
+        # Assemble hint list from widget state and push to loader.
+        hint_list = build_hint_list_from_session(
+            filename=current_file,
+            n_curves=len(all_curves),
+            session_store=st.session_state,
+        )
+        # Only re-run detection if the hint list differs from what the
+        # loader currently has — avoids infinite-rerun loops.
+        if loader.expected_durations_s != hint_list:
+            loader.set_expected_durations(hint_list)
+            st.rerun()
