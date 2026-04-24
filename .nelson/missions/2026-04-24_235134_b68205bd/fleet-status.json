@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "New tabs/boundary_review.py with raw-log + per-curve detail panel UI; widget keys scoped by (filename, curve_number); on-change calls loader.set_expected_durations or loader.set_curve_boundaries with rerun guard. app.py dispatch in second tab position.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T23:51:34Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T23:54:25Z"
+}

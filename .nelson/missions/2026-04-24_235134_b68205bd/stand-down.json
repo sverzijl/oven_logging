@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "New tabs/boundary_review.py with raw-log + per-curve detail panel UI; widget keys scoped by (filename, curve_number); on-change calls loader.set_expected_durations or loader.set_curve_boundaries with rerun guard. app.py dispatch in second tab position.",
+  "actual_outcome": "tabs/boundary_review.py landed with raw-log + per-curve detail panel; widget keys scoped by (filename, curve_number); change-detection guards on both hint and override; new \ud83d\udd2c Curve Boundaries tab in app.py at second position.",
+  "success_metric_result": "14/14 tab-helper tests pass; integration smoke confirms 4 traces + 3 vrects on raw-log fig and 5 shapes on detail fig for BA3C_1759 (3 curves).",
+  "duration_minutes": 0,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 0,
+    "reliefs": 0,
+    "max_concurrent_ships": 0
+  },
+  "tasks": {
+    "completed": 0,
+    "total": 0,
+    "by_station_tier": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [],
+    "avoid": []
+  },
+  "created_at": "2026-04-24T23:54:25Z"
+}

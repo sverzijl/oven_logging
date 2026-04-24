@@ -8,6 +8,7 @@ import sidebar
 from session_state import initialize_session_state
 from tabs import (
     bakeout_analysis,
+    boundary_review,
     curve_comparison,
     heating_analysis,
     quality_metrics,
@@ -60,6 +61,7 @@ sidebar.render()
 # duplication at app.py:573-592. Curve-comparison is appended conditionally.
 TAB_SPECS = [
     ("📈 Temperature Profile", temperature_profile.render),
+    ("🔬 Curve Boundaries", boundary_review.render),
     ("📉 S-Curve Analysis", s_curve_analysis.render),
     ("🎯 Zone Analysis", zone_analysis.render),
     ("📊 Quality Metrics", quality_metrics.render),
