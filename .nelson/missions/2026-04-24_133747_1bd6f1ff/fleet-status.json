@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Extend fixture schema in tests/fixtures/curve_boundary_cases.py with per-curve expected_durations_s: list[float] | None and duration_tolerance_frac; annotate the three real CSV fixtures (100098DE=1 bake, BA3C_0946=None truncated, BA3C_1759=3 bakes).",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T13:37:47Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T13:43:28Z"
+}

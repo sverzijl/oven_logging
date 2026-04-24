@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Extend fixture schema in tests/fixtures/curve_boundary_cases.py with per-curve expected_durations_s: list[float] | None and duration_tolerance_frac; annotate the three real CSV fixtures (100098DE=1 bake, BA3C_0946=None truncated, BA3C_1759=3 bakes).",
+  "success_metric": "Schema field present on case dataclass/dict; all existing curve-boundary tests unchanged; new schema-shape test passes; git diff touches only tests/fixtures/.",
+  "deadline": "This session (M1 of 7-mission flotilla on branch refactor/expected-bake-time).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T13:37:47Z"
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T13:38:11Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T13:43:28Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 0,
+        "tasks_total": 0,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 0,
+        "ships_used": 0,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}
