@@ -1,0 +1,62 @@
+{
+  "squadron": {
+    "admiral": { "ship_name": "HMS Admiralty", "model": "opus" },
+    "captains": [
+      { "ship_name": "HMS Trent", "ship_class": "patrol vessel", "model": "sonnet", "task_id": 1 },
+      { "ship_name": "HMS Tamar", "ship_class": "patrol vessel", "model": "sonnet", "task_id": 2 },
+      { "ship_name": "HMS Warspite", "ship_class": "flagship", "model": "opus", "task_id": 3 },
+      { "ship_name": "HMS Spey", "ship_class": "patrol vessel", "model": "sonnet", "task_id": 4 }
+    ],
+    "red_cell": { "ship_name": "HMS Ambush", "model": "opus" }
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Lidded-bake fixture: real CSV + synthetic plateau",
+      "owner": "HMS Trent",
+      "deliverable": "Add wonder_white_10k_lidded real case and >=2 synthetic lidded cases to tests/fixtures/curve_boundary_cases.py. Ground-truth oven-exit annotated via ambient-peak + core-peak-plateau inflection (document methodology in the case description).",
+      "dependencies": [],
+      "station_tier": 0,
+      "file_ownership": ["tests/fixtures/curve_boundary_cases.py"],
+      "validation_required": "pytest imports CASES without error; new cases exposed with expected_starts, expected_ends, expected_n_curves, source='real'/'synthetic', description with ground-truth methodology",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing lidded-bake tests",
+      "owner": "HMS Tamar",
+      "deliverable": "Add >=3 tests to tests/test_curve_boundary_detection.py: (a) real wonder-white ends at oven-exit not EOF, (b) synthetic plateau ends at plateau-onset, (c) existing unlidded cases unchanged. Target tests RED against branch HEAD before Warspite implements.",
+      "dependencies": [1],
+      "station_tier": 1,
+      "file_ownership": ["tests/test_curve_boundary_detection.py"],
+      "validation_required": "pytest run recorded: new tests red, existing 11 tests still green",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Core-peak-plateau candidate implementation",
+      "owner": "HMS Warspite",
+      "deliverable": "Add _candidate_core_peak_plateau to CurveBoundaryDetector; add CORE_PEAK_PLATEAU_RATE_C_PER_SEC and CORE_PEAK_PLATEAU_CONFIRM_SECONDS to CURVE_DETECTION_CONFIG; wire the new candidate into _evaluate_exit_candidates; all new lidded tests green; existing 11 tests still green; full suite 116/8/1 unchanged.",
+      "dependencies": [2],
+      "station_tier": 1,
+      "file_ownership": ["src/data/curve_boundary_detector.py", "config/constants.py"],
+      "validation_required": "pytest tests/test_curve_boundary_detection.py fully green; pytest tests/ matches baseline (116 passed / 8 pre-existing failed / 1 skipped); HMS Ambush red-cell review accepts",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "Final DRY / smoke pass",
+      "owner": "HMS Spey",
+      "deliverable": "Absorb any Ambush non-blocking items; streamlit py_compile smoke; verify no new magic numbers escaped config; captain's log drafted.",
+      "dependencies": [3],
+      "station_tier": 1,
+      "file_ownership": ["src/data/curve_boundary_detector.py", "config/constants.py", "tests/test_curve_boundary_detection.py"],
+      "validation_required": "grep confirms no hardcoded plateau thresholds outside config; py_compile app.py sidebar.py passes; full pytest suite green except 8 pre-existing",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

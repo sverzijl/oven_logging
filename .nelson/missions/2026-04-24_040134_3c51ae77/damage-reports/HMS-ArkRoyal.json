@@ -1,0 +1,75 @@
+{
+  "ship": "HMS Ark Royal",
+  "role": "Captain — Implementation Captain, flagship",
+  "task_id": 3,
+  "status": "completed",
+  "mission_id": "2026-04-24_040134_3c51ae77",
+  "files_modified": [
+    "src/data/curve_boundary_detector.py",
+    "config/constants.py"
+  ],
+  "files_created": [],
+  "deliverables": {
+    "config_additions": {
+      "INSTANT_DROP_THRESHOLD_C": 15.0,
+      "CLIFF_MONOTONIC_CONFIRM_SAMPLES": 5,
+      "CLIFF_PRE_PEAK_PLATEAU_SECONDS": 250.0,
+      "CLIFF_PRE_PEAK_TOLERANCE_C": 2.0
+    },
+    "new_method": "CurveBoundaryDetector._candidate_probe_pull_cliff",
+    "wired_into": "_evaluate_exit_candidates (6th candidate, earliest-confirmed wins)",
+    "init_attrs": [
+      "self._instant_drop_c",
+      "self._cliff_confirm_n",
+      "self._cliff_pre_plateau_s",
+      "self._cliff_pre_peak_tol_c"
+    ]
+  },
+  "pytest_results": {
+    "a_TestCliffProbePullDetection": "3 passed / 0 failed",
+    "b_test_curve_boundary_detection_py": "30 passed / 0 failed (27 prior + 3 new)",
+    "c_full_suite": "136 passed / 7 failed / 1 skipped (baseline preserved — all 7 failures are pre-existing, not introduced by this mission)"
+  },
+  "introspection": {
+    "post_wonder_meal_lidded": {
+      "end_idx": 344,
+      "truncated": false,
+      "target": "344 ± 5",
+      "pass": true,
+      "fired_via": "cliff candidate"
+    },
+    "wonder_white_10k_lidded": {
+      "end_idx": 338,
+      "truncated": false,
+      "target": "340 ± 5",
+      "pass": true,
+      "fired_via": "plateau candidate (cliff did NOT fire — plateau wins earliest)"
+    },
+    "real_1000BA3C_1759": {
+      "bake1_end_idx": 956,
+      "bake1_truncated": false,
+      "target": "955 ± 2 (ambiguous fixture, bake-1 only)",
+      "pass": true,
+      "cliff_fired_spuriously": false
+    }
+  },
+  "dry_decision": {
+    "reused_helper": false,
+    "rationale": "find_confirmed_drop_start tests a sustained °C/s rate with confirm_n-sample confirmation. The cliff candidate tests a single-sample magnitude (°C, not rate) plus monotonic-decline (not threshold-rate) confirmation. Semantics differ enough that forcing reuse would require two new parameters that mean something different from the existing ones on the helper. Kept the candidate inline (~50 lines including guards) — simpler than bending the shared helper."
+  },
+  "parameter_choices": {
+    "INSTANT_DROP_THRESHOLD_C": "15.0 per briefing (sensible default, physics-motivated cliff magnitude)",
+    "CLIFF_MONOTONIC_CONFIRM_SAMPLES": "5 per briefing (25 s at 5 s/sample — rules out noise, fits truncated tails)",
+    "CLIFF_PRE_PEAK_PLATEAU_SECONDS": "250 s — discriminator added during implementation after discovering that real unlidded CSVs (100098DE, BA3C_0946, BA3C_1759) all contain legitimate probe-pull cliffs ≥15 °C that arrive DURING ordinary cooldown and whose tests expect end at a LATER cool-to-ambient point. Empirical separation on running-peak-so-far within 2 °C: lidded fixtures (PWM 315 s, synthetic 325 s) vs. unlidded (BA3C_1759 bake-1 175 s, BA3C_0946 110 s, 100098DE 0 s, wonder white 0 s). 250 s sits 65 s inside both margins. Re-expressed in samples via median dt for sample-period invariance.",
+    "CLIFF_PRE_PEAK_TOLERANCE_C": "2.0 — covers wonder-white-style small fluctuations (100.3 → 99.6 → 97.6) without loosening too far."
+  },
+  "risks_addressed": {
+    "cliff_firing_on_legitimate_fast_cool": "Addressed via CLIFF_PRE_PEAK_PLATEAU_SECONDS guard. Verified on BA3C_1759 bake-1 (cliff at j=944 rejected because pre-cliff at-plateau run was only 175 s), real_100098DE_1351 (cliff at j=306 rejected, plateau run was 0 s — already past peak), real_1000BA3C_0946 (cliff at j=293 rejected, plateau run was 110 s).",
+    "aggregator_ordering": "No change to ordering. Candidate added as the 6th; earliest-confirmed wins. On wonder white, plateau fires at idx 338 and cliff at idx ~350 but is earliest=338 via plateau (verified).",
+    "monotonic_strictness": "Used weakly monotonic (≤, equality allowed) per briefing — noise 0.0 diffs don't reject real cliffs."
+  },
+  "caveats": {
+    "plateau_threshold_is_fixture_fitted": "The 250 s separation was calibrated against the current 5 known fixtures. If a future lidded CSV has a shorter pre-pull plateau (≤ 250 s) the cliff won't fire; if a future unlidded CSV has a longer pre-cliff plateau (≥ 250 s) it will spuriously fire. Cross-CSV validation on more real fixtures is recommended before tightening or loosening.",
+    "scan_origin": "Candidate scans from peak_idx (not peak_idx + post_peak_grace) because the synthetic fixture's cliff falls AT peak. This matches the plateau candidate's scan convention (line 548 in curve_boundary_detector.py)."
+  }
+}

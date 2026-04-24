@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "outcome": "Fix the curve-switch sensor-multiselect persistence bug in tabs/temperature_profile.py: widget keys are not qualified by curve_index, so selections made on one curve persist when switching to another, showing the wrong sensors on the plot.",
+  "success_metric": "temperature_profile.py widget keys include st.session_state.current_curve_index; a new regression test pins this contract (RED on HEAD, GREEN after fix); all other tests continue passing",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD: failing test first; narrow scope only - do not touch other tabs unless they have the same bug"
+  ],
+  "out_of_scope": [
+    "Other tabs' widget keys (audit separately if similar bug exists)",
+    "Streamlit AppTest framework integration (project has no existing infra for it)"
+  ],
+  "stop_criteria": [
+    "Regression test green AND key format inspectable via inspect.getsource"
+  ],
+  "handoff_artifacts": [
+    "Updated tabs/temperature_profile.py with per-curve widget keys",
+    "New tests/test_widget_key_per_curve.py (or similar) pinning the contract",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T10:20:20Z"
+}

@@ -11,7 +11,7 @@ def render():
     # Display options for this tab
     col1, col2 = st.columns([1, 3])
     with col1:
-        show_all_sensors = st.checkbox("Show all sensors", value=False, key="temp_profile_show_all")
+        show_all_sensors = st.checkbox("Show all sensors", value=False, key=f"temp_profile_show_all_{st.session_state.current_curve_index}")
 
     if not show_all_sensors:
         with col2:
@@ -43,7 +43,7 @@ def render():
                 options=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
                 default=default_sensors,
                 format_func=lambda x: sensor_labels.get(x, x),
-                key="temp_profile_sensor_select"
+                key=f"temp_profile_sensor_select_{st.session_state.current_curve_index}"
             )
     else:
         selected_sensors = None

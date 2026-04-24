@@ -1,0 +1,75 @@
+{
+  "squadron": {
+    "admiral": { "ship_name": "HMS Admiralty", "model": "opus" },
+    "captains": [
+      { "ship_name": "HMS Kent", "ship_class": "frigate", "model": "sonnet", "task_id": 1 },
+      { "ship_name": "HMS Defender", "ship_class": "destroyer", "model": "sonnet", "task_id": 2 },
+      { "ship_name": "HMS Dragon", "ship_class": "destroyer", "model": "sonnet", "task_id": 3 },
+      { "ship_name": "HMS Dauntless", "ship_class": "destroyer", "model": "sonnet", "task_id": 4 }
+    ],
+    "red_cell": { "ship_name": "HMS Ambush", "model": "opus" }
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Re-annotate unlidded fixtures to clip at cliff",
+      "owner": "HMS Kent",
+      "deliverable": "Update expected_ends in tests/fixtures/curve_boundary_cases.py for: real_100098DE_1351 (old [329] -> new [306], tolerance 5), real_1000BA3C_0946 (old [299] -> [293], tolerance 5), real_1000BA3C_1759 (old [955, 6200] -> [944, 6185], tolerance 5). Update each case's description to document the Stance B decision: probe-pull cliff marks end of bread-in-oven data; post-cliff samples are probe-pull mechanics, not bread cooldown. Reference mission 2026-04-24_070615_fee9ec8f in the descriptions.",
+      "dependencies": [],
+      "station_tier": 0,
+      "file_ownership": ["tests/fixtures/curve_boundary_cases.py"],
+      "validation_required": "Fixture imports clean; new expected_ends match the verified cliff indices",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Update failing ground-truth tests to new annotations",
+      "owner": "HMS Defender",
+      "deliverable": "After Kent's re-annotation, tests that iterate the real CSVs' expected_ends (test_ground_truth_real_csvs_tight, test_golden_master_real_csvs if present, TestCoreSensorClassifier guardrails that read expected_ends) will fail on HEAD because detector still returns old cool-to-ambient end indices. These tests must be RED now - Dragon's implementation will flip them green. No new test code needed from Defender IF existing tests read expected_ends dynamically; if any test hardcodes the old indices, update those hardcoded values to the new ones. Run pytest and report which tests went red.",
+      "dependencies": [1],
+      "station_tier": 1,
+      "file_ownership": ["tests/test_curve_boundary_detection.py"],
+      "validation_required": "Record pytest baseline: which tests flipped green->red after fixture re-annotation; add any new assertion that would be missing otherwise",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Remove CLIFF_PRE_PEAK guards; simplify cliff candidate",
+      "owner": "HMS Dragon",
+      "deliverable": "Remove CLIFF_PRE_PEAK_PLATEAU_SECONDS and CLIFF_PRE_PEAK_TOLERANCE_C from CURVE_DETECTION_CONFIG. Simplify _candidate_probe_pull_cliff to only: single-sample drop >= INSTANT_DROP_THRESHOLD_C, monotonic confirmation for CLIFF_MONOTONIC_CONFIRM_SAMPLES. Remove pre-peak plateau check logic entirely. Verify 3 unlidded CSVs now clip at the cliff indices Kent annotated. Verify PWM and wonder white still behave correctly (PWM clips at 344, wonder white plateau fires at 338 before cliff at ~350).",
+      "dependencies": [2],
+      "station_tier": 1,
+      "file_ownership": ["src/data/curve_boundary_detector.py", "config/constants.py"],
+      "validation_required": "All boundary tests green; 3 unlidded clip at cliff; lidded cases unchanged; no references to removed constants remain; no new full-suite regressions",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "META review (HMS Ambush)",
+      "owner": "HMS Ambush",
+      "deliverable": "Adversarial red-cell review. Verify: cliff universality does not spuriously fire on noise, core-peak-plateau and cliff don't double-confirm on the same case, removed constants have no dangling references, downstream analyses (zone metrics, bakeout, quality scores) still produce sane values on shorter curves. Render verdict.",
+      "dependencies": [3],
+      "station_tier": 0,
+      "file_ownership": [],
+      "validation_required": "Written verdict at {mission-dir}/redcell-verdict.md",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 5,
+      "name": "Final polish + smoke (HMS Dauntless)",
+      "owner": "HMS Dauntless",
+      "deliverable": "Absorb Ambush non-blocking notes; py_compile smoke; 2x pytest baseline confirmation; update any docstrings that referenced the removed constants.",
+      "dependencies": [4],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [],
+      "validation_required": "py_compile clean; pytest tests/ held in 2 runs; grep confirms no stale references to removed constants",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

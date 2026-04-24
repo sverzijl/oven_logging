@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-23T10:12:02Z",
-  "pattern_count": 1,
+  "updated_at": "2026-04-24T11:27:01Z",
+  "pattern_count": 10,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -36,6 +36,223 @@
       "damage_control_events": 0,
       "quality": {
         "violations": 1,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-23_104356_87469cfc",
+      "completed_at": "2026-04-23T12:01:55Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Stabilise bread entry/exit detection in oven_logging by extracting a pure CurveBoundaryDetector with regression tests, fixing 10 documented defects, and removing duplication",
+      "adopt": [
+        "TDD gate enforced by sequential captain dispatch - red tests baked into handoff before implementer briefed",
+        "Red-cell empirical verification (Astute deleted PredictionState from fixture to prove heuristic was calibrated to sample-of-one)",
+        "Self-reported deviations in captain handoff give the next captain a structured sweep list",
+        "Battle-plan amendment at checkpoint rather than at formation - absorbs red-cell findings into last captain scope"
+      ],
+      "avoid": [
+        "Bundling unit fix with threshold change in one decision (Victory MIN_CURVE_DURATION sample to seconds AND 300 to 120)",
+        "Calibrating a heuristic to a sample-of-one ambiguous fixture",
+        "Custom damage-report JSON schemas - embed exact field names in captain brief"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.25
+      }
+    },
+    {
+      "mission_id": "2026-04-23_121616_b56f691b",
+      "completed_at": "2026-04-23T13:49:35Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Add core-peak-plateau end-detection candidate to CurveBoundaryDetector so lidded bakes terminate at oven-exit, not at EOF or probe-removal",
+      "adopt": [
+        "Self-reported deviations in handoff + empirical perturbation red-cell review (now 2-mission proven)",
+        "Save red-cell probe scripts to disk (probe_empirical.py, probe_edge.py) for replay by future fleets",
+        "Rise-magnitude guardrail pattern: independent check as second line of defence when tuning a primary threshold tightly",
+        "Require captains producing a parameter change to include an empirical separation matrix (e.g. rise60s across all fixtures)"
+      ],
+      "avoid": [
+        "Tuning parameters to a single real CSV (now a recurring tech debt across 2 missions)",
+        "Widening return-tuple signatures (plateau_fired flag worked because no external callers - next such addition should be a dataclass)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-23_231637_4ed7fcd1",
+      "completed_at": "2026-04-24T01:33:52Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Add physics-based core-sensor classifier that overrides firmware VirtualCoreSensor when a combined heat-slowness + cool-slowness score indicates a different sensor is the true core. Mirror the existing surface-sensor correction pattern.",
+      "adopt": [
+        "Red-cell reproduces prior captain's Monte-Carlo rather than trusting self-reports (3 missions proven)",
+        "Downstream propagation trace as red-cell item (catches integration gaps unit tests miss)",
+        "Rewrite over patch for DRY fixes when a patch would add a second code path",
+        "Accept ties in fixture annotations when physics is ambiguous within tolerance (e.g. expected_core in {T5, T6})"
+      ],
+      "avoid": [
+        "Reporting metric deltas from memory without re-counting (Iron Duke +7 claim was actually +6)",
+        "Claiming flaky after one observation (Iron Duke said test_deep_insertion passed; 3 runs showed it failed all 3)",
+        "Calibration comments that hide thinning margins across dimensions (N=4 Monte-Carlo max=4 but N=8 production max=5)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.25
+      }
+    },
+    {
+      "mission_id": "2026-04-24_015052_25705c7a",
+      "completed_at": "2026-04-24T03:16:12Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Fix probe-removal contamination in core-sensor classifier: when the operator pulls the probe within the cool window after peak, cool-rank becomes unreliable and the classifier silently uses contaminated data. Detect this and fall back to heat-only.",
+      "adopt": [
+        "User domain insight drives mission scope (probe-pull-contaminates-cool-rank was user's physics call, not code observation)",
+        "Red-cell Pareto-scan framing for threshold calibration (min_k=1 vs 2 vs 3 measured empirically, not argued)",
+        "Captain refuses to lie: Duncan rewrote test rather than assert false claim about BA3C_0946",
+        "DRY extraction at point of reuse, not preemptive (_drop_rate_detection.py when two call sites emerged)"
+      ],
+      "avoid": [
+        "Guardrail tests iterating source=real without type gate (LIDDED_NAMES needed manual maintenance each new fixture)",
+        "Assuming threshold changes propagate cleanly (Audacious assumed min_k=2 fixes BA3C_0946; Duncan empirically disproved)",
+        "Growing interlocking thresholds on small real-CSV sample (threshold surface now 13 constants across 2 modules)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.25
+      }
+    },
+    {
+      "mission_id": "2026-04-24_040134_3c51ae77",
+      "completed_at": "2026-04-24T05:35:56Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Add _candidate_probe_pull_cliff to CurveBoundaryDetector that fires on a single-sample drop >15 C followed by monotonic cooling. Handles Post Wonder Meal's case where plateau/drop-rate/cool-to-ambient candidates all miss because of PredictionState-never-reverts plus compressed plateau approach.",
+      "adopt": [
+        "Red-cell Q1/Q2/Q3 decomposition for reviews with embedded design questions",
+        "DRY judgement: reuse when semantics align, not when shapes look similar (cliff inline, not in _drop_rate_detection.py)",
+        "Perturbation threshold sweep ranges, not single-point margins (Astute 140s vs Ark Royal 65s)"
+      ],
+      "avoid": [
+        "Threshold reports as closest-fixture-to-boundary (missed 75s of valid working range)",
+        "Shipping a design question silently in a config constant",
+        "Docstring drift when changing a threshold (grep for old value before commit)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-24_070615_fee9ec8f",
+      "completed_at": "2026-04-24T08:45:38Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Adopt Stance B from prior mission's Q3: re-annotate unlidded fixtures to clip at the probe-pull cliff (physics-consistent with user's stated position), then remove the CLIFF_PRE_PEAK_PLATEAU guard so cliff candidate fires universally across lidded and unlidded.",
+      "adopt": [
+        "Defender test-short-circuit catch: fixture changes may mask multiple failures behind first-fail",
+        "Dragon discover-and-flag-before-ship: three-prong report (guards + justification + test pass) on in-implementation deviation",
+        "Ambush Q1 reframing: red-cell empirical investigation may sharpen captain framings (j=293 insertion to multi-pull-session)",
+        "Polish-captain decoupling-without-value-change: CLIFF_MIN_START_TEMP_C split from MIN_PEAK_TEMP at same value"
+      ],
+      "avoid": [
+        "Trusting first pytest failure as complete baseline (short-circuit hides siblings)",
+        "Framing guards from one-fixture observations (Dragon insertion to Ambush multi-pull)",
+        "Claiming noise immunity from prior role when detector moves primary in aggregator (0 FP at sigma=1.0 as tie-breaker became 27-60% at sigma=0.15 as primary)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-24_090858_d46e235e",
+      "completed_at": "2026-04-24T10:01:31Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Correct the BA3C_1759 fixture annotation from 2 bakes to 3 bakes (starts=[13,766,6022], ends=[293,944,6185]) and remove Dragon's peak_idx+1 scan guard from prior mission so cliff fires correctly at j=293 (end of bake 1). Keep CLIFF_MIN_START_TEMP_C=80 guard which is separately necessary.",
+      "adopt": [
+        "Detector convention wins over admiral estimate for fixture alignment (bake_active_c=40 ruled over admiral's VCT>35 heuristic)",
+        "Test-order bugs as silent-green traps (Portland caught tolerance-skip before ambiguous-case branch)",
+        "Explicit reframing of prior-mission guards as paper-over when deeper bug found",
+        "Q3 as standing red-cell rubric: what other inconsistencies does this fix expose? (Artful caught bake-3 same 10-sample shift as bake-2)"
+      ],
+      "avoid": [
+        "Defending a fixture against detector output by adding a guard (Dragon's prior peak_idx+1 papered over misannotation)",
+        "Letting ambiguous=True silently suppress assertions that catch related issues (bake-3 drift hidden for a mission)",
+        "Declaring task complete when tests pass but introspection matrix shows user-visible defect (Duncan first handoff had 30/30 but wrong curve structure)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-24_102020_af6532e1",
+      "completed_at": "2026-04-24T10:25:14Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Fix the curve-switch sensor-multiselect persistence bug in tabs/temperature_profile.py: widget keys are not qualified by curve_index, so selections made on one curve persist when switching to another, showing the wrong sensors on the plot.",
+      "adopt": [
+        "inspect.getsource + regex assertions for Streamlit widget contracts without AppTest",
+        "Single-captain TDD mission for atomic bug fixes (skip F/T/A/META/polish chain when scope is genuinely narrow)"
+      ],
+      "avoid": [
+        "Streamlit widgets with constant key across a view that re-renders with different data (key should be scoped to the data selector)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-24_105032_1b3801f8",
+      "completed_at": "2026-04-24T11:27:01Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Fix 1759 bake 2/3 durations (currently 14/13 min, should be >20 min). Root cause: start-detection uses core-temperature which rises slowly after probe re-insertion; the ambient sensor (T8) rises sharply and is the real oven-entry signal. Change _skip_probe_pull_tail and cold-start method to use max(T1..T8) instead of VCT alone.",
+      "adopt": [
+        "Counterfactual probes as red-cell rigor (Astute probe_old_skip showed reverting one part of two-part change regresses 4 CSVs)",
+        "Max-sensor as oven-environment detector (max T1..T8 captures any heat; ambient fast signal, core slow)",
+        "Detector-convention-wins pattern now 3 missions proven - fixture annotations follow detector output at principled thresholds"
+      ],
+      "avoid": [
+        "Sampling every Nth index in admiral diagnostics (admiral 660 vs empirical 651 off-by-one from every-10th survey)",
+        "Splitting logically-coupled changes across independent mission tasks (skip + method 2b must ship together or one alone regresses 4 CSVs)"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": 1.0

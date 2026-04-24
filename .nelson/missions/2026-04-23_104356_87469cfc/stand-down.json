@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Stabilise bread entry/exit detection in oven_logging by extracting a pure CurveBoundaryDetector with regression tests, fixing 10 documented defects, and removing duplication",
+  "actual_outcome": "Pure CurveBoundaryDetector extracted with evidence-aggregator exit detection; all 10 plan findings addressed; loader monolith shrunk to a 20-line adapter; CoreTemperature fallback and hardcoded T1-T8 lists deduplicated; 11-case regression test ladder in place.",
+  "success_metric_result": "11/11 boundary tests green (was 1/11 red against main). Full suite 116/8/1 - zero new regressions, 8 pre-existing failures confirmed unrelated.",
+  "duration_minutes": 74,
+  "budget": {
+    "tokens_consumed": 140000,
+    "tokens_budgeted": null,
+    "pct_consumed": 14.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 5,
+    "total": 4,
+    "by_station_tier": {
+      "0": 1,
+      "1": 3,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "TDD gate enforced by sequential captain dispatch - red tests baked into handoff before implementer briefed",
+      "Red-cell empirical verification (Astute deleted PredictionState from fixture to prove heuristic was calibrated to sample-of-one)",
+      "Self-reported deviations in captain handoff give the next captain a structured sweep list",
+      "Battle-plan amendment at checkpoint rather than at formation - absorbs red-cell findings into last captain scope"
+    ],
+    "avoid": [
+      "Bundling unit fix with threshold change in one decision (Victory MIN_CURVE_DURATION sample to seconds AND 300 to 120)",
+      "Calibrating a heuristic to a sample-of-one ambiguous fixture",
+      "Custom damage-report JSON schemas - embed exact field names in captain brief"
+    ]
+  },
+  "created_at": "2026-04-23T12:01:55Z"
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "outcome": "Adopt Stance B from prior mission's Q3: re-annotate unlidded fixtures to clip at the probe-pull cliff (physics-consistent with user's stated position), then remove the CLIFF_PRE_PEAK_PLATEAU guard so cliff candidate fires universally across lidded and unlidded.",
+  "success_metric": "3 unlidded real CSVs re-annotated: 100098DE expected_ends=[306], BA3C_0946=[293], BA3C_1759=[944,6185]; CLIFF_PRE_PEAK_PLATEAU_SECONDS and CLIFF_PRE_PEAK_TOLERANCE_C removed from config and detector; cliff candidate fires universally; all boundary tests green; PWM still clips at 344; wonder white still clips at 338",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD non-negotiable; DRY; same branch",
+    "Removing a config constant is a behaviour change - expect downstream tests to shift",
+    "The golden-master and ground-truth tests on the 3 unlidded CSVs will be the ones that move - that is intentional"
+  ],
+  "out_of_scope": [
+    "Acquiring new CSVs (still the same fixture set)",
+    "Re-running Monte-Carlo noise calibration on contamination detector"
+  ],
+  "stop_criteria": [
+    "All tests green after re-annotation; CLIFF_PRE_PEAK_* constants fully removed; cliff candidate body simplified; no new regressions in full suite"
+  ],
+  "handoff_artifacts": [
+    "Re-annotated 3 unlidded fixtures + cliff universality",
+    "Simplified _candidate_probe_pull_cliff (no plateau guard)",
+    "Removed CLIFF_PRE_PEAK_* from config",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T07:06:15Z"
+}

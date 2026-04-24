@@ -3,6 +3,7 @@
 import pandas as pd
 import numpy as np
 from typing import Dict, Optional
+from config.constants import SENSOR_NAMES
 
 
 def identify_surface_sensor_advanced(df: pd.DataFrame, sample_period_ms: int = 5000) -> Optional[Dict]:
@@ -29,7 +30,7 @@ def identify_surface_sensor_advanced(df: pd.DataFrame, sample_period_ms: int = 5
         }
         or None if surface cannot be identified
     """
-    sensors = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
+    sensors = list(SENSOR_NAMES)
     results = {}
     
     # Phase 1: Calculate key metrics for each sensor

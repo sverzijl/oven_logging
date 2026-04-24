@@ -40,6 +40,11 @@ class SensorAssignmentManager:
         if hasattr(owner, 'curve_sensor_assignments') and curve_index in owner.curve_sensor_assignments:
             curve_assignments = owner.curve_sensor_assignments[curve_index]
             core_assignment = curve_assignments.get('core', '')
+            # Physics-corrected core wins over firmware VirtualCoreSensor mode —
+            # the core_info dict still reflects the raw firmware histogram, so
+            # route through the authoritative 'core' key when corrected.
+            if curve_assignments.get('core_physics_corrected') and core_assignment and core_assignment != 'Unknown':
+                return [core_assignment]
             if 'core_info' in curve_assignments:
                 all_sensors = curve_assignments['core_info'].get('all_sensors', {})
                 return list(all_sensors.keys())

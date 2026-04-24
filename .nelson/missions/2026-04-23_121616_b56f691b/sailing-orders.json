@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "outcome": "Add core-peak-plateau end-detection candidate to CurveBoundaryDetector so lidded bakes terminate at oven-exit, not at EOF or probe-removal",
+  "success_metric": "wonder white 10k 13.01.2026.csv returns 1 curve ending within +/-5 samples of ground-truth oven-exit (idx ~340); at least one new synthetic lidded fixture exercises the signature; all 11 existing boundary tests still green; full suite 116/8/1",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD non-negotiable: failing test first, red against branch HEAD before implementation",
+    "DRY: new candidate must share existing aggregator machinery, not duplicate it",
+    "Work on existing branch refactor/curve-boundary-detection (do not create a new branch)",
+    "Do NOT change existing candidates; only add a new one",
+    "Do NOT introduce ambient- or product-type-based logic (out of scope for this mission)"
+  ],
+  "out_of_scope": [
+    "Ambient-sensor-based detection (flagged for future mission)",
+    "BAKEOUT_TARGETS / product-type awareness (flagged for future mission)",
+    "Real-CSV cross-validation against other lidded CSVs (only wonder white available today)"
+  ],
+  "stop_criteria": [
+    "All boundary tests green AND wonder white CSV ends at core-peak-plateau within tolerance AND no new full-suite regressions",
+    "Escalate if ground-truth for wonder white is ambiguous between core-peak and ambient-peak markers"
+  ],
+  "handoff_artifacts": [
+    "Updated src/data/curve_boundary_detector.py with _candidate_core_peak_plateau",
+    "Updated config/constants.py with CORE_PEAK_PLATEAU_RATE_C_PER_SEC and CORE_PEAK_PLATEAU_CONFIRM_SECONDS",
+    "Updated tests/fixtures/curve_boundary_cases.py with wonder_white real case + synthetic lidded case(s)",
+    "Updated tests/test_curve_boundary_detection.py with lidded-bake tests",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-23T12:16:16Z"
+}

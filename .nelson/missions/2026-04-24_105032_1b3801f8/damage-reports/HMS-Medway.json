@@ -1,0 +1,42 @@
+{
+  "ship": "HMS Medway",
+  "role": "Test Captain",
+  "mission": "2026-04-24_105032_1b3801f8",
+  "date": "2026-04-24",
+  "status": "COMPLETE",
+  "baseline_run": "pytest tests/test_curve_boundary_detection.py -v --tb=short",
+  "total_collected": 33,
+  "passed": 30,
+  "failed": 3,
+  "errors": 0,
+  "red_tests": [
+    {
+      "name": "TestOvenEntryStartDetection::test_1759_bake_durations_exceed_20_minutes",
+      "expected": "RED on HEAD",
+      "actual": "RED",
+      "failure": "curves[1]['duration'] = 14.1 min (expected > 20); curves[2]['duration'] = 12.8 min (expected > 20). Core-only start detector fires at ~775 / ~6032 instead of max-sensor ~660 / ~5888."
+    },
+    {
+      "name": "TestOvenEntryStartDetection::test_1759_bake_2_start_at_oven_entry",
+      "expected": "RED on HEAD",
+      "actual": "RED",
+      "failure": "curves[1]['start_idx'] = 775, expected 660 ± 8 (delta=115)."
+    },
+    {
+      "name": "TestOvenEntryStartDetection::test_1759_bake_3_start_at_oven_entry",
+      "expected": "RED on HEAD",
+      "actual": "RED",
+      "failure": "curves[2]['start_idx'] = 6032, expected 5888 ± 8 (delta=144)."
+    }
+  ],
+  "green_tests": 30,
+  "test_ground_truth_real_csvs_tight": "GREEN — stayed green; 1759's ambiguous=True guard means only bake-1 is checked by that test, so Forth's re-annotation of bakes 2/3 expected_starts did not flip it.",
+  "anomalies": "None. All 30 prior tests green, exactly 3 new tests red. No unexpected flips.",
+  "file_modified": "tests/test_curve_boundary_detection.py",
+  "new_class": "TestOvenEntryStartDetection",
+  "new_tests": [
+    "test_1759_bake_durations_exceed_20_minutes",
+    "test_1759_bake_2_start_at_oven_entry",
+    "test_1759_bake_3_start_at_oven_entry"
+  ]
+}

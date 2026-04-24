@@ -1,0 +1,55 @@
+{
+  "ship": "HMS Daring",
+  "mission": "2026-04-24_040134_3c51ae77",
+  "role": "Test Captain — cliff candidate failing tests",
+  "status": "complete",
+  "file_modified": "tests/test_curve_boundary_detection.py",
+  "baseline_run": {
+    "total_collected": 30,
+    "passed": 28,
+    "failed": 2,
+    "date": "2026-04-23"
+  },
+  "new_tests": [
+    {
+      "name": "TestCliffProbePullDetection::test_post_wonder_meal_lidded_clips_at_cliff",
+      "class": "TestCliffProbePullDetection",
+      "role": "TARGET",
+      "head_result": "RED",
+      "head_end_idx": 375,
+      "expected_end_idx": 344,
+      "head_truncated": true,
+      "expected_truncated": false
+    },
+    {
+      "name": "TestCliffProbePullDetection::test_synthetic_cliff_clips_just_before_cliff",
+      "class": "TestCliffProbePullDetection",
+      "role": "TARGET",
+      "head_result": "RED",
+      "head_end_idx": 399,
+      "expected_end_idx": 299,
+      "head_truncated": true,
+      "expected_truncated": false
+    },
+    {
+      "name": "TestCliffProbePullDetection::test_existing_lidded_wonder_white_still_clips_at_plateau",
+      "class": "TestCliffProbePullDetection",
+      "role": "GUARDRAIL",
+      "head_result": "GREEN",
+      "head_end_idx": "within 5 of 340",
+      "notes": "Plateau candidate fires correctly on wonder white — guardrail intact"
+    }
+  ],
+  "existing_tests": {
+    "TestCurveBoundaryDetection": {"count": 11, "all_passed": true},
+    "TestLiddedBakeDetection": {"count": 4, "all_passed": true},
+    "TestCoreSensorClassifier": {"count": 6, "all_passed": true},
+    "TestProbeRemovalContamination": {"count": 6, "all_passed": true}
+  },
+  "skip_set_adjustment": {
+    "description": "Added 'cliff_probe_pull_with_monotonic_cooldown' to LIDDED_NAMES set in TestLiddedBakeDetection::test_existing_unlidded_fixtures_unchanged",
+    "line": "503-509",
+    "reason": "Synthetic cliff fixture has PredictionState always 'Cooking' and its end detection is handled by the new cliff candidate — it must not be evaluated as an unlidded guardrail case"
+  },
+  "blockers": "none"
+}

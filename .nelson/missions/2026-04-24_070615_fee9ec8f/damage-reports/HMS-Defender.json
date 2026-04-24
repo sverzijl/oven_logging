@@ -1,0 +1,55 @@
+{
+  "ship": "HMS Defender",
+  "role": "Test Baseline Captain",
+  "mission": "2026-04-24_070615_fee9ec8f",
+  "stance": "B",
+  "timestamp": "2026-04-24",
+  "pytest_summary": {
+    "total": 30,
+    "passed": 28,
+    "failed": 2
+  },
+  "red_tests": [
+    {
+      "name": "TestCurveBoundaryDetection::test_ground_truth_real_csvs_tight",
+      "reason": "real_100098DE_1351 curve-0: expected end 306, got 330 (delta=24, tolerance=2). Kent re-annotated expected_ends [329]->[306]; detector still returns 330."
+    },
+    {
+      "name": "TestLiddedBakeDetection::test_existing_unlidded_fixtures_unchanged",
+      "reason": "real_100098DE_1351 curve-0: expected ~306, got 330 (delta=24, tolerance=5). Same root cause as above."
+    }
+  ],
+  "green_confirmed": {
+    "pwm_wonder_white": "TestLiddedBakeDetection::test_wonder_white_lidded_real_csv — PASSED",
+    "TestCoreSensorClassifier": "All 6 tests PASSED",
+    "TestProbeRemovalContamination": "All 6 tests PASSED",
+    "TestCliffProbePullDetection": "All 3 tests PASSED"
+  },
+  "hardcoded_value_scan": {
+    "grep_pattern": "329|299|955|6200",
+    "matches_in_assertion_context": [
+      {
+        "line": 962,
+        "value": 299,
+        "test": "test_synthetic_cliff_clips_just_before_cliff",
+        "assessment": "SAFE — synthetic fixture for a separate cliff-probe-pull mechanism, not a real-CSV expected_end. Test is GREEN and unaffected by Kent's re-annotation."
+      }
+    ],
+    "matches_in_comments_only": [
+      {
+        "line": 680,
+        "value": 955,
+        "context": "docstring comment in test_real_1000BA3C_1759_core_is_t1",
+        "assessment": "Not an assertion — no update needed."
+      }
+    ],
+    "hardcoded_updates_made": 0,
+    "notes": "The old values 329, 6200, and 955 (as assertion target) do not appear in assertion contexts. No hardcoded assertion updates were required."
+  },
+  "unexpected_failures": "None. Both RED tests failed for exactly the expected reason: Kent moved expected_ends but CLIFF_PRE_PEAK_PLATEAU guard still prevents detector from returning the new lower values.",
+  "notes_for_dragon": [
+    "Only real_100098DE_1351 curve-0 is currently red. The other two re-annotated fixtures (real_1000BA3C_0946 expected 293, real_1000BA3C_1759 expected [944,6185]) did not flip — they may also be guarded but their old detector output happens to still pass within tolerance, or the test only iterates the first mismatch. Dragon should verify all three unlidded cases after removing the CLIFF_PRE_PEAK_PLATEAU guard.",
+    "test_ground_truth_real_csvs_tight has tolerance=2; test_existing_unlidded_fixtures_unchanged has tolerance=5. Both fail on the same 24-point delta for 100098DE_1351."
+  ],
+  "action_required": false
+}

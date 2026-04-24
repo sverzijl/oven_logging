@@ -1,0 +1,23 @@
+{
+  "ship": "HMS Diamond",
+  "role": "Captain — Polish Captain",
+  "mission": "2026-04-24_040134_3c51ae77",
+  "status": "COMPLETE",
+  "action_station": 1,
+  "files_modified": [
+    "src/data/curve_boundary_detector.py"
+  ],
+  "diff_summary": {
+    "line": "~600-603",
+    "what_changed": "Docstring in `_candidate_probe_pull_cliff` updated: plateau example numbers corrected (PWM 315→310 s, synthetic 325→320 s, BA3C 110→170 s split into BA3C_1759 ~170 s and BA3C_0946 ~105 s); threshold corrected from '150 s' to '250 s'; cross-reference to CURVE_DETECTION_CONFIG[\"CLIFF_PRE_PEAK_PLATEAU_SECONDS\"] added; margin stated as 140 s (worst lidded 310 s minus worst unlidded 170 s)."
+  },
+  "validation": {
+    "py_compile": "exit 0",
+    "boundary_tests": "30 passed",
+    "full_suite": "135 passed / 8 failed / 1 skipped (matches baseline)",
+    "stale_grep": "no matches (no plateau/pre-peak/pre-cliff lines mention 150 or 200)"
+  },
+  "rollback_note": "Revert the four-line docstring block at lines ~599-605 in curve_boundary_detector.py. No logic was changed; rollback has zero functional risk.",
+  "q3_scope": "NOT touched — admiral-escalated per standing orders.",
+  "date": "2026-04-23"
+}

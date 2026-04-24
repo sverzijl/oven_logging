@@ -18,18 +18,32 @@ def get_dynamic_sensor_names(loader):
 
     Returns:
         dict: Mapping of sensor names to their actual roles
+
+    Note: core label is driven by loader.get_core_sensor() (respects
+    core_physics_corrected override) rather than the raw firmware histogram.
+    Fix for mission 2026-04-23_231637_4ed7fcd1: Artful found that keying off
+    the firmware histogram for Core labels produces correct results on wonder
+    white only by coincidence (T5 appears 40× in histogram); a future CSV
+    where the physics-corrected core does not appear in the histogram at all
+    would be silently mislabelled.
     """
     sensor_names = dict(SENSOR_NAMES)  # Start with default names
 
     if loader:
         assignments = loader.get_sensor_assignments()
 
-        # If we have assignment info, update sensor names
+        # Core: use loader.get_core_sensor() as single source of truth so that
+        # core_physics_corrected overrides are respected. Label firmware-
+        # histogram sensors as "Core" and ensure the authoritative core (which
+        # may not be in the histogram) is labelled "Core (Primary)".
+        authoritative_core = loader.get_core_sensor()
         if 'core_info' in assignments:
             core_sensors = assignments['core_info'].get('all_sensors', {})
             for sensor, count in core_sensors.items():
                 if sensor and sensor.startswith('T'):
-                    sensor_names[sensor] = f"Core (Primary)" if sensor == assignments.get('core') else "Core"
+                    sensor_names[sensor] = "Core (Primary)" if sensor == authoritative_core else "Core"
+        if authoritative_core and authoritative_core.startswith('T'):
+            sensor_names[authoritative_core] = "Core (Primary)"
 
         if 'surface_info' in assignments:
             surface_sensors = assignments['surface_info'].get('all_sensors', {})

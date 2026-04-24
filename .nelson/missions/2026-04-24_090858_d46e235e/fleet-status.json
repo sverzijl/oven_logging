@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Correct the BA3C_1759 fixture annotation from 2 bakes to 3 bakes (starts=[13,766,6022], ends=[293,944,6185]) and remove Dragon's peak_idx+1 scan guard from prior mission so cliff fires correctly at j=293 (end of bake 1). Keep CLIFF_MIN_START_TEMP_C=80 guard which is separately necessary.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T09:08:58Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 5,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 5
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Lancaster",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Portland",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Duncan",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 3,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Spey",
+      "ship_class": "patrol vessel",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 4,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 4 captains"
+  ],
+  "last_updated": "2026-04-24T10:01:31Z"
+}

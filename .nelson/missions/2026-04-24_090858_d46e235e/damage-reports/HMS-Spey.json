@@ -1,0 +1,58 @@
+{
+  "ship": "HMS Spey",
+  "mission_id": "2026-04-24_090858_d46e235e",
+  "role": "Polish Captain",
+  "action_station": 1,
+  "date": "2026-04-24",
+  "status": "COMPLETE — no regressions",
+
+  "items": {
+    "A": {
+      "file": "tests/fixtures/curve_boundary_cases.py",
+      "description": "Bake-3 start annotation updated 6022 -> 6032 for real_1000BA3C_1759",
+      "diff_summary": [
+        "expected_starts: [13, 775, 6022] -> [13, 775, 6032]",
+        "Inline comment block updated: 6022..6185 -> 6032..6185, added bake_active_c=40 rationale",
+        "Description string: BAKE 3 START updated from j=6022 to j=6032 with full annotation rationale mirroring bake-2 correction, citing mission 2026-04-24_090858_d46e235e"
+      ]
+    },
+    "B": {
+      "file": "src/data/curve_boundary_detector.py",
+      "description": "Two-layer defense docstring added to _skip_probe_pull_tail",
+      "diff_summary": [
+        "Added TWO-LAYER DEFENSE block to _skip_probe_pull_tail docstring",
+        "Documents Layer 1 (CLIFF_MIN_START_TEMP_C=80, unit-level) and Layer 2 (_skip_probe_pull_tail, outer-loop)",
+        "Explains distinct failure modes each layer guards, references Artful Q4 mission 2026-04-24_090858_d46e235e"
+      ]
+    },
+    "C": {
+      "file": "src/data/curve_boundary_detector.py",
+      "description": "Noise-fragility docstring on _candidate_probe_pull_cliff reworded",
+      "diff_summary": [
+        "Heading changed from NOISE-FRAGILITY WARNING to NOISE-FRAGILITY NOTE",
+        "Added post-mission clarification: prior noise regression was annotation-driven (mis-annotated 2-bake fixture), not detector-driven",
+        "Retained: sigma=0.05-0.15 C characterisation unresolved, production fragility still worth verifying",
+        "Retained: all 4 suggested mitigations (smoothing, threshold tighten, noise-relative threshold, order-invariant guard)",
+        "Added mitigation 4 (order-invariant guard) which was listed in briefing but missing from prior text"
+      ]
+    }
+  },
+
+  "validation": {
+    "compile": "python3 -m py_compile app.py sidebar.py src/data/curve_boundary_detector.py — exit 0",
+    "boundary_tests": "pytest tests/test_curve_boundary_detection.py -v --tb=no — 30 passed",
+    "full_suite_run1": "136 passed / 7 failed / 1 skipped — pre-existing failures only",
+    "full_suite_run2": "136 passed / 7 failed / 1 skipped — pre-existing failures only",
+    "introspection": {
+      "real_1000BA3C_1759": "starts=[13, 775, 6032] ends=[293, 944, 6185]",
+      "post_wonder_meal_lidded": "starts=[3] ends=[344]",
+      "wonder_white_10k_lidded": "starts=[39] ends=[338]",
+      "real_100098DE_1351": "starts=[3] ends=[306]",
+      "real_1000BA3C_0946": "starts=[13] ends=[293]"
+    }
+  },
+
+  "rollback_note": "All changes are documentation-only (Items B, C) or a single fixture annotation value + description (Item A). Rollback: revert expected_starts[2] from 6032 to 6022 in curve_boundary_cases.py and restore prior docstring blocks in curve_boundary_detector.py.",
+
+  "deviations": "None. Items A, B, C only. No detector logic or threshold constants changed. No other fixture values changed."
+}

@@ -1,0 +1,62 @@
+{
+  "squadron": {
+    "admiral": { "ship_name": "HMS Admiralty", "model": "opus" },
+    "captains": [
+      { "ship_name": "HMS Richmond", "ship_class": "frigate", "model": "sonnet", "task_id": 1 },
+      { "ship_name": "HMS Somerset", "ship_class": "frigate", "model": "sonnet", "task_id": 2 },
+      { "ship_name": "HMS Iron Duke", "ship_class": "frigate", "model": "opus", "task_id": 3 },
+      { "ship_name": "HMS Lancaster", "ship_class": "frigate", "model": "sonnet", "task_id": 4 }
+    ],
+    "red_cell": { "ship_name": "HMS Artful", "model": "opus" }
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Core-sensor fixture annotations",
+      "owner": "HMS Richmond",
+      "deliverable": "Extend the CASES schema in tests/fixtures/curve_boundary_cases.py with an optional expected_core_sensor field. Annotate wonder_white_10k_lidded with expected_core_sensor='T6' and a description documenting the combined-rank methodology (heat-rank + cool-rank from physics). For the 3 original real CSVs, record firmware's VirtualCoreSensor mode as expected_core_sensor (no change expected). Add 2 synthetic cases with known cores: core_sensor_unambiguous (one sensor clearly slowest-heat AND slowest-cool, easy case) and core_sensor_disagreeing_metrics (combined rank needed to disambiguate).",
+      "dependencies": [],
+      "station_tier": 0,
+      "file_ownership": ["tests/fixtures/curve_boundary_cases.py"],
+      "validation_required": "CASES import clean; each case now has expected_core_sensor; wonder white is T6",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing core-classifier tests",
+      "owner": "HMS Somerset",
+      "deliverable": "Add tests to tests/test_curve_boundary_detection.py (new TestCoreSensorClassifier class or existing) asserting the loader's sensor-role identification resolves core to each case's expected_core_sensor. Target tests for wonder white + synthetic_disagreeing must fail red on branch HEAD (firmware picks T1 for wonder white). Unambiguous + the 3 original CSVs should pass (classifier should agree with firmware on clear cases, or at minimum firmware remains the default).",
+      "dependencies": [1],
+      "station_tier": 1,
+      "file_ownership": ["tests/test_curve_boundary_detection.py"],
+      "validation_required": "pytest run recorded: wonder white test RED on HEAD, existing 15 boundary tests unaffected",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Core-sensor classifier implementation",
+      "owner": "HMS Iron Duke",
+      "deliverable": "Add physics-based core detector: compute per-sensor heat-rank (time-to-reach 80C from start) + cool-rank (retained-temp over 60s post-peak, using a common reference point to avoid peak-timing artifact). Combined score = heat_rank + cool_rank. If the lowest-score sensor differs from firmware's VirtualCoreSensor AND the score gap to 2nd place exceeds CORE_DETECTION_CONFIDENCE_GAP (config), override. Integrate into loader._identify_sensor_roles_for_curve() mirroring _apply_physics_based_surface_correction pattern. Add CORE_DETECTION_CONFIG block to config/constants.py. All 15 curve-boundary tests remain green; new core-classifier tests flip red to green.",
+      "dependencies": [2],
+      "station_tier": 1,
+      "file_ownership": ["src/data/thermodynamic_sensor_classifier.py", "src/data/loader.py", "config/constants.py"],
+      "validation_required": "pytest tests/test_curve_boundary_detection.py fully green; pytest tests/ baseline held (120/8/1); wonder white resolves to T6; HMS Artful red-cell accepts",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "Final polish + smoke after red-cell",
+      "owner": "HMS Lancaster",
+      "deliverable": "Absorb HMS Artful non-blocking items; py_compile smoke on app.py/sidebar.py; 2x pytest baseline confirmation; captain's log update.",
+      "dependencies": [3],
+      "station_tier": 1,
+      "file_ownership": [],
+      "validation_required": "py_compile clean; pytest tests/ held at baseline in 2 runs",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

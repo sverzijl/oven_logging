@@ -1,0 +1,29 @@
+{
+  "ship": "HMS Lancaster",
+  "role": "Fixture Captain",
+  "mission": "2026-04-24_090858_d46e235e",
+  "status": "COMPLETE",
+  "files_modified": [
+    "tests/fixtures/curve_boundary_cases.py"
+  ],
+  "changes": {
+    "real_1000BA3C_1759": {
+      "expected_n_curves": {"before": 2, "after": 3},
+      "expected_starts": {"before": [13, 5890], "after": [13, 766, 6022]},
+      "expected_ends": {"before": [944, 6185], "after": [293, 944, 6185]},
+      "tolerance": {"before": null, "after": 5},
+      "ambiguous": {"before": true, "after": true},
+      "description": "Updated to document 3-bake correction and removed peak_idx+1 guard context"
+    }
+  },
+  "validations_passed": [
+    "expected_n_curves==3, expected_starts==[13,766,6022], expected_ends==[293,944,6185]",
+    "Case count: 19 (unchanged; briefing said 18 but prior state was already 19)",
+    "other CSVs unchanged: real_100098DE_1351 [306], real_1000BA3C_0946 [293], post_wonder_meal_lidded [344], wonder_white_10k_lidded [340]"
+  ],
+  "notes": [
+    "Case count is 19, not 18 as stated in briefing — the briefing count was stale. No cases were added or removed.",
+    "peak_idx+1 scan-start guard removal is HMS Duncan's responsibility (Task 3); Lancaster scope is fixture only.",
+    "expected_core_sensor='T1' left unchanged per standing orders; future core-sensor-per-curve mission to revisit."
+  ]
+}

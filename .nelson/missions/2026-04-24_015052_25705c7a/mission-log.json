@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T01:51:29Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T01:51:29Z",
+      "data": {
+        "captain_count": 4,
+        "has_red_cell": true,
+        "execution_mode": "agent-team",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T01:51:29Z",
+      "data": {
+        "task_count": 4,
+        "parallel_tracks": 1,
+        "critical_path_length": 4,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T01:51:31Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "FORMATION"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T01:51:31Z",
+      "data": {
+        "from_phase": "FORMATION",
+        "to_phase": "PERMISSION"
+      }
+    },
+    {
+      "type": "permission_granted",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T01:51:32Z",
+      "data": {}
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T01:51:33Z",
+      "data": {
+        "from_phase": "PERMISSION",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T02:09:40Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "PWM fixtures",
+        "owner": "HMS Portland",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T02:16:40Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Failing probe-removal tests",
+        "owner": "HMS St Albans",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T02:36:33Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "Contamination detection",
+        "owner": "HMS Vanguard",
+        "station_tier": 1,
+        "verification": "pending_redcell"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-24T02:58:17Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "META review",
+        "owner": "HMS Audacious",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-24T03:13:19Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "REVISE + polish",
+        "owner": "HMS Duncan",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T03:16:12Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 5,
+        "tasks_total": 4,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 81,
+        "ships_used": 4,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

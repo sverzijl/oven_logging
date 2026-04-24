@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Re-annotate 1759 bake 2/3 starts",
+      "owner": "HMS Forth",
+      "deliverable": "Update real_1000BA3C_1759 in tests/fixtures/curve_boundary_cases.py: expected_starts=[13, 660, 5888]. Expand tolerance to 8 on this case (the ambient-rise-based detection is less precise than core-based because different sensors have different temporal lag). Update description to document the oven-entry detection semantics and note that start=T8 first crosses 40\u00b0C (ambient-sensor-based detection) rather than T1 reaching 40\u00b0C (core-sensor-based).",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 0,
+      "file_ownership": [
+        "tests/fixtures/curve_boundary_cases.py"
+      ],
+      "validation_required": "fixture imports; 1759 expected_starts is [13, 660, 5888]; tolerance 8",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing start-detection test for 1759 bakes 2/3",
+      "owner": "HMS Medway",
+      "deliverable": "Add a failing test asserting 1759 returns 3 curves where bakes 2 and 3 have duration > 20 minutes. Also assert bake 2 start within tolerance of 660 and bake 3 start within tolerance of 5888. Existing tests must remain green.",
+      "dependencies": [
+        1
+      ],
+      "dependents": [
+        3
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "tests/test_curve_boundary_detection.py"
+      ],
+      "validation_required": "new test RED on HEAD; 30 existing tests still GREEN",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Max-sensor-based skip + cold-start",
+      "owner": "HMS Victory",
+      "deliverable": "In src/data/curve_boundary_detector.py: (a) change _skip_probe_pull_tail to advance while max(T1..T8) >= ROOM_TEMP_MAX (currently checks single column). (b) change the cold-start branch of _detect_start (method 2b) to scan for first sample where max(T1..T8) >= bake_active_c with sustained-rise confirmation (currently checks VCT only). Preserve method 1 (PredictionState) and method 2a (mid-bake) unchanged. Add docstring notes explaining the ambient-rise oven-entry semantics. The detector needs access to all 8 sensor columns - the current function signature may need updating to receive the full df rather than just the core column series.",
+      "dependencies": [
+        2
+      ],
+      "dependents": [
+        4
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/data/curve_boundary_detector.py"
+      ],
+      "validation_required": "new test GREEN; all 30 existing boundary tests still green; full suite baseline held; introspection confirms 1759 = [13-293, ~660-944, ~5888-6185] all within tolerance 8; other CSVs unchanged",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "META review (HMS Astute)",
+      "owner": "HMS Astute",
+      "deliverable": "Adversarial red-cell: verify max-sensor change doesn't regress single-curve CSVs (100098DE, BA3C_0946, PWM, WW); verify skip_probe_pull_tail termination is sensible on cliff-cooldown cascades where T8 stays hot; verify 1759 bake 1 (which starts via PredictionState method 1) is unaffected; probe noise fragility on ambient-sensor signal. Verdict at {mission-dir}/redcell-verdict.md.",
+      "dependencies": [
+        3
+      ],
+      "dependents": [
+        5
+      ],
+      "station_tier": 0,
+      "file_ownership": [],
+      "validation_required": "Written verdict",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 5,
+      "name": "Final polish (HMS Spey)",
+      "owner": "HMS Spey",
+      "deliverable": "Absorb Astute non-blocking notes; py_compile smoke; 2x pytest baseline.",
+      "dependencies": [
+        4
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [],
+      "validation_required": "py_compile clean; pytest held in 2 runs",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "agent-team",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Forth",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Medway",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 2
+      },
+      {
+        "ship_name": "HMS Victory",
+        "ship_class": "flagship",
+        "model": "opus",
+        "task_id": 3
+      },
+      {
+        "ship_name": "HMS Spey",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 4
+      }
+    ],
+    "red_cell": {
+      "ship_name": "HMS Astute",
+      "model": "opus"
+    }
+  },
+  "created_at": "2026-04-24T10:51:18Z",
+  "amended_at": null
+}

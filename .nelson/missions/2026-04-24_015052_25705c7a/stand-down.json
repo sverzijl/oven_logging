@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Fix probe-removal contamination in core-sensor classifier: when the operator pulls the probe within the cool window after peak, cool-rank becomes unreliable and the classifier silently uses contaminated data. Detect this and fall back to heat-only.",
+  "actual_outcome": "Probe-removal contamination detector shipped with min_k=2 simultaneous-sensor physics. Post Wonder Meal resolves core to T5 (was T7 contaminated). Wonder white still T5 via new explicit path. BA3C_1759 guardrail holds (4% FP at sigma=1.0, down from 13%).",
+  "success_metric_result": "27 dedicated tests green (+2 new negative); full suite 133/7/1, zero new regressions; BA3C_1759 FP 13%->4%; PWM true-positive holds; DRY extraction into _drop_rate_detection.py shared between classifier and curve boundary detector.",
+  "duration_minutes": 81,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 5,
+    "total": 4,
+    "by_station_tier": {
+      "0": 1,
+      "1": 3,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "User domain insight drives mission scope (probe-pull-contaminates-cool-rank was user's physics call, not code observation)",
+      "Red-cell Pareto-scan framing for threshold calibration (min_k=1 vs 2 vs 3 measured empirically, not argued)",
+      "Captain refuses to lie: Duncan rewrote test rather than assert false claim about BA3C_0946",
+      "DRY extraction at point of reuse, not preemptive (_drop_rate_detection.py when two call sites emerged)"
+    ],
+    "avoid": [
+      "Guardrail tests iterating source=real without type gate (LIDDED_NAMES needed manual maintenance each new fixture)",
+      "Assuming threshold changes propagate cleanly (Audacious assumed min_k=2 fixes BA3C_0946; Duncan empirically disproved)",
+      "Growing interlocking thresholds on small real-CSV sample (threshold surface now 13 constants across 2 modules)"
+    ]
+  },
+  "created_at": "2026-04-24T03:16:12Z"
+}

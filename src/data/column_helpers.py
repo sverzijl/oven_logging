@@ -8,6 +8,8 @@ CoreAverage) must route through :func:`get_core_temperature_column`.
 """
 import pandas as pd
 
+_T1_T4 = ['T1', 'T2', 'T3', 'T4']
+
 
 def get_core_temperature_column(df: pd.DataFrame) -> str:
     """Return the column name to read core temperature from.
@@ -22,4 +24,26 @@ def get_core_temperature_column(df: pd.DataFrame) -> str:
         return 'CoreAverage'
     raise KeyError(
         "Neither 'CoreTemperature' nor 'CoreAverage' column present in DataFrame"
+    )
+
+
+def resolve_core_temperature_series(df: pd.DataFrame) -> pd.Series:
+    """Return a core-temperature Series, resolving the full fallback chain.
+
+    Precedence: ``VirtualCoreTemperature`` → ``CoreTemperature`` → ``CoreAverage``
+    → mean of ``T1``..``T4``.  Raises :class:`KeyError` when no fallback is
+    available.  Centralises the pattern that was previously inlined at several
+    call sites in ``loader.py``.
+    """
+    if 'VirtualCoreTemperature' in df.columns:
+        return df['VirtualCoreTemperature']
+    if 'CoreTemperature' in df.columns:
+        return df['CoreTemperature']
+    if 'CoreAverage' in df.columns:
+        return df['CoreAverage']
+    if all(col in df.columns for col in _T1_T4):
+        return df[_T1_T4].mean(axis=1)
+    raise KeyError(
+        "No core-temperature source available: need one of "
+        "VirtualCoreTemperature, CoreTemperature, CoreAverage, or T1..T4"
     )

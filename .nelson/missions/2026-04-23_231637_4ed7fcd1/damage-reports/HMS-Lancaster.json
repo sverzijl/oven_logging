@@ -1,0 +1,35 @@
+{
+  "ship": "HMS Lancaster",
+  "role": "Polish Captain",
+  "mission": "2026-04-23_231637_4ed7fcd1",
+  "verdict_absorbed": "ACCEPT_WITH_NOTES",
+  "items_completed": ["A", "B", "C"],
+  "items_skipped": ["D (documentation correction only — recorded in captain's log, no code action)"],
+  "changes": [
+    {
+      "file": "config/constants.py",
+      "item": "A",
+      "change": "Updated CONFIDENCE_GAP_MIN comment to clarify: 4-sensor path p95=3/max=4; 8-sensor production path p95=4/max=5 (thinner margin). Added mitigation note from real-CSV perturbation (σ=1.0°C 0/100 flips, σ=2.0°C 5/100 on real_100098DE). References probe_monte_carlo.py and probe_noise_real.py in mission dir."
+    },
+    {
+      "file": "src/data/thermodynamic_sensor_classifier.py",
+      "item": "B",
+      "change": "Added module docstring explaining heat-only fallback condition and cool_available sentinel. Added cool_available: bool as top-level key in diagnostics dict returned by identify_core_sensor_combined_rank. Set retained_c_at_cool_window to None per sensor when cool_available is False (fallback fired). No behaviour change — diagnostic only."
+    },
+    {
+      "file": "sensor_naming.py",
+      "item": "C",
+      "change": "Rewrote get_dynamic_sensor_names to call loader.get_core_sensor() as single source of truth for Core (Primary) label, instead of keying off firmware histogram mode. Physics-corrected core now labelled correctly even if it doesn't appear in firmware core_info['all_sensors']. Added comment naming Artful's finding and mission ID 2026-04-23_231637_4ed7fcd1."
+    }
+  ],
+  "validation": {
+    "py_compile": "PASS — app.py, sidebar.py, sensor_naming.py all exit 0",
+    "test_curve_boundary_detection": "PASS — 21/21",
+    "full_suite_run_1": "127 passed, 7 failed, 1 skipped (test_deep_insertion passed this run — Artful-confirmed flaky boundary)",
+    "full_suite_run_2": "126 passed, 8 failed, 1 skipped (baseline restored)",
+    "full_suite_run_3": "126 passed, 8 failed, 1 skipped (baseline confirmed)",
+    "wonder_white_validation_d": "test_wonder_white_core_is_t5_or_t6 PASSES; briefing's direct python3 -c command fails pre-existing at _validate_sensor_assignments (fixture df lacks TimeMinutes) — not caused by Lancaster changes"
+  },
+  "blockers_encountered": "None",
+  "mission_tally_correction": "Net full-suite change this mission is +6 passes (120→126), not +7. test_deep_insertion consistently fails; no mystery pass exists. Recorded per Item D brief."
+}

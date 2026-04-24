@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Forth",
+  "timestamp": "2026-04-23T00:00:00Z",
+  "hull_integrity_pct": 92,
+  "hull_integrity_status": "NOMINAL",
+  "relief_requested": false,
+  "context_summary": "Fixture harness built and validated. Deliverables: tests/fixtures/__init__.py and tests/fixtures/curve_boundary_cases.py with 11 CASES (3 real, 8 synthetic). All cases load without error. get_core_temperature_column resolves on all DataFrames. One ambiguous case: real_1000BA3C_1759 bake-2 start (PredictionState never reverts, annotated via VCT-fallback at idx 5890 ±5 samples). All real CSV ends are VCT-fallback (no reverse PredictionState transitions in any CSV). Validation command passed: python3 -c 'from tests.fixtures.curve_boundary_cases import CASES; [print(c[\"name\"], c[\"expected_n_curves\"]) for c in CASES]'."
+}

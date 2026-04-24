@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Add core-peak-plateau end-detection candidate to CurveBoundaryDetector so lidded bakes terminate at oven-exit, not at EOF or probe-removal",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-23T12:16:16Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 4,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 4
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Trent",
+      "ship_class": "patrol vessel",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Tamar",
+      "ship_class": "patrol vessel",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Warspite",
+      "ship_class": "flagship",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 3,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Spey",
+      "ship_class": "patrol vessel",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 4,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 4 captains"
+  ],
+  "last_updated": "2026-04-23T13:49:35Z"
+}

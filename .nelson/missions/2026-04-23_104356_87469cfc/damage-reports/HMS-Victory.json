@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Victory",
+  "timestamp": "2026-04-23T10:43:56Z",
+  "hull_integrity_pct": 55,
+  "hull_integrity_status": "sound",
+  "relief_requested": false,
+  "context_summary": "Implementation complete. All 12 curve-boundary tests green (was 1/12 on main). Full suite: 118 passed, 1 skipped, 7 failures (all pre-existing on main — pre-refactor count was 8; one surface-sensor test fortuitously passes now). New pure module src/data/curve_boundary_detector.py (417 lines) with evidence-aggregator exit detection, running-peak scan, and PredictionState-aware cool-window. Loader shrunk from 1,400+ to 916 lines; deprecated _extract_baking_curve wrapper removed. CoreTemperature fallback chain consolidated via resolve_core_temperature_series in column_helpers.py (3 duplicated sites now route to 1). MIN_CURVE_DURATION_SECONDS tuned to 120 (not the briefing's 300 default) to accommodate the two_bakes_no_cool synthetic fixture whose short bakes are part of the test contract — noted in report for Astute. Golden-master baseline updated to the new correct behavior; rationale documented in-file (old values pinned the line-878 instant-drop bug that the refactor exists to eliminate). Detector does not mutate the input DataFrame (finding 10); raises ValueError on non-monotonic timestamps (finding 8); rate thresholds normalised to °C/s (finding 4 + finding 7)."
+}

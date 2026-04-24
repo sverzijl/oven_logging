@@ -1,0 +1,109 @@
+{
+  "ship": "HMS Medway",
+  "task": 2,
+  "role": "Test Captain — failing test ladder",
+  "deliverable": "tests/test_curve_boundary_detection.py",
+  "status": "completed",
+  "timestamp": "2026-04-23",
+
+  "pytest_summary": {
+    "total": 12,
+    "passed": 1,
+    "failed": 11,
+    "passed_tests": [
+      "test_golden_master_real_csvs"
+    ],
+    "failed_tests": [
+      "test_ground_truth_real_csvs_tight",
+      "test_noise_spike_midbake",
+      "test_slow_cooldown_ends_at_inflection",
+      "test_truncated_log_flag",
+      "test_midbake_start_returns_index_zero",
+      "test_two_bakes_no_cool_between",
+      "test_start_index_convention_consistent",
+      "test_non_monotonic_timestamps_raises",
+      "test_variable_sample_period_consistency",
+      "test_detector_does_not_mutate_input_df",
+      "test_deprecated_wrapper_gone"
+    ]
+  },
+
+  "golden_master_recorded": {
+    "real_100098DE_1351": {"n_curves": 1, "curve0_start": 3, "curve0_end": 306},
+    "real_1000BA3C_0946": {"n_curves": 1, "curve0_start": 13, "curve0_end": 293},
+    "real_1000BA3C_1759": {"n_curves": 3, "curve0_start": 13, "curve0_end": 293}
+  },
+
+  "findings": [
+    {
+      "test": "test_golden_master_real_csvs",
+      "result": "GREEN",
+      "note": "Passes. Golden-master pinned."
+    },
+    {
+      "test": "test_ground_truth_real_csvs_tight",
+      "result": "RED",
+      "failure": "real_100098DE_1351 curve-0 end: expected 329, got 306 (diff=23, tolerance=2). Fixture annotates end at last VCT>=40 index (329); main exits early at 306 via drop-rate condition (finding 3/7)."
+    },
+    {
+      "test": "test_noise_spike_midbake",
+      "result": "RED",
+      "failure": "Got 0 curves. Single-sample -20°C spike triggers instant_drop>15 at loader.py:882-886, ending the curve before minimum duration is met (finding 3)."
+    },
+    {
+      "test": "test_slow_cooldown_ends_at_inflection",
+      "result": "RED",
+      "failure": "main exits at idx 76 (VCT≈53°C); expected end near 79 (last idx>=40). Drop-rate threshold 2°C/s is not normalised to sample period so 0.5°C/s cooldown (2.5°C per 5s sample) exceeds it (findings 4+7)."
+    },
+    {
+      "test": "test_truncated_log_flag",
+      "result": "RED",
+      "failure": "0 curves returned. Synthetic truncated log (rises to 80°C, n=40 samples) fails MIN_CURVE_DURATION=60 check (loader.py:928). Also no truncated=True key in curve dict (finding 7)."
+    },
+    {
+      "test": "test_midbake_start_returns_index_zero",
+      "result": "RED",
+      "failure": "0 curves returned. Log beginning at 60°C has no PredictionState and no cold-start rise, so start_idx=None and break exits before any curve is found (finding 1)."
+    },
+    {
+      "test": "test_two_bakes_no_cool_between",
+      "result": "RED",
+      "failure": "Got 1 curve instead of 2. The inter-bake dip stays above 60°C so the peak-search loop never sees ROOM_TEMP_MAX and the whole run is treated as one bake (finding 2)."
+    },
+    {
+      "test": "test_start_index_convention_consistent",
+      "result": "RED",
+      "failure": "Cold-start (1s period synthetic) produced 0 curves — variable_sample_period_1s never triggers cold-start heuristic because it has very short physical segments that fall under MIN_CURVE_DURATION=60 samples threshold (findings 4+5)."
+    },
+    {
+      "test": "test_non_monotonic_timestamps_raises",
+      "result": "RED",
+      "failure": "No ValueError raised. Main silently uses non-monotonic timestamps and computes negative time_span values; drop_rate_per_sec becomes negative and no threshold fires (finding 8)."
+    },
+    {
+      "test": "test_variable_sample_period_consistency",
+      "result": "RED",
+      "failure": "Both 1s and 10s sampled variants return 0 curves. MIN_CURVE_DURATION=60 samples requires 60 samples * 1s = 60s or 60*10s = 600s; physical durations designed at 200s rise / 200s fall are insufficient at 10s/sample (finding 4)."
+    },
+    {
+      "test": "test_detector_does_not_mutate_input_df",
+      "result": "RED",
+      "failure": "Detector adds temp_change and temp_smooth columns to the passed-in df (loader.py:762-763) — classic pure-function violation (finding 10)."
+    },
+    {
+      "test": "test_deprecated_wrapper_gone",
+      "result": "RED",
+      "failure": "_extract_baking_curve still exists on ThermalProfileLoader (loader.py:719-735) — dead DRY violation (finding 9)."
+    }
+  ],
+
+  "additional_finding": {
+    "description": "test_variable_sample_period_consistency reveals that the synthetic fixture's physical durations (rise_s=200s, fall_s=200s) produce only 20 samples at 10s/sample — below MIN_CURVE_DURATION=60. This means the fixture is also insufficient to test finding 4 in isolation. Victory should either lower MIN_CURVE_DURATION or the fixture should use longer physical durations.",
+    "severity": "medium",
+    "affects_tests": ["test_variable_sample_period_consistency", "test_start_index_convention_consistent"]
+  },
+
+  "rollback_note": "Delete tests/test_curve_boundary_detection.py to revert. No other files were modified.",
+
+  "handoff_to": "HMS Victory (Task 3 — CurveBoundaryDetector implementation)"
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "outcome": "Fix probe-removal contamination in core-sensor classifier: when the operator pulls the probe within the cool window after peak, cool-rank becomes unreliable and the classifier silently uses contaminated data. Detect this and fall back to heat-only.",
+  "success_metric": "Post Wonder Meal CSV resolves core to T5 (currently resolves to T7 using contaminated cool-rank); wonder white still resolves to T5 or T6; 3 unlidded real CSV guardrails still hold; combined rank still runs on BA3C_1759 (real slow cooldown); all 21 existing boundary tests green",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD non-negotiable; DRY; same branch refactor/curve-boundary-detection",
+    "Do not modify the existing classifier ranking logic; only the cool-rank gating / fallback condition",
+    "Do not change CONFIDENCE_GAP_MIN or the threshold values - we already validated them via Monte-Carlo last mission"
+  ],
+  "out_of_scope": [
+    "Curve boundary detector changes; surface/ambient role changes",
+    "Cross-validating against additional real CSVs beyond Post Wonder Meal (still only 2 lidded CSVs total)"
+  ],
+  "stop_criteria": [
+    "Post Wonder Meal resolves to T5 AND wonder white stays at T5/T6 AND 3 unlidded guardrails hold AND full suite baseline held"
+  ],
+  "handoff_artifacts": [
+    "Probe-removal contamination detection in thermodynamic_sensor_classifier.py",
+    "Updated CORE_DETECTION_CONFIG with probe-removal threshold constants",
+    "Post Wonder Meal fixture case + synthetic probe-removal case",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T01:50:52Z"
+}

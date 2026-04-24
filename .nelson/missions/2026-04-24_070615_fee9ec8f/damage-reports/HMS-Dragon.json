@@ -1,0 +1,55 @@
+{
+  "ship": "HMS Dragon",
+  "mission": "2026-04-24_070615_fee9ec8f",
+  "stance": "B",
+  "date": "2026-04-24",
+  "status": "COMPLETE",
+
+  "files_modified": [
+    {
+      "path": "config/constants.py",
+      "description": "Removed CLIFF_PRE_PEAK_PLATEAU_SECONDS and CLIFF_PRE_PEAK_TOLERANCE_C from CURVE_DETECTION_CONFIG. Updated rationale comment for Stance B.",
+      "lines_removed": 16,
+      "lines_added": 7,
+      "net_delta": -9
+    },
+    {
+      "path": "src/data/curve_boundary_detector.py",
+      "description": "Removed _cliff_pre_plateau_s and _cliff_pre_peak_tol_c from __init__. Simplified _candidate_probe_pull_cliff to remove plateau-duration guard. Added min_peak_temp guard to filter cascade-ambient cliffs. Added grace-window fallback for cliffs at peak_idx (short logs). In _evaluate_exit_candidates, scan cliff from peak_idx+1 to avoid false cliff at the running peak itself.",
+      "lines_removed": 42,
+      "lines_added": 38,
+      "net_delta": -4
+    }
+  ],
+
+  "verification": {
+    "grep_CLIFF_PRE_PEAK": "No live code matches — only a prose reference in a comment.",
+    "grep__cliff_pre_peak": "No matches in src/.",
+    "pytest_test_curve_boundary_detection": "30 passed / 0 failed (2 RED tests flipped GREEN)",
+    "pytest_full_suite": "135 passed / 8 failed / 1 skipped — matches Defender baseline, no new regressions"
+  },
+
+  "introspection_matrix": {
+    "real_100098DE_1351":       {"curve0_end_idx": 306, "curve0_truncated": false, "prior_end_idx": 330},
+    "real_1000BA3C_0946":       {"curve0_end_idx": 293, "curve0_truncated": false, "prior_end_idx": 299},
+    "real_1000BA3C_1759_bake1": {"curve0_end_idx": 944, "curve0_truncated": false, "prior_end_idx": 955},
+    "real_1000BA3C_1759_bake2": {"curve1_end_idx": 6185, "curve1_truncated": false, "prior_end_idx": 6200},
+    "post_wonder_meal_lidded":  {"curve0_end_idx": 344, "curve0_truncated": false, "prior_end_idx": 344},
+    "wonder_white_10k_lidded":  {"curve0_end_idx": 338, "curve0_truncated": false, "prior_end_idx": 338}
+  },
+
+  "surprises": [
+    {
+      "severity": "NOTABLE",
+      "description": "real_1000BA3C_1759 contains TWO cliffs within bake-1's scan window: j=293 (peak=93.75C at 1465s, the first probe insertion) and j=944 (peak=97.80C at 4720s, the real bake-1 endpoint). Removing the CLIFF_PRE_PEAK guard naively fires the j=293 cliff, ending bake-1 at 293 instead of 944.",
+      "resolution": "Two-part fix: (1) In _evaluate_exit_candidates, cliff scans from peak_idx+1 (not peak_idx) — this prevents the cliff at j=peak_idx from firing in the main loop and relies on the grace-window fallback for short-log cases (0946, synthetic). (2) Added min_peak_temp temperature guard so cascade cliffs below 80C (j=294, 295, etc.) are suppressed. The j=293 cliff in 1759 is not reached via main loop (peak_idx+1=294 starts scan after it) and not via grace fallback (n-1=6213 >> peak_idx+grace=303). The j=944 cliff fires correctly via the main loop at j=954."
+    }
+  ],
+
+  "risks_checked": {
+    "cliff_before_plateau_PWM": "PWM end_idx=344 — unchanged. Plateau at 338 fires earlier than cliff for wonder_white. No regression.",
+    "cliff_before_plateau_wonder_white": "wonder_white end_idx=338 — plateau candidate fires first. No regression.",
+    "dead_references": "No live references to removed constants found via grep.",
+    "1759_truncated_flag": "All curves now truncated=False (previously 0946 and 1759 were truncated=True). PWM and wonder_white were already False."
+  }
+}

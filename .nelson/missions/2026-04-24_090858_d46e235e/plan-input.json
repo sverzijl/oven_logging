@@ -1,0 +1,75 @@
+{
+  "squadron": {
+    "admiral": { "ship_name": "HMS Admiralty", "model": "opus" },
+    "captains": [
+      { "ship_name": "HMS Lancaster", "ship_class": "frigate", "model": "sonnet", "task_id": 1 },
+      { "ship_name": "HMS Portland", "ship_class": "frigate", "model": "sonnet", "task_id": 2 },
+      { "ship_name": "HMS Duncan", "ship_class": "destroyer", "model": "sonnet", "task_id": 3 },
+      { "ship_name": "HMS Spey", "ship_class": "patrol vessel", "model": "sonnet", "task_id": 4 }
+    ],
+    "red_cell": { "ship_name": "HMS Artful", "model": "opus" }
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Re-annotate BA3C_1759 fixture to 3 bakes",
+      "owner": "HMS Lancaster",
+      "deliverable": "Update real_1000BA3C_1759 in tests/fixtures/curve_boundary_cases.py: expected_n_curves=3, expected_starts=[13, 766, 6022], expected_ends=[293, 944, 6185]. Keep ambiguous=True flag (bake-3 start still has PredictionState-never-reverts quirk). Update description to document the correction: prior annotation treated bakes 1+2 as a single merged curve; actual CSV contains 3 separate bakes with probe-pull cliffs at 293 (bake 1), 944 (bake 2), 6185 (bake 3).",
+      "dependencies": [],
+      "station_tier": 0,
+      "file_ownership": ["tests/fixtures/curve_boundary_cases.py"],
+      "validation_required": "CASES imports; BA3C_1759 now has n_curves=3 with correct starts/ends",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing test baseline after 3-bake re-annotation",
+      "owner": "HMS Portland",
+      "deliverable": "Run pytest after Lancaster's fixture change. Identify which tests are now RED. Update any hardcoded BA3C_1759 indices in existing tests (e.g. [944, 6185] -> [293, 944, 6185]) so tests align with the new 3-bake ground truth. Do NOT relax assertions to pass the old (wrong) annotation.",
+      "dependencies": [1],
+      "station_tier": 1,
+      "file_ownership": ["tests/test_curve_boundary_detection.py"],
+      "validation_required": "Target tests RED on HEAD; guardrails on other CSVs still GREEN",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Remove peak_idx+1 scan guard from cliff candidate",
+      "owner": "HMS Duncan",
+      "deliverable": "Remove Dragon's peak_idx+1 scan-start guard from _candidate_probe_pull_cliff in src/data/curve_boundary_detector.py - scan should start at peak_idx (or from whatever the natural first_scan is). Keep the CLIFF_MIN_START_TEMP_C=80 guard (separately necessary to prevent cascade firing on post-cliff cooldown). Verify 1759 now produces 3 curves with end indices matching Lancaster's annotations. Verify 100098DE=306, BA3C_0946=293, PWM=344, wonder white=338 all unchanged. Update any docstrings referring to the removed guard.",
+      "dependencies": [2],
+      "station_tier": 1,
+      "file_ownership": ["src/data/curve_boundary_detector.py"],
+      "validation_required": "All boundary tests green after change; 1759 introspection shows 3 curves; no regressions on other CSVs",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "META review (HMS Artful)",
+      "owner": "HMS Artful",
+      "deliverable": "Adversarial red-cell review. Q1: verify the bake 2 start at j=766 is a defensible annotation (vs e.g. first rise above ROOM_TEMP_MAX, or first sustained rise). Q2: verify 100098DE and BA3C_0946 don't have similar hidden multi-bake patterns that the mission's annotation review overlooked. Q3: does removing peak_idx+1 introduce spurious firing on any synthetic fixture? Q4: does the cliff candidate now work in concert with other candidates (earliest-confirmed) without interaction bugs? Render verdict at {mission-dir}/redcell-verdict.md.",
+      "dependencies": [3],
+      "station_tier": 0,
+      "file_ownership": [],
+      "validation_required": "Written verdict",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 5,
+      "name": "Final polish + smoke (HMS Spey)",
+      "owner": "HMS Spey",
+      "deliverable": "Absorb non-blocking Artful notes; py_compile smoke; 2x pytest baseline; update any documentation referring to 1759 having 2 bakes.",
+      "dependencies": [4],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [],
+      "validation_required": "py_compile clean; pytest held in 2 runs",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

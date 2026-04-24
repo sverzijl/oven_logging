@@ -1,0 +1,38 @@
+{
+  "ship": "HMS Somerset",
+  "role": "Captain — Test Captain",
+  "mission": "2026-04-23_231637_4ed7fcd1",
+  "date": "2026-04-23",
+  "status": "COMPLETE",
+  "task": 2,
+  "file_modified": "tests/test_curve_boundary_detection.py",
+  "tests_added": [
+    "TestCoreSensorClassifier::test_wonder_white_core_is_t5_or_t6",
+    "TestCoreSensorClassifier::test_synthetic_unambiguous_core_is_t4",
+    "TestCoreSensorClassifier::test_synthetic_disagreeing_metrics_core_is_t6",
+    "TestCoreSensorClassifier::test_real_100098DE_core_is_t4",
+    "TestCoreSensorClassifier::test_real_1000BA3C_0946_core_is_t1",
+    "TestCoreSensorClassifier::test_real_1000BA3C_1759_core_is_t1"
+  ],
+  "baseline_distribution": {
+    "target_tests_red_on_head": [
+      "test_wonder_white_core_is_t5_or_t6 — HEAD returns T1 (firmware), expected T5 or T6",
+      "test_synthetic_unambiguous_core_is_t4 — HEAD returns T1 (firmware), expected T4",
+      "test_synthetic_disagreeing_metrics_core_is_t6 — HEAD returns T1 (firmware), expected T6"
+    ],
+    "guardrail_tests_green_on_head": [
+      "test_real_100098DE_core_is_t4 — HEAD returns T4 (firmware correct)",
+      "test_real_1000BA3C_0946_core_is_t1 — HEAD returns T1 (firmware correct)",
+      "test_real_1000BA3C_1759_core_is_t1 — HEAD returns T1 (firmware correct)"
+    ]
+  },
+  "existing_tests_status": "18 pre-existing tests all PASSED (3 failed + 18 passed = 21 total, only new 3 are red)",
+  "observations": [
+    "Loader _identify_sensor_roles_for_curve uses VirtualCoreSensor mode unconditionally — no physics override for core sensor exists yet.",
+    "For wonder_white_10k_lidded, firmware picks T1 at 86.7% of samples (T6 is assigned as surface by firmware, not core).",
+    "Validation warnings are present for all three target cases, indicating firmware is already flagging the assignments as suspicious — hooks exist for classifier to plug into.",
+    "Alternative thermodynamic classification for disagreeing_metrics correctly surfaces T6/T3/T5 as core candidates (CORE: T6, T3, T5) — directionally correct.",
+    "No unexpected GREEN on target tests; no unexpected RED on guardrail tests."
+  ],
+  "blockers": "None"
+}

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from scipy import signal
 from typing import Dict, List, Tuple, Optional
-from config.constants import TEMPERATURE_ZONES, ANALYSIS_PARAMS
+from config.constants import TEMPERATURE_ZONES, ANALYSIS_PARAMS, SENSOR_NAMES
 from src.data.column_helpers import get_core_temperature_column
 
 
@@ -34,8 +34,8 @@ class ThermalAnalyzer:
         # Define reasonable rate limits for bread baking
         MAX_REASONABLE_RATE = 1.0  # 60°C/min - absolute maximum for any sensor
         
-        sensors = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
-        
+        sensors = list(SENSOR_NAMES)
+
         for sensor in sensors:
             if sensor in self.data.columns:
                 # Apply smoothing if requested
@@ -123,8 +123,8 @@ class ThermalAnalyzer:
         gradients['radial_gradient_2'] = self.data['T7'] - self.data['T3']
         gradients['radial_gradient_3'] = self.data['T6'] - self.data['T4']
         
-        # Core uniformity (standard deviation)
-        core_sensors = ['T1', 'T2', 'T3', 'T4']
+        # Core uniformity (standard deviation) — T1-T4 are the deep/core sensors
+        core_sensors = [s for s in SENSOR_NAMES if s in ('T1', 'T2', 'T3', 'T4')]
         gradients['core_uniformity'] = self.data[core_sensors].std(axis=1)
         
         return gradients
@@ -228,14 +228,17 @@ class ThermalAnalyzer:
         if self.loader:
             core_sensors = self.loader.get_core_sensors()
         else:
-            core_sensors = ['T1', 'T2', 'T3', 'T4']
-        
+            # T1-T4 are the deep/core sensors in a Combustion Inc. 8-sensor probe
+            core_sensors = [s for s in SENSOR_NAMES if s in ('T1', 'T2', 'T3', 'T4')]
+
         # Only use sensors that exist in the data
         available_core = [s for s in core_sensors if s in self.data.columns]
-        
+
         if not available_core:
-            # Fallback to traditional sensors if none found
-            available_core = [s for s in ['T1', 'T2', 'T3', 'T4'] if s in self.data.columns]
+            available_core = [
+                s for s in SENSOR_NAMES
+                if s in ('T1', 'T2', 'T3', 'T4') and s in self.data.columns
+            ]
         
         core_data = self.data[available_core]
         

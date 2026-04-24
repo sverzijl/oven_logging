@@ -1,0 +1,133 @@
+{
+  "ship": "HMS Iron Duke",
+  "role": "Captain — Implementation Captain",
+  "mission": "2026-04-23_231637_4ed7fcd1",
+  "date": "2026-04-23",
+  "status": "COMPLETE",
+  "task": 3,
+  "files_modified": [
+    {
+      "path": "config/constants.py",
+      "change": "Added CORE_DETECTION_CONFIG dict (HEAT_THRESHOLD_C, COOL_REFERENCE_MODE, COOL_WINDOW_SECONDS, CONFIDENCE_GAP_MIN, ENABLED).",
+      "lines_before": 262,
+      "lines_after": 297,
+      "delta": "+35"
+    },
+    {
+      "path": "src/data/thermodynamic_sensor_classifier.py",
+      "change": "Added identify_core_sensor_combined_rank pure function (top-level, reuses existing module per briefing preference — no new file).",
+      "lines_before": 261,
+      "lines_after": 421,
+      "delta": "+160"
+    },
+    {
+      "path": "src/data/loader.py",
+      "change": "Imported CORE_DETECTION_CONFIG; added _apply_physics_based_core_correction method; wired call after surface-correction in _identify_sensor_roles_for_curve; extended _apply_standard_columns CoreTemperature path to respect core_physics_corrected flag.",
+      "lines_before": 922,
+      "lines_after": 1005,
+      "delta": "+83"
+    },
+    {
+      "path": "src/data/sensor_assignment_manager.py",
+      "change": "get_automatic_core_sensors: when core_physics_corrected, prefer curve_assignments['core'] over the firmware core_info histogram (otherwise override sensor would be shadowed by the unchanged firmware histogram).",
+      "lines_before": 141,
+      "lines_after": 145,
+      "delta": "+4"
+    }
+  ],
+  "pytest_results": {
+    "test_curve_boundary_detection": "21 passed (11 curve-boundary + 4 lidded + 6 core-classifier — Test 1 deleted per file comment, actual total is 21 not 24)",
+    "full_suite": "127 passed, 7 failed, 1 skipped — baseline was 120 passed, 8 failed, 1 skipped. Delta: +7 passing (6 new core-classifier tests + 1 previously-regressing test fixed by gap calibration), -1 failing (test_deep_insertion passes this run, it was noted as flaky in briefing).",
+    "remaining_failures_are_pre_existing": [
+      "test_curve_comparison_integration.py::test_zone_color_consistency",
+      "test_internal_sensor_filtering.py::test_realistic_baking_profile",
+      "test_surface_sensor_detection.py::test_shallow_insertion",
+      "test_visualization.py::test_plot_zone_duration_comparison",
+      "test_visualization.py::TestEdgeCases::test_single_curve_comparison",
+      "test_visualization.py::TestEdgeCases::test_many_curves_comparison",
+      "test_visualization.py::TestEdgeCases::test_unknown_zone_handling"
+    ]
+  },
+  "wonder_white_introspection": {
+    "loader.get_core_sensor(0)": "T5",
+    "firmware_pick": "T1",
+    "core_physics_corrected": true,
+    "firmware_combined_score": 9,
+    "candidate_combined_score": 2,
+    "gap": 7,
+    "satisfies_test": "resolved_core in {'T5', 'T6'} — T5 returned"
+  },
+  "guardrail_diagnostics": [
+    {
+      "case": "real_100098DE_1351",
+      "resolved": "T4",
+      "firmware": "T4",
+      "winner": "T4",
+      "firmware_score": 7,
+      "winner_score": 7,
+      "gap": 0,
+      "corrected": false,
+      "below_threshold": true
+    },
+    {
+      "case": "real_1000BA3C_0946",
+      "resolved": "T1",
+      "firmware": "T1",
+      "winner": "T1",
+      "firmware_score": 2,
+      "winner_score": 2,
+      "gap": 0,
+      "corrected": false,
+      "below_threshold": true
+    },
+    {
+      "case": "real_1000BA3C_1759",
+      "resolved": "T1",
+      "firmware": "T1",
+      "winner": "T2",
+      "firmware_score": 9,
+      "winner_score": 8,
+      "gap": 1,
+      "corrected": false,
+      "below_threshold": true
+    }
+  ],
+  "parameter_choices": [
+    {
+      "parameter": "CONFIDENCE_GAP_MIN",
+      "value": 4,
+      "rationale": "Briefing proposed 2. Raised to 4 after Monte-Carlo: on identical-physics-with-noise fixtures (test_backward_compatibility_single_curve: T1-T4 all share the same exponential-heating curve plus σ=0.5 °C gaussian noise), the combined-rank gap between T1 and the noise-winner reached 3 across 200 RNG seeds. A threshold of 4 filters that noise while still triggering every target case (wonder-white gap 7, synthetic unambiguous gap 12, synthetic disagreeing gap 10). A threshold of 2 passed the 6 core tests but regressed test_backward_compatibility_single_curve by overriding T1 to T2 on noise-only data. Threshold 4 is statistically defensible as 'above the noise floor for 8 sensors × σ=0.5 °C'."
+    },
+    {
+      "parameter": "common_peak_idx strategy",
+      "value": "latest-first-peak sensor's LAST-at-max index (within 0.05 °C of max)",
+      "rationale": "Briefing suggested max(s.idxmax() for s in sensors). That works for real-CSV data (peaks are single points) but fails on synthetic-plateau fixtures because s.idxmax() returns the FIRST index at max (plateau start), not plateau end. On the disagreeing-metrics synthetic, T5's plateau is 250..309; idxmax returns 249. With a 60 s cool window (12 samples) the cool reference lands at idx 261, still inside T5 AND T6 plateaus — both read 100 °C and tie at cool rank 1, giving T5 the win via heat-rank tiebreak. The fixture docstring explicitly specifies 'common ref = T5's plateau-end (idx 310)'. Solution: find the sensor with the LATEST first-peak-idx (latest-peaking sensor), then compute the LAST index where that sensor is within 0.05 °C of its own max (plateau end). For real data where peaks are single points, this collapses to ~idxmax. For synthetic wide plateaus, this is plateau end."
+    },
+    {
+      "parameter": "heat-only fallback when cool window unavailable",
+      "value": "if common_peak_idx + cool_window_samples >= n, use heat rank only (all sensors get cool rank 1)",
+      "rationale": "The wonder-white curve in the loader's detected boundaries runs idx 39..338 = 300 samples. All sensors peak at EOF (idx 295-299 in the curve-local frame). Adding 12-sample cool window overshoots. Returning None here would disable the detector for exactly the lidded cases it was designed for. Falling back to heat-rank-only is defensible: the briefing rationale explicitly names heat rank as 'the more reliable physics signal during an active bake'. For wonder-white, heat ranks alone produce combined scores 9 (T1) → 7 (T2) → 6 (T3) → 4 (T4) → 2 (T5) → 3 (T6) — gap between firmware T1 and winner T5 = 7, well above threshold 4."
+    }
+  ],
+  "design_decisions": [
+    {
+      "decision": "Extend existing thermodynamic_sensor_classifier.py rather than creating src/data/core_sensor_detector.py",
+      "justification": "Briefing preferred this unless the module was 'too crowded'. thermodynamic_sensor_classifier.py was 261 lines; adding 160 kept it at 421 lines and semantically aligned (both module functions classify sensors by thermodynamic properties). A separate core_sensor_detector.py would have introduced symmetry pressure with surface_sensor_detector.py but at the cost of scattering two very similar concerns (heat-based ranking vs surface-boundary detection) across three files."
+    },
+    {
+      "decision": "Update SensorAssignmentManager.get_automatic_core_sensors to honour core_physics_corrected",
+      "justification": "Without this, my override into curve_assignments['core']='T5' would be silently shadowed by core_info.all_sensors (which reflects the raw firmware VirtualCoreSensor histogram, untouched by the override). This is the exact 'column regeneration has bitten the project more than once' failure mode CLAUDE.md warned about. The fix is a conservative single-branch check: if core_physics_corrected is True, route through the authoritative 'core' key."
+    },
+    {
+      "decision": "CoreTemperature regeneration in _apply_standard_columns respects core_physics_corrected",
+      "justification": "Mirrors the existing surface pattern exactly. Without this, any call to _regenerate_standard_columns (e.g. after curve switch or manual-override change) would clobber CoreTemperature back to VirtualCoreTemperature. Layering: manual override > physics correction > firmware virtual — identical to SurfaceTemperature."
+    }
+  ],
+  "risks_reviewed": {
+    "curve_boundary_regression": "Checked: all 15 curve-boundary + 3 lidded tests PASS. get_core_temperature_column resolves 'CoreTemperature' which now carries the physics-corrected sensor for wonder-white; boundary detector receives T5 data instead of T1 but the plateau/end tests still pass because T5 also shows the plateau-onset signal on wonder-white.",
+    "gap_calibration_to_wonder_white_only": "Verified by guardrail diagnostics: wonder-white gap=7 flips, all 3 real CSVs have gap 0/0/1 and stay firmware-selected. Backward-compat synthetic stays T1 at threshold 4.",
+    "large_diagnostic_dict": "Diagnostics keyed by sensor name ('T1'..'T8') not positional, per briefing. Diagnostic dict attached to curve_sensor_assignments[curve_index]['core_detection_diagnostics']."
+  },
+  "rollback_note": "To disable without reverting code, set CORE_DETECTION_CONFIG['ENABLED']=False in config/constants.py. Loader will skip _apply_physics_based_core_correction entirely and firmware pick is preserved. No schema migration required; curve_sensor_assignments dict gains new optional keys (core_physics_corrected, firmware_core_sensor, core_detection_diagnostics) that downstream code ignores by default.",
+  "blockers": "None"
+}

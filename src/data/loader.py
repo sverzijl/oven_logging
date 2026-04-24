@@ -1,14 +1,25 @@
 """Data loading and parsing utilities for thermal profile CSV files."""
 
+import logging
 import pandas as pd
 import numpy as np
 from typing import Dict, Tuple, Optional, Union, List
 import re
 from datetime import datetime
 import io
-from config.constants import INTERNAL_SENSOR_CONFIG
+
+_log = logging.getLogger(__name__)
+from config.constants import (
+    CORE_DETECTION_CONFIG,
+    CURVE_DETECTION_CONFIG,
+    INTERNAL_SENSOR_CONFIG,
+)
 from src.data.sensor_assignment_manager import SensorAssignmentManager
-from src.data.column_helpers import get_core_temperature_column
+from src.data.column_helpers import (
+    get_core_temperature_column,
+    resolve_core_temperature_series,
+)
+from src.data.curve_boundary_detector import CurveBoundaryDetector
 
 
 class ThermalProfileLoader:
@@ -191,12 +202,11 @@ class ThermalProfileLoader:
         # However, we need basic temperature columns for curve extraction
         # These will be overwritten with proper sensor identification per curve
         if 'CoreTemperature' not in df.columns:
-            if 'VirtualCoreTemperature' in df.columns:
-                df['CoreTemperature'] = df['VirtualCoreTemperature']
-            elif all(col in df.columns for col in ['T1', 'T2', 'T3', 'T4']):
-                df['CoreTemperature'] = df[['T1', 'T2', 'T3', 'T4']].mean(axis=1)
-            elif 'T1' in df.columns:
-                df['CoreTemperature'] = df['T1']
+            try:
+                df['CoreTemperature'] = resolve_core_temperature_series(df)
+            except KeyError:
+                if 'T1' in df.columns:
+                    df['CoreTemperature'] = df['T1']
         
         return df
     
@@ -306,7 +316,12 @@ class ThermalProfileLoader:
             from config.constants import SURFACE_DETECTION_CONFIG
             if SURFACE_DETECTION_CONFIG['USE_PHYSICS_BASED_DETECTION']:
                 df = self._apply_physics_based_surface_correction(df, curve_index)
-            
+
+            # Apply physics-based core sensor correction AFTER surface correction
+            # so role-order matches the surface pattern (physics > firmware).
+            if CORE_DETECTION_CONFIG['ENABLED']:
+                df = self._apply_physics_based_core_correction(df, curve_index)
+
         else:
             # Method 2: Enhanced dynamic classification using thermodynamic principles
             print(f"Curve {curve_index + 1}: Virtual sensor data not available, using thermodynamic classification")
@@ -384,9 +399,72 @@ class ThermalProfileLoader:
                 print(f"\n⚠️  Curve {curve_index + 1}: Physics-based detection confidence too low ({result.get('confidence', 0)}%)")
             else:
                 print(f"\n⚠️  Curve {curve_index + 1}: Physics-based surface detection failed - using firmware selection")
-        
+
         return df
-    
+
+    def _apply_physics_based_core_correction(
+        self, df: pd.DataFrame, curve_index: int
+    ) -> pd.DataFrame:
+        """Override firmware VirtualCoreSensor pick when combined-rank physics disagrees.
+
+        Gate: CORE_DETECTION_CONFIG['ENABLED'].
+        Override triggers only when the physics winner beats firmware by
+        CONFIDENCE_GAP_MIN combined-rank points — firmware stays otherwise.
+        Manual overrides (_sensor_overrides) are respected downstream by
+        _apply_standard_columns; this method only changes the curve
+        assignment and sets core_physics_corrected=True.
+        """
+        from src.data.thermodynamic_sensor_classifier import (
+            identify_core_sensor_combined_rank,
+        )
+
+        sensor_columns = [f"T{i}" for i in range(1, 9) if f"T{i}" in df.columns]
+        if len(sensor_columns) < 2:
+            return df
+
+        candidate_core, diagnostics = identify_core_sensor_combined_rank(
+            df, sensor_columns
+        )
+
+        curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
+        firmware_core = curve_assignments.get("core")
+
+        # Initialise flag (false until override confirmed).
+        curve_assignments["core_physics_corrected"] = False
+        curve_assignments["core_detection_diagnostics"] = diagnostics
+        self.curve_sensor_assignments[curve_index] = curve_assignments
+
+        if candidate_core is None or not diagnostics:
+            return df
+
+        if firmware_core not in diagnostics:
+            # Firmware pick not in the ranked set (e.g. 'Unknown'); cannot
+            # measure a confidence gap — leave firmware alone.
+            return df
+
+        firmware_score = diagnostics[firmware_core]["combined_score"]
+        candidate_score = diagnostics[candidate_core]["combined_score"]
+        gap = firmware_score - candidate_score
+
+        if gap < CORE_DETECTION_CONFIG["CONFIDENCE_GAP_MIN"]:
+            return df
+
+        curve_assignments["core"] = candidate_core
+        curve_assignments["core_physics_corrected"] = True
+        curve_assignments["firmware_core_sensor"] = firmware_core
+        curve_assignments["firmware_core_combined_score"] = firmware_score
+        curve_assignments["candidate_core_combined_score"] = candidate_score
+        self.curve_sensor_assignments[curve_index] = curve_assignments
+        self.sensor_assignments = curve_assignments
+
+        print(
+            f"\n✅ Curve {curve_index + 1}: Physics-based core sensor correction applied:"
+        )
+        print(f"   Firmware selected: {firmware_core} (combined score {firmware_score})")
+        print(f"   Corrected to: {candidate_core} (combined score {candidate_score})")
+        print(f"   Confidence gap: {gap}")
+        return df
+
     def get_sensor_assignments(self) -> dict:
         """
         Get the sensor role assignments for the current curve.
@@ -622,8 +700,10 @@ class ThermalProfileLoader:
         if len(available_sensors) < 3:
             print("Warning: Not enough sensors for dynamic classification")
             # Fall back to old hardcoded method
-            if all(col in df.columns for col in ['T1', 'T2', 'T3', 'T4']):
-                df['CoreTemperature'] = df[['T1', 'T2', 'T3', 'T4']].mean(axis=1)
+            try:
+                df['CoreTemperature'] = resolve_core_temperature_series(df)
+            except KeyError:
+                pass
             if all(col in df.columns for col in ['T7', 'T8']):
                 df['SurfaceTemperature'] = df[['T7', 'T8']].mean(axis=1)
             df['AmbientTemperature'] = df[available_sensors].max(axis=1) if available_sensors else 0
@@ -716,259 +796,36 @@ class ThermalProfileLoader:
         
         return df
     
-    def _extract_baking_curve(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Extract the actual baking curve from the full dataset.
-        
-        The baking curve starts when the probe is inserted (or temperature rises rapidly)
-        and ends when the product is removed from the oven (temperature drops rapidly).
-        
-        NOTE: This method is deprecated and only extracts the first curve.
-        Use extract_all_baking_curves() for multiple curve support.
-        """
-        # Extract all curves and return the first one
-        curves = self._extract_all_baking_curves(df)
-        if curves:
-            return curves[0]['data']
-        else:
-            # No valid curves found, return original data
-            return df
-    
     def _extract_all_baking_curves(self, df: pd.DataFrame) -> list:
+        """Extract baking curves via :class:`CurveBoundaryDetector`.
+
+        Thin adapter: boundary detection is delegated to the pure detector; this
+        method layers per-curve sensor-role identification on top of each curve
+        returned (the detector is domain-agnostic and does not know about role
+        assignment).  The input DataFrame is not mutated.
         """
-        Improved curve extraction that better handles cases where probe
-        doesn't cool to room temperature between bakes.
-        
-        Key improvements:
-        1. Distinguishes between normal negative delta (in oven) vs probe removal
-        2. Uses temperature trajectory to identify curve boundaries
-        3. Detects room temperature plateaus between curves
-        """
-        curves = []
-        core_col = get_core_temperature_column(df)
-        
-        if core_col not in df.columns:
-            print("Warning: No core temperature column found")
-            return curves
-        
-        # Add ambient column if available
-        ambient_col = None
-        if 'VirtualAmbientTemperature' in df.columns:
-            ambient_col = 'VirtualAmbientTemperature'
-        elif 'AmbientTemperature' in df.columns:
-            ambient_col = 'AmbientTemperature'
-        
-        # Calculate temperature metrics
-        df['temp_change'] = df[core_col].diff()
-        df['temp_smooth'] = df[core_col].rolling(window=5, center=True).mean().fillna(df[core_col])
-        
-        # Parameters
-        MIN_CURVE_DURATION = 60  # 5 minutes
-        MIN_PEAK_TEMP = 80
-        ROOM_TEMP_MAX = 35  # Maximum temperature considered "room temperature"
-        
-        i = 0
-        while i < len(df):
-            # Find curve start
-            start_idx = None
-            
-            # Method 1: PredictionState change
-            if 'PredictionState' in df.columns:
-                for j in range(i, len(df) - 1):
-                    if (df.iloc[j]['PredictionState'] == 'Probe Not Inserted' and 
-                        df.iloc[j+1]['PredictionState'] != 'Probe Not Inserted'):
-                        start_idx = j + 1
-                        break
-            
-            # Method 2: Rapid temperature rise from low temperature
-            if start_idx is None:
-                for j in range(i, len(df) - 1):
-                    current_temp = df.iloc[j][core_col]
-                    next_temp = df.iloc[j+1][core_col]
-                    
-                    # Temperature rise from below 40°C
-                    if current_temp < 40 and next_temp - current_temp > 5:
-                        start_idx = j
-                        break
-                    
-                    # Or sustained rise after room temperature period
-                    if j >= 5:
-                        recent_avg = df[core_col].iloc[j-5:j].mean()
-                        if recent_avg < ROOM_TEMP_MAX and current_temp > recent_avg + 3:
-                            start_idx = j - 5
-                            break
-            
-            if start_idx is None:
-                break
-            
-            # Find curve peak - stop searching if we hit room temperature
-            peak_idx = start_idx
-            peak_temp = df.iloc[start_idx][core_col]
-            room_temp_count = 0
-            
-            for j in range(start_idx + 1, len(df)):
-                current_temp = df.iloc[j][core_col]
-                
-                # Update peak if we find a higher temperature
-                if current_temp > peak_temp:
-                    peak_temp = current_temp
-                    peak_idx = j
-                    room_temp_count = 0
-                
-                # If we've found a peak and temperature drops to room temp, stop searching
-                if peak_temp > 70 and current_temp < ROOM_TEMP_MAX:
-                    room_temp_count += 1
-                    # If temp stays at room temp for 20+ samples (100+ seconds), we're done
-                    if room_temp_count >= 20:
-                        break
-                else:
-                    room_temp_count = 0
-                
-                # Also stop if we see a massive drop (probe removal)
-                if j > start_idx + 20 and peak_temp > 70:
-                    if peak_temp - current_temp > 40:
-                        break
-            
-            # Find curve end - more sophisticated detection
-            end_idx = None
-            
-            # Only start looking for end after reaching 70°C
-            search_start = peak_idx
-            for j in range(start_idx, peak_idx):
-                if df.iloc[j][core_col] > 70:
-                    search_start = j
-                    break
-            
-            # Look for curve end indicators
-            for j in range(search_start + 1, len(df)):
-                temp = df.iloc[j][core_col]
-                
-                # End condition 1: Rapid cooling to room temperature
-                if j >= search_start + 20:  # At least 100 seconds after search start
-                    # Check if we've cooled to near room temperature
-                    if temp < ROOM_TEMP_MAX and peak_temp - temp > 50:
-                        # Verify it stays low (not just a measurement glitch)
-                        if j + 5 < len(df):
-                            future_temps = df[core_col].iloc[j:j+5]
-                            if future_temps.max() < ROOM_TEMP_MAX + 5:
-                                end_idx = j
-                                break
-                
-                # End condition 2: Extended stable period at room temperature
-                if j >= search_start + 60:  # At least 5 minutes after search start
-                    window_size = 20  # 100 seconds
-                    if j >= window_size:
-                        recent_temps = df['temp_smooth'].iloc[j-window_size:j+1]
-                        temp_std = recent_temps.std()
-                        temp_mean = recent_temps.mean()
-                        
-                        # Stable at room temperature
-                        if temp_std < 2 and 18 < temp_mean < ROOM_TEMP_MAX:
-                            # Find where the rapid cooling started
-                            for k in range(j - window_size, search_start, -1):
-                                if df.iloc[k][core_col] > temp_mean + 20:
-                                    end_idx = k + 1
-                                    break
-                            if end_idx is None:
-                                end_idx = j - window_size
-                            break
-                
-                # End condition 3: Rapid temperature drop indicating probe removal
-                # Check for extreme drop rate that indicates probe removal
-                # Changed: Allow detection immediately after peak (was j > peak_idx + 10)
-                if j > peak_idx:  # Any time after peak
-                    # First check for instant massive drops (probe removal signature)
-                    if j > 0:
-                        instant_drop = df.iloc[j-1][core_col] - df.iloc[j][core_col]
-                        # If temperature drops >15°C in one sample (5 seconds), it's definitely probe removal
-                        if instant_drop > 15:
-                            end_idx = j - 1
-                            break
-                    
-                    # Also check drop rate over last few samples
-                    lookback = min(5, j - search_start)
-                    if lookback > 0:
-                        recent_drop = df.iloc[j-lookback][core_col] - temp
-                        time_span = df.iloc[j]['Timestamp'] - df.iloc[j-lookback]['Timestamp']
-                        if time_span > 0:
-                            drop_rate_per_sec = recent_drop / time_span
-                            
-                            # If temperature drops more than 2°C/second (120°C/min), it's probe removal
-                            if drop_rate_per_sec > 2.0:
-                                # Find exactly where the rapid drop started
-                                for k in range(j, max(j-lookback-5, peak_idx), -1):
-                                    if k > 0:
-                                        instant_drop = df.iloc[k-1][core_col] - df.iloc[k][core_col]
-                                        # Drops > 15°C in one 5-second interval clearly indicate probe removal
-                                        if instant_drop > 15:
-                                            end_idx = k - 1
-                                            break
-                                        # Or sustained high drop rate
-                                        elif instant_drop > 5 and k < j:
-                                            end_idx = k
-                                            break
-                                if end_idx is None:
-                                    end_idx = j - 1
-                                break
-                
-                # End condition 4: Major temperature drop (>40°C) from peak with verification
-                if peak_temp - temp > 40 and j > peak_idx + 10:
-                    # Verify this is a real drop, not noise
-                    if j + 3 < len(df):
-                        future_temps = df[core_col].iloc[j:j+3]
-                        if future_temps.max() < temp + 5:  # Stays low
-                            end_idx = j
-                            break
-            
-            if end_idx is None:
-                end_idx = len(df) - 1
-            
-            # Validate and store curve
-            duration = end_idx - start_idx + 1
-            if duration >= MIN_CURVE_DURATION and peak_temp >= MIN_PEAK_TEMP:
-                # Create curve data
-                curve_data = df.iloc[start_idx:end_idx+1].copy()
-                
-                # Reset timestamps
-                curve_data['Timestamp'] = curve_data['Timestamp'] - curve_data['Timestamp'].iloc[0]
-                curve_data['TimeMinutes'] = curve_data['Timestamp'] / 60.0
-                
-                # Reset index
-                curve_data = curve_data.reset_index(drop=True)
-                
-                # Identify sensor roles for this specific curve
-                curve_index = len(curves)  # Current curve index (0-based)
-                curve_data = self._identify_sensor_roles_for_curve(curve_data, curve_index)
-                
-                # Store curve info
-                curve_info = {
-                    'data': curve_data,
-                    'start_idx': start_idx,
-                    'end_idx': end_idx,
-                    'start_time': df['Timestamp'].iloc[start_idx],
-                    'end_time': df['Timestamp'].iloc[end_idx],
-                    'duration': curve_data['TimeMinutes'].max(),
-                    'max_temp': peak_temp,
-                    'curve_number': len(curves) + 1,
-                    'samples': len(curve_data)
-                }
-                
-                curves.append(curve_info)
-                
-                print(f"\nCurve {len(curves)}:")
-                print(f"  Duration: {curve_info['duration']:.1f} minutes")
-                print(f"  Samples: {curve_info['samples']}")
-                print(f"  Max temperature: {curve_info['max_temp']:.1f}°C")
-                print(f"  Original timestamp range: {curve_info['start_time']:.1f}s - {curve_info['end_time']:.1f}s")
-            
-            # Move past this curve
-            i = end_idx + 1
-        
+        detector = CurveBoundaryDetector(CURVE_DETECTION_CONFIG)
+        curves = detector.extract_curves(df)
+
+        for curve_index, curve in enumerate(curves):
+            curve["data"] = self._identify_sensor_roles_for_curve(
+                curve["data"], curve_index
+            )
+            _log.debug(
+                "Curve %d: duration=%.1f min  samples=%d  max_temp=%.1f°C  "
+                "ts_range=%.1fs-%.1fs",
+                curve_index + 1,
+                curve["duration"],
+                curve["samples"],
+                curve["max_temp"],
+                curve["start_time"],
+                curve["end_time"],
+            )
+
         if not curves:
-            print("Warning: No valid baking curves found in data")
+            _log.warning("No valid baking curves found in data")
         else:
-            print(f"\nTotal curves found: {len(curves)}")
-        
+            _log.debug("Total curves found: %d", len(curves))
         return curves
     
     def get_sensor_data(self) -> pd.DataFrame:
@@ -1036,15 +893,26 @@ class ThermalProfileLoader:
         overrides = self._sensor_overrides.get(curve_index, {})
 
         # --- CoreTemperature ---
+        # Layering: manual override > physics correction > firmware virtual.
+        # Mirrors the SurfaceTemperature path: core_physics_corrected=True
+        # means the sensor in curve_assignments['core'] is the physics winner,
+        # NOT the firmware VirtualCoreSensor mode, so honour it here or a
+        # later regeneration will silently revert to VirtualCoreTemperature.
         core_override = overrides.get('core')
+        physics_core = (
+            curve_assignments.get('core')
+            if curve_assignments.get('core_physics_corrected')
+            else None
+        )
         if core_override and core_override in df.columns:
             df['CoreTemperature'] = df[core_override]
-        elif 'VirtualCoreTemperature' in df.columns:
-            df['CoreTemperature'] = df['VirtualCoreTemperature']
-        elif 'CoreAverage' in df.columns:
-            df['CoreTemperature'] = df['CoreAverage']
-        elif all(col in df.columns for col in ['T1', 'T2', 'T3', 'T4']):
-            df['CoreTemperature'] = df[['T1', 'T2', 'T3', 'T4']].mean(axis=1)
+        elif physics_core and physics_core in df.columns:
+            df['CoreTemperature'] = df[physics_core]
+        else:
+            try:
+                df['CoreTemperature'] = resolve_core_temperature_series(df)
+            except KeyError:
+                pass
 
         # --- SurfaceTemperature ---
         # Override wins; else physics-corrected sensor wins; else firmware virtual.
