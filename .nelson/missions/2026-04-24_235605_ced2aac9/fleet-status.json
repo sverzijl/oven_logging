@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Remove M6 sidebar expected-bake-time expander; new tab is the single source of truth. Pure helpers in src/ui/expected_duration_widgets.py remain (consumed by M3 tab).",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T23:56:05Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T23:58:01Z"
+}

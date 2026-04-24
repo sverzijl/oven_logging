@@ -149,3 +149,48 @@ class TestBuildHintListFromSession:
         assert result is None, (
             "all-empty session should collapse to overall None"
         )
+
+
+# ---------------------------------------------------------------------------
+# Tests: sidebar no longer renders the expected-bake-time expander
+# ---------------------------------------------------------------------------
+
+
+class TestSidebarExpanderRemoved:
+    """M4 HMS Defender — the sidebar widget moved to the dedicated
+    Boundary Review tab.  The pure helpers in
+    ``src/ui/expected_duration_widgets`` remain in use by that tab.
+    """
+
+    def test_sidebar_no_longer_defines_expected_duration_helper(self):
+        """The private ``_render_expected_duration_hints`` helper was
+        removed in M4.  If a future refactor accidentally re-introduces
+        a helper with that name we want to know."""
+        import sidebar
+
+        assert not hasattr(sidebar, "_render_expected_duration_hints"), (
+            "sidebar module re-introduced the M6 expected-duration "
+            "helper — the canonical edit point is now the Boundary "
+            "Review tab (tabs/boundary_review.py)."
+        )
+
+    def test_sidebar_no_longer_imports_seconds_to_minutes(self):
+        """``seconds_to_minutes`` was only used by the now-removed
+        sidebar helper.  Ensure the import is gone so dead-code
+        detection stays clean.  ``session_key_for_curve`` and
+        ``build_hint_list_from_session`` are NOT in this assertion —
+        they remain in use elsewhere if a future refactor wires them."""
+        sidebar_path = (
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            + os.sep
+            + "sidebar.py"
+        )
+        with open(sidebar_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        # Allow the rename in a comment; only flag a real import line.
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("from") or stripped.startswith("import"):
+                assert "seconds_to_minutes" not in stripped, (
+                    f"sidebar.py still imports seconds_to_minutes: {line!r}"
+                )

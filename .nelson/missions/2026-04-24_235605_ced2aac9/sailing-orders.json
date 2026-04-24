@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Remove M6 sidebar expected-bake-time expander; new tab is the single source of truth. Pure helpers in src/ui/expected_duration_widgets.py remain (consumed by M3 tab).",
+  "success_metric": "Sidebar render() no longer calls _render_expected_duration_hints; helper definition removed; existing 11 sidebar-helper tests untouched and green; smoke import passes.",
+  "deadline": "This session (M4 of 5-mission flotilla).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T23:56:05Z"
+}
