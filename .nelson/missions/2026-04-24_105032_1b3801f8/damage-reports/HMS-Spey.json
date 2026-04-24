@@ -1,0 +1,23 @@
+{
+  "ship": "HMS Spey",
+  "role": "Captain — Polish",
+  "mission": "2026-04-24_105032_1b3801f8",
+  "date": "2026-04-24",
+  "verdict_received": "ACCEPT_WITH_NOTES",
+  "status": "COMPLETE — no damage",
+  "files_touched": ["src/data/curve_boundary_detector.py"],
+  "functional_changes": "none",
+  "deliverables": {
+    "NC-1": "Added docstring note to _skip_probe_pull_tail explaining that confirm_n is a sample-count (not seconds-based), quoting Astute's concern and referencing mission 2026-04-24_105032_1b3801f8.",
+    "NC-2": "Added coupling-warning comment block near method 2b in _detect_start documenting the skip/_detect_start method 2b interdependency, skip/method 2b handoff logic, regression risk, and mission reference.",
+    "NC-3": "Added noise note comment near method 2b flagging σ≈0.5 °C ambient-sensor noise can shift detected starts; flagged future smoothing/noise-relative threshold as follow-up (not implemented).",
+    "NC-4": "No action — documentation-only concern, _probe_cooking_continuous docstring already correct per Astute."
+  },
+  "validation": {
+    "py_compile": "exit 0 — src/data/curve_boundary_detector.py, app.py, sidebar.py",
+    "test_curve_boundary_detection": "33 passed",
+    "full_suite_run_1": "7 failed, 143 passed, 1 skipped — baseline match",
+    "full_suite_run_2": "8 failed, 142 passed, 1 skipped — baseline match (flaky test_deep_insertion, pre-existing)"
+  },
+  "regressions": "none"
+}

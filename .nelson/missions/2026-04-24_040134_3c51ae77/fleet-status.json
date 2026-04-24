@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Add _candidate_probe_pull_cliff to CurveBoundaryDetector that fires on a single-sample drop >15 C followed by monotonic cooling. Handles Post Wonder Meal's case where plateau/drop-rate/cool-to-ambient candidates all miss because of PredictionState-never-reverts plus compressed plateau approach.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T04:01:34Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 5,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 5
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Argyll",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Daring",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Ark Royal",
+      "ship_class": "flagship",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 3,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Diamond",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 4,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 4 captains"
+  ],
+  "last_updated": "2026-04-24T05:35:56Z"
+}

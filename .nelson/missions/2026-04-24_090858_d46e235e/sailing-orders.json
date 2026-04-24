@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "outcome": "Correct the BA3C_1759 fixture annotation from 2 bakes to 3 bakes (starts=[13,766,6022], ends=[293,944,6185]) and remove Dragon's peak_idx+1 scan guard from prior mission so cliff fires correctly at j=293 (end of bake 1). Keep CLIFF_MIN_START_TEMP_C=80 guard which is separately necessary.",
+  "success_metric": "BA3C_1759 produces 3 curves: bake 1 (13..293), bake 2 (~766..944), bake 3 (~6022..6185); PWM (344) and wonder white (338) unchanged; 100098DE and BA3C_0946 unchanged; all tests green; peak_idx+1 scan guard removed from cliff candidate",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD non-negotiable; same branch",
+    "Do NOT remove CLIFF_MIN_START_TEMP_C guard - it's separately necessary (prevents cascade firing on post-cliff cooldown samples)",
+    "Fix the fixture annotation AND the detector in the same mission - prior mission papered over the wrong annotation with a guard"
+  ],
+  "out_of_scope": [
+    "Further noise-fragility work (still tracked in follow-ups)",
+    "Core sensor re-classification across the 3 new curves"
+  ],
+  "stop_criteria": [
+    "1759 produces 3 curves matching annotated starts/ends; no other CSV regresses; full pytest baseline held"
+  ],
+  "handoff_artifacts": [
+    "Re-annotated 1759 fixture with 3 bakes",
+    "Removed peak_idx+1 scan guard from _candidate_probe_pull_cliff",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T09:08:58Z"
+}

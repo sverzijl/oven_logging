@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Adopt Stance B from prior mission's Q3: re-annotate unlidded fixtures to clip at the probe-pull cliff (physics-consistent with user's stated position), then remove the CLIFF_PRE_PEAK_PLATEAU guard so cliff candidate fires universally across lidded and unlidded.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T07:06:15Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 5,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 5
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Kent",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Defender",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Dragon",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 3,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Dauntless",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 4,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 4 captains"
+  ],
+  "last_updated": "2026-04-24T08:45:38Z"
+}

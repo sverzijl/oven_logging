@@ -1,0 +1,50 @@
+{
+  "ship": "HMS Duncan",
+  "mission": "2026-04-24_090858_d46e235e",
+  "date": "2026-04-24",
+  "status": "GREEN",
+  "files_modified": [
+    {
+      "path": "src/data/curve_boundary_detector.py",
+      "description": "Removed peak_idx+1 scan guard from _evaluate_exit_candidates; updated _candidate_probe_pull_cliff docstring"
+    }
+  ],
+  "pytest_counts": {
+    "curve_boundary_suite": {"passed": 30, "failed": 0, "skipped": 0},
+    "full_suite": {"passed": 135, "failed": 8, "skipped": 1},
+    "full_suite_note": "8 failures are pre-existing test_visualization failures unrelated to this mission"
+  },
+  "introspection_matrix": {
+    "real_1000BA3C_1759": {
+      "n_curves": 3,
+      "curves": [
+        {"start_idx": 13, "end_idx": 293, "truncated": false},
+        {"start_idx": 294, "end_idx": 944, "truncated": false},
+        {"start_idx": 6032, "end_idx": 6185, "truncated": false}
+      ]
+    },
+    "real_100098DE_1351": {
+      "n_curves": 1,
+      "curves": [{"start_idx": 3, "end_idx": 306, "truncated": false}]
+    },
+    "real_1000BA3C_0946": {
+      "n_curves": 1,
+      "curves": [{"start_idx": 13, "end_idx": 293, "truncated": false}]
+    },
+    "post_wonder_meal_lidded": {
+      "n_curves": 1,
+      "curves": [{"start_idx": 3, "end_idx": 344, "truncated": false}]
+    },
+    "wonder_white_10k_lidded": {
+      "n_curves": 1,
+      "curves": [{"start_idx": 39, "end_idx": 338, "truncated": false}]
+    }
+  },
+  "grep_validations": {
+    "peak_idx_plus_1_guard_removed": true,
+    "multi_pull_session_rationale_removed": true,
+    "CLIFF_MIN_START_TEMP_C_retained": true,
+    "note": "grep matches for 'peak_idx+1' and 'multi-pull session' are in the removal comment and docstring only — the functional guard is gone"
+  },
+  "rollback": "Revert the two changes in _evaluate_exit_candidates (restore peak_idx+1) and restore the old _candidate_probe_pull_cliff docstring. No other files were touched."
+}

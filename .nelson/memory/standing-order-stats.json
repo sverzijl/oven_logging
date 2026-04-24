@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "updated_at": "2026-04-23T10:12:02Z",
-  "total_missions": 1,
+  "updated_at": "2026-04-24T11:27:01Z",
+  "total_missions": 10,
   "total_violations": 1,
-  "violations_per_mission": 1.0,
+  "violations_per_mission": 0.1,
   "by_order": {
     "split-keel": {
       "count": 1,
@@ -18,6 +18,15 @@
     "successes_with_violations": 1
   },
   "_tracked_missions": [
-    "2026-04-23_071618_4b7f0acb"
+    "2026-04-23_071618_4b7f0acb",
+    "2026-04-23_104356_87469cfc",
+    "2026-04-23_121616_b56f691b",
+    "2026-04-23_231637_4ed7fcd1",
+    "2026-04-24_015052_25705c7a",
+    "2026-04-24_040134_3c51ae77",
+    "2026-04-24_070615_fee9ec8f",
+    "2026-04-24_090858_d46e235e",
+    "2026-04-24_102020_af6532e1",
+    "2026-04-24_105032_1b3801f8"
   ]
 }

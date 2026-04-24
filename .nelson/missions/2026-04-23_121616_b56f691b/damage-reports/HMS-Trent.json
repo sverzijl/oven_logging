@@ -1,0 +1,43 @@
+{
+  "ship": "HMS Trent",
+  "role": "Fixture Captain",
+  "mission": "2026-04-23_121616_b56f691b",
+  "status": "complete",
+  "cases_added": [
+    {
+      "name": "wonder_white_10k_lidded",
+      "source": "real",
+      "expected_starts": [0],
+      "expected_ends": [340],
+      "tolerance": 5,
+      "expected_n_curves": 1,
+      "ground_truth_methodology": "Core peak confirmed at idx 332 (VCT=100.3 C). Ambient peak at idx 340 (VAT=99.4 C). Oven-exit annotated as idx 340 = first sample of ambient decline post-peak. Tolerance 5 absorbs the 8-sample offset between core peak and ambient peak."
+    },
+    {
+      "name": "lidded_bake_plateau_classic",
+      "source": "synthetic",
+      "expected_starts": [0],
+      "expected_ends": [300],
+      "tolerance": 5,
+      "expected_n_curves": 1,
+      "ground_truth_methodology": "Plateau onset at idx 300 (VCT=98 C). Probe-removal at idx 480 is a distractor. Ground-truth is plateau-onset per lidded-bake convention."
+    },
+    {
+      "name": "lidded_bake_plateau_truncated",
+      "source": "synthetic",
+      "expected_starts": [0],
+      "expected_ends": [300],
+      "tolerance": 5,
+      "truncated": false,
+      "expected_n_curves": 1,
+      "ground_truth_methodology": "Plateau onset at idx 300 (VCT=99 C). Log ends mid-plateau at idx 359. truncated=False because the detector must find plateau-onset, not fall to EOF."
+    }
+  ],
+  "existing_cases_modified": false,
+  "rollback_note": "To revert: remove the three entries appended after 'variable_sample_period_10s' in tests/fixtures/curve_boundary_cases.py, and remove load_wonder_white(), _build_lidded_classic(), _build_lidded_truncated() builder functions, the 'wonder_white_10k' entry from _REAL_CSVS, the unnamed-column drop logic in load_real_case(), and the five pre-computed variables (_wonder_white_df, _lidded_classic_df, _lidded_truncated_df).",
+  "validation_results": {
+    "case_count_14": "PASS",
+    "wonder_white_vct_max_gt_99": "PASS — max=100.3, rows=359",
+    "synthetic_classic_ground_truth": "PASS — VCT at idx 300 = 98.0"
+  }
+}

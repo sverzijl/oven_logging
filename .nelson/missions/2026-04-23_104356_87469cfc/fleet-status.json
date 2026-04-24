@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Stabilise bread entry/exit detection in oven_logging by extracting a pure CurveBoundaryDetector with regression tests, fixing 10 documented defects, and removing duplication",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-23T10:43:56Z",
+    "checkpoint_number": 3
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 1,
+    "completed": 4,
+    "blocked": 0,
+    "total": 6
+  },
+  "budget": {
+    "tokens_spent": 140000,
+    "tokens_remaining": 860000,
+    "pct_consumed": 14.0,
+    "burn_rate_per_checkpoint": 80000,
+    "burn_rate_per_task": 35000,
+    "projected_budget_at_completion": 210000
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Forth",
+      "ship_class": null,
+      "role": "captain",
+      "hull_integrity_pct": 92,
+      "hull_integrity_status": "NOMINAL",
+      "relief_requested": false,
+      "task_id": null,
+      "task_name": null,
+      "task_status": null
+    },
+    {
+      "ship_name": "unknown",
+      "ship_class": null,
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": null,
+      "task_name": null,
+      "task_status": null
+    },
+    {
+      "ship_name": "HMS Victory",
+      "ship_class": null,
+      "role": "captain",
+      "hull_integrity_pct": 55,
+      "hull_integrity_status": "sound",
+      "relief_requested": false,
+      "task_id": null,
+      "task_name": null,
+      "task_status": null
+    }
+  ],
+  "blockers": [],
+  "recent_events": [],
+  "last_updated": "2026-04-23T12:01:55Z"
+}

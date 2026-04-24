@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Fixture harness and ground-truth annotations",
+      "owner": "HMS Forth",
+      "deliverable": "tests/fixtures/curve_boundary_cases.py with loader and annotated ground-truth (start_idx, end_idx, n_curves) for the 3 real ProbeData_*.csv files plus >=7 synthetic edge cases",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 0,
+      "file_ownership": [
+        "tests/fixtures/curve_boundary_cases.py",
+        "tests/fixtures/__init__.py"
+      ],
+      "validation_required": "pytest can import the fixture module; each fixture loads without error",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing test ladder",
+      "owner": "HMS Medway",
+      "deliverable": "tests/test_curve_boundary_detection.py with 12 named tests; golden-master tests pass on main, target-behaviour tests fail red on main",
+      "dependencies": [
+        1
+      ],
+      "dependents": [
+        3
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "tests/test_curve_boundary_detection.py"
+      ],
+      "validation_required": "pytest runs the new file; red/green distribution matches plan",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "CurveBoundaryDetector implementation and loader adapter",
+      "owner": "HMS Victory",
+      "deliverable": "New pure CurveBoundaryDetector module, CURVE_DETECTION_CONFIG in config/constants.py, _extract_all_baking_curves reduced to thin adapter, deprecated _extract_baking_curve deleted, CoreTemperature fallback consolidated into column_helpers; all 12 tests green; full pytest suite green",
+      "dependencies": [
+        2
+      ],
+      "dependents": [
+        4
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/data/curve_boundary_detector.py",
+        "config/constants.py",
+        "src/data/loader.py",
+        "src/data/column_helpers.py"
+      ],
+      "validation_required": "Full pytest suite green; HMS Astute META critique accepts; streamlit loads 3 real CSVs and shows sane curves",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "Post-detector DRY sweep",
+      "owner": "HMS Kent",
+      "deliverable": "Dedupe hardcoded T1-T8 sensor lists in non-detector modules where a single-source-of-truth helper is warranted; full pytest suite green; streamlit smoke passes on 3 real CSVs",
+      "dependencies": [
+        3
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/analysis/thermal_analysis.py",
+        "src/data/surface_sensor_detector.py",
+        "src/data/thermodynamic_sensor_classifier.py"
+      ],
+      "validation_required": "Full pytest suite green; no behaviour regression; rg confirms duplication reduced",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "agent-team",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Forth",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Medway",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 2
+      },
+      {
+        "ship_name": "HMS Victory",
+        "ship_class": "flagship",
+        "model": "opus",
+        "task_id": 3
+      },
+      {
+        "ship_name": "HMS Kent",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 4
+      }
+    ],
+    "red_cell": {
+      "ship_name": "HMS Astute",
+      "model": "opus"
+    }
+  },
+  "created_at": "2026-04-23T10:50:18Z",
+  "amended_at": null
+}

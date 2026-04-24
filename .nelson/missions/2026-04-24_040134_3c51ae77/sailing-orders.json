@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "outcome": "Add _candidate_probe_pull_cliff to CurveBoundaryDetector that fires on a single-sample drop >15 C followed by monotonic cooling. Handles Post Wonder Meal's case where plateau/drop-rate/cool-to-ambient candidates all miss because of PredictionState-never-reverts plus compressed plateau approach.",
+  "success_metric": "Post Wonder Meal clips at idx ~344 (just before probe-pull cliff at 344-345, currently runs to EOF); wonder white still clips at idx ~338; all 27 prior TestCoreSensorClassifier+TestProbeRemovalContamination tests green; 3 unlidded real CSVs unaffected; no new full-suite regressions",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD non-negotiable; DRY; same branch refactor/curve-boundary-detection",
+    "Do not modify the 4 existing exit candidates (plateau, drop-rate, cool-to-ambient, room-temp-plateau, dip-with-rerise); only ADD a new candidate",
+    "Reuse _drop_rate_detection.py if applicable; DO NOT duplicate drop-detection code"
+  ],
+  "out_of_scope": [
+    "Retuning existing candidate thresholds",
+    "Noise-calibration follow-ups (carried forward from prior mission)"
+  ],
+  "stop_criteria": [
+    "Post Wonder Meal end_idx clips before probe pull AND wonder white still clips at plateau-onset AND 27 prior tests green AND no new regressions"
+  ],
+  "handoff_artifacts": [
+    "New _candidate_probe_pull_cliff in curve_boundary_detector.py",
+    "INSTANT_DROP_THRESHOLD_C and CLIFF_MONOTONIC_CONFIRM_SAMPLES in CURVE_DETECTION_CONFIG",
+    "Post Wonder Meal expected_ends revised + synthetic cliff fixture",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T04:01:34Z"
+}

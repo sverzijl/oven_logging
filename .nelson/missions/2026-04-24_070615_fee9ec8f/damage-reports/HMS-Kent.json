@@ -1,0 +1,53 @@
+{
+  "ship": "HMS Kent",
+  "role": "Captain — Fixture re-annotation",
+  "mission": "2026-04-24_070615_fee9ec8f",
+  "status": "COMPLETE",
+  "files_modified": [
+    "tests/fixtures/curve_boundary_cases.py"
+  ],
+  "changes": [
+    {
+      "case": "real_100098DE_1351",
+      "field": "expected_ends",
+      "old": [329],
+      "new": [306],
+      "rationale": "Stance B: cliff at idx 306, drop 21.65 °C, monotonic_next_5=True. Post-cliff samples are probe-pull mechanics, not bread cooldown."
+    },
+    {
+      "case": "real_1000BA3C_0946",
+      "field": "expected_ends",
+      "old": [299],
+      "new": [293],
+      "rationale": "Stance B: cliff at idx 293, drop 20.05 °C, monotonic=True. Post-cliff samples are probe-pull mechanics, not bread cooldown."
+    },
+    {
+      "case": "real_1000BA3C_1759",
+      "field": "expected_ends",
+      "old": [955, 6200],
+      "new": [944, 6185],
+      "rationale": "Stance B: bake-1 cliff at idx 944 (VCT peak 943, drop 23.05 °C); bake-2 cliff at idx 6185 (VCT peak 6183, drop 26.95 °C). ambiguous=True preserved for bake-2 start."
+    }
+  ],
+  "validation": {
+    "new_ends_confirmed": {
+      "real_100098DE_1351": [306],
+      "real_1000BA3C_0946": [293],
+      "real_1000BA3C_1759": [944, 6185]
+    },
+    "lidded_cases_unchanged": {
+      "post_wonder_meal_lidded": [344],
+      "wonder_white_10k_lidded": [340]
+    },
+    "all_assertions_passed": true
+  },
+  "no_changes": [
+    "expected_starts",
+    "expected_n_curves",
+    "source/ambiguous/truncated flags",
+    "expected_core_sensor",
+    "lidded cases (PWM, wonder white)",
+    "tolerance values",
+    "any synthetic cases"
+  ]
+}

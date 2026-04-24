@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Fix 1759 bake 2/3 durations (currently 14/13 min, should be >20 min). Root cause: start-detection uses core-temperature which rises slowly after probe re-insertion; the ambient sensor (T8) rises sharply and is the real oven-entry signal. Change _skip_probe_pull_tail and cold-start method to use max(T1..T8) instead of VCT alone.",
+  "actual_outcome": "Max-sensor-based start detection shipped. 1759 bakes 2 and 3 now >20 min as user required (24.4 and 24.8 min). _skip_probe_pull_tail + method 2b both use max(T1..T8) to detect probe-in-oven state. Other CSVs unchanged.",
+  "success_metric_result": "33/33 boundary tests green; 1759 = [13-293 (23.3min), 651-944 (24.4min), 5888-6185 (24.8min)] all >20min; full suite 143/7/1 baseline held",
+  "duration_minutes": 34,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 5,
+    "total": 5,
+    "by_station_tier": {
+      "0": 2,
+      "1": 3,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Counterfactual probes as red-cell rigor (Astute probe_old_skip showed reverting one part of two-part change regresses 4 CSVs)",
+      "Max-sensor as oven-environment detector (max T1..T8 captures any heat; ambient fast signal, core slow)",
+      "Detector-convention-wins pattern now 3 missions proven - fixture annotations follow detector output at principled thresholds"
+    ],
+    "avoid": [
+      "Sampling every Nth index in admiral diagnostics (admiral 660 vs empirical 651 off-by-one from every-10th survey)",
+      "Splitting logically-coupled changes across independent mission tasks (skip + method 2b must ship together or one alone regresses 4 CSVs)"
+    ]
+  },
+  "created_at": "2026-04-24T11:27:01Z"
+}

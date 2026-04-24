@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "outcome": "Fix 1759 bake 2/3 durations (currently 14/13 min, should be >20 min). Root cause: start-detection uses core-temperature which rises slowly after probe re-insertion; the ambient sensor (T8) rises sharply and is the real oven-entry signal. Change _skip_probe_pull_tail and cold-start method to use max(T1..T8) instead of VCT alone.",
+  "success_metric": "1759 bake 2 duration >20 min (start ~660, end 944); bake 3 duration >20 min (start ~5888, end 6185); other CSVs unchanged (PWM 344, WW 338, 100098DE 306, BA3C_0946 293); all existing tests green",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD; narrow scope: only _skip_probe_pull_tail and cold-start method 2b; do not touch PredictionState-based method 1 or mid-bake method 2a"
+  ],
+  "out_of_scope": [
+    "Method 2a (mid-bake start) - keep as VCT-based for now",
+    "Any changes to end-detection or core-sensor classification"
+  ],
+  "stop_criteria": [
+    "Bakes 2 and 3 both >20 min; other CSVs unchanged; new regression test green"
+  ],
+  "handoff_artifacts": [
+    "Updated _skip_probe_pull_tail using max-sensor",
+    "Updated cold-start method 2b using max-sensor",
+    "Updated 1759 fixture expected_starts for bakes 2 and 3",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T10:50:32Z"
+}

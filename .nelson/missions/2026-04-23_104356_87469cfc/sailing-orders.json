@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "outcome": "Stabilise bread entry/exit detection in oven_logging by extracting a pure CurveBoundaryDetector with regression tests, fixing 10 documented defects, and removing duplication",
+  "success_metric": "Full pytest suite green (incl. new tests); 3 real ProbeData_*.csv curves match annotated ground-truth start/end within 2 samples; priority short-circuit replaced and all magic numbers moved to config",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD non-negotiable: failing test first (red against main) before any implementation",
+    "DRY non-negotiable: duplication found during mission eliminated in same mission",
+    "Work on branch refactor/curve-boundary-detection only",
+    "Do not touch loader.py.backup or root-level analyze_/debug_/test_ historical scripts",
+    "No --no-verify, no hook bypass, no force-push"
+  ],
+  "out_of_scope": [
+    "TransformationManager integration (separate mission)",
+    "Splitting app.py (~1340 lines)",
+    "Removing historical artifact scripts at repo root"
+  ],
+  "stop_criteria": [
+    "All new tests pass AND full pytest suite green AND streamlit smoke on 3 real CSVs shows sane curves",
+    "Escalate to Admiralty if ground-truth annotation requires domain judgement beyond plan"
+  ],
+  "handoff_artifacts": [
+    "src/data/curve_boundary_detector.py (new)",
+    "tests/test_curve_boundary_detection.py (new)",
+    "tests/fixtures/curve_boundary_cases.py (new)",
+    "Modified src/data/loader.py and config/constants.py",
+    "captains-log.md inside mission dir"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-23T10:43:56Z"
+}

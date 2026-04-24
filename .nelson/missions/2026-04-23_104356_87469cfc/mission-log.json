@@ -1,0 +1,239 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:44:05Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:50:18Z",
+      "data": {
+        "captain_count": 4,
+        "has_red_cell": true,
+        "execution_mode": "agent-team",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:50:18Z",
+      "data": {
+        "task_count": 4,
+        "parallel_tracks": 1,
+        "critical_path_length": 4,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:50:28Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "FORMATION"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:50:29Z",
+      "data": {
+        "from_phase": "FORMATION",
+        "to_phase": "PERMISSION"
+      }
+    },
+    {
+      "type": "permission_granted",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:50:29Z",
+      "data": {}
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:50:29Z",
+      "data": {
+        "from_phase": "PERMISSION",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T10:58:50Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Fixture harness and ground-truth annotations",
+        "owner": "HMS Forth",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-23T11:08:58Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Failing test ladder",
+        "owner": "HMS Medway",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "checkpoint",
+      "checkpoint": 1,
+      "timestamp": "2026-04-23T11:09:50Z",
+      "data": {
+        "progress": {
+          "pending": 3,
+          "in_progress": 1,
+          "completed": 2,
+          "blocked": 0
+        },
+        "budget": {
+          "tokens_spent": 60000,
+          "tokens_remaining": 940000,
+          "pct_consumed": 6.0,
+          "burn_rate_per_checkpoint": 60000
+        },
+        "hull_summary": {
+          "green": 2,
+          "amber": 0,
+          "red": 0,
+          "critical": 0
+        },
+        "blockers": [],
+        "standing_order_violations": [],
+        "admiral_decision": "continue",
+        "admiral_rationale": "TDD gate verified: 1 golden-master green, 11 target-behaviour red. Victory briefed with upstream intel; dispatching now."
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-23T11:40:50Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "CurveBoundaryDetector implementation and loader adapter",
+        "owner": "HMS Victory",
+        "station_tier": 1,
+        "verification": "pending_redcell"
+      }
+    },
+    {
+      "type": "checkpoint",
+      "checkpoint": 2,
+      "timestamp": "2026-04-23T11:51:12Z",
+      "data": {
+        "progress": {
+          "pending": 1,
+          "in_progress": 1,
+          "completed": 4,
+          "blocked": 0
+        },
+        "budget": {
+          "tokens_spent": 140000,
+          "tokens_remaining": 860000,
+          "pct_consumed": 14.0,
+          "burn_rate_per_checkpoint": 80000
+        },
+        "hull_summary": {
+          "green": 2,
+          "amber": 0,
+          "red": 0,
+          "critical": 0
+        },
+        "blockers": [],
+        "standing_order_violations": [],
+        "admiral_decision": "continue",
+        "admiral_rationale": "Victory + Astute complete. Red-cell verdict ACCEPT_WITH_NOTES; 6 items absorbed into Kent brief. No blocking defects."
+      }
+    },
+    {
+      "type": "circuit_breaker_tripped",
+      "checkpoint": 2,
+      "timestamp": "2026-04-23T11:51:12Z",
+      "data": {
+        "type": "hull_integrity_breach",
+        "value": 55,
+        "threshold": 80,
+        "action": "hull-integrity",
+        "message": "HMS Victory hull integrity 55% <= threshold 80%. See damage-control/hull-integrity.md.",
+        "context": {
+          "ship_name": "HMS Victory"
+        }
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-23T11:51:12Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "META algorithm review",
+        "owner": "HMS Astute",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "battle_plan_amended",
+      "checkpoint": 2,
+      "timestamp": "2026-04-23T11:51:13Z",
+      "data": {
+        "changes": [
+          "Kent scope expanded with 6 Astute non-blocking items (print removal",
+          "dead-code delete",
+          "rationale comments",
+          "golden-master decision",
+          "PredictionState literal extraction); file ownership extended to detector/config/loader adapter/test file"
+        ],
+        "rationale": "Red-cell surfaced 6 cleanup items better addressed by Kent than a separate mission; sequential ownership so no split-keel conflict"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-23T11:58:56Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "Post-detector DRY sweep",
+        "owner": "HMS Kent",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 3,
+      "timestamp": "2026-04-23T12:01:55Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 5,
+        "tasks_total": 4,
+        "total_tokens_consumed": 140000,
+        "budget_pct_consumed": 14.0,
+        "duration_minutes": 74,
+        "ships_used": 4,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

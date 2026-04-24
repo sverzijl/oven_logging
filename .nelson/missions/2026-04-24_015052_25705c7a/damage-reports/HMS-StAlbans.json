@@ -1,0 +1,49 @@
+{
+  "ship": "HMS St Albans",
+  "role": "Test Captain",
+  "mission": "2026-04-24_015052_25705c7a",
+  "date": "2026-04-24",
+  "status": "complete",
+  "file_modified": "tests/test_curve_boundary_detection.py",
+  "tests_written": [
+    {
+      "name": "TestProbeRemovalContamination::test_post_wonder_meal_lidded_core_is_t5",
+      "type": "TARGET (PR1)",
+      "expected_on_head": "RED",
+      "actual_on_head": "RED",
+      "head_result": "AssertionError: got 'T7', expected 'T5'"
+    },
+    {
+      "name": "TestProbeRemovalContamination::test_synthetic_probe_removal_forces_heat_only",
+      "type": "TARGET (PR2)",
+      "expected_on_head": "RED",
+      "actual_on_head": "RED",
+      "head_result": "AssertionError: got 'T5', expected 'T4'"
+    },
+    {
+      "name": "TestProbeRemovalContamination::test_real_1000BA3C_1759_still_uses_combined_rank",
+      "type": "GUARDRAIL (PR3)",
+      "expected_on_head": "GREEN",
+      "actual_on_head": "GREEN",
+      "head_result": "PASSED — T1 resolved correctly, contamination not spuriously triggered"
+    },
+    {
+      "name": "TestProbeRemovalContamination::test_contamination_diagnostic_flag_surfaces",
+      "type": "ADDITIONAL (PR4)",
+      "expected_on_head": "RED",
+      "actual_on_head": "RED",
+      "head_result": "AssertionError: cool_contamination_detected is None (key not yet wired)"
+    }
+  ],
+  "existing_tests_summary": {
+    "previously_passing": 21,
+    "still_passing": 21,
+    "regressions_introduced": 0
+  },
+  "pre_existing_failure_noted": {
+    "test": "TestLiddedBakeDetection::test_existing_unlidded_fixtures_unchanged",
+    "cause": "Portland's post_wonder_meal_lidded fixture added to CASES with source='real' but not added to LIDDED_NAMES skip-set in this guardrail. Pre-existing before this mission — not caused by St Albans changes.",
+    "action": "None — standing orders prohibit modifying existing tests; escalation to admiral if required."
+  },
+  "unexpected_behaviours": "None. All four new tests behaved exactly as briefed."
+}

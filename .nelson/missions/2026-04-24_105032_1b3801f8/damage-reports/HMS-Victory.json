@@ -1,0 +1,80 @@
+{
+  "ship": "HMS Victory",
+  "role": "Captain — Implementation",
+  "mission": "2026-04-24_105032_1b3801f8",
+  "task": "#3 — Max-sensor skip + cold-start",
+  "status": "completed",
+  "action_station": 1,
+  "files_modified": [
+    {
+      "path": "src/data/curve_boundary_detector.py",
+      "change": "added _resolve_max_sensor_series helper (~20 lines); plumbed max_sensor ndarray through extract_curves (2 lines); changed _skip_probe_pull_tail to operate on max_sensor (renamed parameter, updated docstring — ~25 lines touched); changed _detect_start method 2b (cold-start) to scan max_sensor while keeping method 1 and method 2a on temps (new parameter, updated docstring — ~20 lines touched). Method 1 (PredictionState), method 2a (mid-bake idx 0), all end-detection candidates, and all constants unchanged."
+    },
+    {
+      "path": "tests/fixtures/curve_boundary_cases.py",
+      "change": "authorized scope expansion by team-lead: expected_starts for real_1000BA3C_1759 changed from [13, 660, 5888] to [13, 651, 5888]; added description note that admiral's 660 came from every-10th-sample survey that missed the 650→651 transition where T8 jumps 32.40→40.00. Total ~7 lines touched."
+    },
+    {
+      "path": "tests/test_curve_boundary_detection.py",
+      "change": "authorized scope expansion by team-lead: test_1759_bake_2_start_at_oven_entry expected value 660 → 651; docstring and error message updated to reflect empirical refinement. Total ~6 lines touched."
+    }
+  ],
+  "validation": {
+    "target_tests": {
+      "command": "pytest tests/test_curve_boundary_detection.py::TestOvenEntryStartDetection -v",
+      "result": "3 passed (RED→GREEN)"
+    },
+    "curve_boundary_detection_file": {
+      "command": "pytest tests/test_curve_boundary_detection.py --tb=no -q",
+      "result": "33 passed / 0 failed (30 existing + 3 new)"
+    },
+    "full_suite": {
+      "command": "pytest tests/ --tb=no -q",
+      "result": "143 passed, 1 skipped, 7 failed",
+      "note": "7 failures are pre-existing, all in test_surface_sensor_detection, test_internal_sensor_filtering, test_visualization, test_curve_comparison_integration — unrelated to curve_boundary_detector.py. Verified baseline held."
+    },
+    "introspection_matrix": {
+      "real_1000BA3C_1759": {
+        "n_curves": 3,
+        "curves": [
+          { "start": 13, "end": 293, "duration_min": 23.33, "truncated": false },
+          { "start": 651, "end": 944, "duration_min": 24.42, "truncated": false },
+          { "start": 5888, "end": 6185, "duration_min": 24.75, "truncated": false }
+        ],
+        "bakes_2_3_duration_over_20min": true
+      },
+      "real_100098DE_1351": {
+        "n_curves": 1,
+        "curves": [{ "start": 3, "end": 306, "duration_min": 25.25, "truncated": false }],
+        "note": "start=3 unchanged (PredictionState method 1)"
+      },
+      "real_1000BA3C_0946": {
+        "n_curves": 1,
+        "curves": [{ "start": 13, "end": 293, "duration_min": 23.33, "truncated": false }],
+        "note": "start=13 unchanged (PredictionState method 1)"
+      },
+      "post_wonder_meal_lidded": {
+        "n_curves": 1,
+        "curves": [{ "start": 3, "end": 344, "duration_min": 28.42, "truncated": false }],
+        "note": "unchanged"
+      },
+      "wonder_white_10k_lidded": {
+        "n_curves": 1,
+        "curves": [{ "start": 39, "end": 338, "duration_min": 24.92, "truncated": false }],
+        "note": "start=39 unchanged — max-sensor equals VCT pre-peak (all sensors warming up uniformly before oven rise); no early-firing risk materialised"
+      }
+    }
+  },
+  "risks_resolved": {
+    "wonder_white_pre_peak": "No regression — wonder white start remains at idx 39. Pre-peak warm-up max-sensor == VCT (all sensors warming uniformly); the probe rides through to the oven-entry threshold on the same sample regardless of core-vs-max signal.",
+    "single_curve_csvs_post_end_skip": "Verified — 1351, 0946, PWM, WW all exit cleanly with their single curve and no spurious second curve.",
+    "tight_1759_bake_1_start": "Bake-1 start unchanged at idx 13 (driven by PredictionState method 1, not method 2b). test_ground_truth_real_csvs_tight still passes."
+  },
+  "escalations": {
+    "bake_2_empirical_mismatch": {
+      "issue": "Briefing's admiral reference stated max(T1..T8) first crosses 40 at idx 660; CSV empirically shows idx 651 (T8 jumps 32.40→40.00 in one sample between idx 650 and 651).",
+      "resolution": "Escalated to team-lead. Authorized scope expansion to correct fixture expected_starts and test assertion to 651 — detector's principled threshold is the ground truth, not the sparse-survey estimate. This mirrors the 'detector convention wins over admiral estimate' pattern from mission 2026-04-24_090858_d46e235e."
+    }
+  },
+  "rollback": "To revert, delete the three file diffs: src/data/curve_boundary_detector.py (revert _resolve_max_sensor_series and the max_sensor plumbing), tests/fixtures/curve_boundary_cases.py (revert expected_starts to [13, 660, 5888] and description note), tests/test_curve_boundary_detection.py (revert 651 back to 660 in test M2). No other files touched. No config constants, method 1, method 2a, or end-detection candidates changed."
+}

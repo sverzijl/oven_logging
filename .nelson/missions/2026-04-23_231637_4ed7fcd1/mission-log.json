@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:17:16Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:17:16Z",
+      "data": {
+        "captain_count": 4,
+        "has_red_cell": true,
+        "execution_mode": "agent-team",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:17:16Z",
+      "data": {
+        "task_count": 4,
+        "parallel_tracks": 1,
+        "critical_path_length": 4,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:17:17Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "FORMATION"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:17:17Z",
+      "data": {
+        "from_phase": "FORMATION",
+        "to_phase": "PERMISSION"
+      }
+    },
+    {
+      "type": "permission_granted",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:17:17Z",
+      "data": {}
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:17:18Z",
+      "data": {
+        "from_phase": "PERMISSION",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-23T23:32:49Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Core-sensor fixture annotations",
+        "owner": "HMS Richmond",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-23T23:36:09Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Failing core-classifier tests",
+        "owner": "HMS Somerset",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T00:31:27Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "Core-sensor classifier",
+        "owner": "HMS Iron Duke",
+        "station_tier": 1,
+        "verification": "pending_redcell"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-24T01:21:15Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "META review",
+        "owner": "HMS Artful",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-24T01:29:48Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "Final polish + smoke",
+        "owner": "HMS Lancaster",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T01:33:52Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 5,
+        "tasks_total": 4,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 132,
+        "ships_used": 4,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

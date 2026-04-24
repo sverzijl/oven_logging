@@ -1,0 +1,75 @@
+{
+  "squadron": {
+    "admiral": { "ship_name": "HMS Admiralty", "model": "opus" },
+    "captains": [
+      { "ship_name": "HMS Argyll", "ship_class": "frigate", "model": "sonnet", "task_id": 1 },
+      { "ship_name": "HMS Daring", "ship_class": "destroyer", "model": "sonnet", "task_id": 2 },
+      { "ship_name": "HMS Ark Royal", "ship_class": "flagship", "model": "opus", "task_id": 3 },
+      { "ship_name": "HMS Diamond", "ship_class": "destroyer", "model": "sonnet", "task_id": 4 }
+    ],
+    "red_cell": { "ship_name": "HMS Astute", "model": "opus" }
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Cliff-signature fixture annotations",
+      "owner": "HMS Argyll",
+      "deliverable": "Revise post_wonder_meal_lidded expected_ends to [344] with tolerance=5 (currently [360] — but existing detector runs to EOF, so current test either passes tolerantly or via skip-set; verify and fix the fixture's end annotation to pin the cliff-edge). Add 1 synthetic cliff fixture cliff_probe_pull_with_monotonic_cooldown exercising the single-sample drop >15C + subsequent monotonic cooling.",
+      "dependencies": [],
+      "station_tier": 0,
+      "file_ownership": ["tests/fixtures/curve_boundary_cases.py"],
+      "validation_required": "CASES imports; PWM expected_ends=[344]; synthetic exhibits the cliff-then-monotonic-cool pattern",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing cliff tests",
+      "owner": "HMS Daring",
+      "deliverable": "Add ≥2 tests to tests/test_curve_boundary_detection.py: (a) PWM curve end clips near idx 344 (RED on HEAD — currently runs to EOF ~375), (b) synthetic cliff fixture clips just before cliff. Guardrail: existing TestCoreSensorClassifier and TestProbeRemovalContamination tests still pass.",
+      "dependencies": [1],
+      "station_tier": 1,
+      "file_ownership": ["tests/test_curve_boundary_detection.py"],
+      "validation_required": "new target tests RED on HEAD, existing 27 tests still GREEN",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Probe-pull cliff candidate implementation",
+      "owner": "HMS Ark Royal",
+      "deliverable": "Add _candidate_probe_pull_cliff to CurveBoundaryDetector. Scan post-peak samples for single-sample drops >= INSTANT_DROP_THRESHOLD_C (default 15); confirm via >= CLIFF_MONOTONIC_CONFIRM_SAMPLES consecutive subsequent samples all cooling (monotonic decline). Exit idx = sample just before the cliff. Wire into _evaluate_exit_candidates. Add 2 config constants. Reuse _drop_rate_detection helpers where practical (DRY).",
+      "dependencies": [2],
+      "station_tier": 1,
+      "file_ownership": ["src/data/curve_boundary_detector.py", "config/constants.py", "src/data/_drop_rate_detection.py"],
+      "validation_required": "29 boundary tests green (27 prior + 2 new); full suite baseline held; PWM clips at ~344 truncated=False; wonder white still clips at ~338; 3 unlidded CSVs unchanged",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "META review (HMS Astute)",
+      "owner": "HMS Astute",
+      "deliverable": "Adversarial red-cell: verify new candidate doesn't false-fire on noise, on legitimate fast cooldowns, or on the 14 existing fixtures. Perturb PWM with added noise; probe the monotonic-continuation check; test interaction with other candidates (does earliest-confirmed still select correctly?). Render verdict.",
+      "dependencies": [3],
+      "station_tier": 0,
+      "file_ownership": [],
+      "validation_required": "Written verdict at {mission-dir}/redcell-verdict.md",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 5,
+      "name": "Final polish + smoke (HMS Diamond)",
+      "owner": "HMS Diamond",
+      "deliverable": "Absorb non-blocking red-cell notes; py_compile smoke; 2x pytest baseline.",
+      "dependencies": [4],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [],
+      "validation_required": "py_compile clean; pytest tests/ held at baseline in 2 runs",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

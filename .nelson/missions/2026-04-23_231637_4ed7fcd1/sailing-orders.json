@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "outcome": "Add physics-based core-sensor classifier that overrides firmware VirtualCoreSensor when a combined heat-slowness + cool-slowness score indicates a different sensor is the true core. Mirror the existing surface-sensor correction pattern.",
+  "success_metric": "wonder white CSV's core sensor role resolves to T6 (or T5) after classifier runs, not T1 (firmware pick); the 3 original real CSVs either retain firmware's core pick or change to a sensor with a stronger combined score; all 15 curve-boundary tests still green",
+  "deadline": "this_session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [
+    "TDD non-negotiable; DRY; same branch refactor/curve-boundary-detection",
+    "Do not modify curve extraction logic or existing surface-sensor classifier",
+    "Override firmware VirtualCoreSensor only when confidence threshold is exceeded (configurable, default TBD)"
+  ],
+  "out_of_scope": [
+    "Overhauling thermodynamic_sensor_classifier.py beyond core detection",
+    "Changing surface/ambient sensor role identification",
+    "Cross-CSV validation against additional real CSVs (we only have wonder white for ground-truth)"
+  ],
+  "stop_criteria": [
+    "Wonder white core resolves to T6 (or T5) AND all 15 boundary tests green AND no new full-suite regressions"
+  ],
+  "handoff_artifacts": [
+    "New or updated core-detection logic in src/data/",
+    "CORE_DETECTION_CONFIG block in config/constants.py",
+    "Fixture extensions with expected_core_sensor annotations + methodology docs",
+    "captains-log.md"
+  ],
+  "circuit_breakers": {},
+  "created_at": "2026-04-23T23:16:37Z"
+}

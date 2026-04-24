@@ -1,0 +1,35 @@
+{
+  "ship": "HMS Richmond",
+  "mission": "2026-04-23_231637_4ed7fcd1",
+  "role": "Captain — Fixture Captain",
+  "status": "COMPLETE",
+  "file_modified": "tests/fixtures/curve_boundary_cases.py",
+  "changes": {
+    "expected_core_sensor_added_to": [
+      "real_100098DE_1351 → T4 (firmware VCS mode, 263/327 samples)",
+      "real_1000BA3C_0946 → T1 (firmware VCS mode, 269/287 samples)",
+      "real_1000BA3C_1759 → T1 (firmware VCS mode, both bakes combined)",
+      "wonder_white_10k_lidded → T6 (combined-rank analysis; T5 acceptable alternate)"
+    ],
+    "new_cases_added": [
+      "core_sensor_unambiguous (T4 wins both heat and cool rank, combined=1+1=2)",
+      "core_sensor_disagreeing_metrics (T5 wins heat, T7 wins cool, T6 wins combined=2+2=4)"
+    ],
+    "module_level_docstring": "Added Core-sensor annotation methodology section"
+  },
+  "validation_results": {
+    "check_1_all_annotations": "PASS — 6 cases annotated (4 real + 2 synthetic), 10 unannotated fall through as None",
+    "check_2_wonder_white_T6": "PASS",
+    "check_3_unambiguous_T4_slowest": "PASS — T4 t80=905s vs T1 t80=335s",
+    "full_test_suite": "120 passed, 8 failed (all 8 pre-existing), 1 skipped — no regressions"
+  },
+  "ambiguity_flags": [
+    "wonder_white: T5 and T6 tied at combined score 5; T6 selected for tighter profile (rank 2+3 vs T5 rank 1+4). Test should accept either.",
+    "real CSV cases (1000BA3C_*, 100098DE_*): no ground-truth for core sensor; annotated as firmware VCS mode. Classifier may override if combined-score gap is large.",
+    "core_sensor_unambiguous/disagreeing: truncated=True because true core sensors (T4/T6) cool so slowly they stay above 40°C throughout 600-sample log — boundary detector returns end=599."
+  ],
+  "construction_notes": {
+    "sensor_profile_fix": "Initial _sensor_profile had variable n_pre causing sensors with fewer rise_samples to start rising LATER, inverting the heat-rank. Fixed by using fixed n_pre=10 shared across all sensors.",
+    "disagreeing_metrics_construction": "T5 fast cool (1.0°C/s) pushes it to cool rank 4; T3 moderate cool (0.10°C/s) retains 64°C at ref+60s to fill rank 3; T7 slowest cool (0.01°C/s) wins rank 1; T6 balanced (0.04°C/s) wins rank 2. Common ref = T5 plateau-end idx 310."
+  }
+}

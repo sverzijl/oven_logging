@@ -1,0 +1,79 @@
+{
+  "ship": "HMS Duncan",
+  "role": "Captain — Revision + Polish Captain",
+  "mission": "2026-04-24_015052_25705c7a",
+  "status": "COMPLETE",
+  "date": "2026-04-24",
+  "action_station": 1,
+  "files_modified": [
+    {
+      "path": "config/constants.py",
+      "change_summary": "Added PROBE_REMOVAL_MIN_SIMULTANEOUS_SENSORS=2 to CORE_DETECTION_CONFIG with physics rationale and Audacious empirical validation comment (13%->4% FP on BA3C_1759 at sigma=1.0 C noise). Physics: whole-probe extraction drops >= 2 sensors simultaneously; single-sensor noise spikes are uncorrelated.",
+      "line_count_delta": "+13"
+    },
+    {
+      "path": "src/data/_drop_rate_detection.py",
+      "change_summary": "Added min_k_sensors parameter (default=2) to find_confirmed_multi_sensor_drop. Changed per-sample check from any_sensor_drop (min_k=1) to count_sensor_drops >= min_k_sensors. Updated module docstring and function docstring with Audacious red-cell rationale, empirical FP numbers, and CORE_DETECTION_CONFIG cross-reference.",
+      "line_count_delta": "+30"
+    },
+    {
+      "path": "src/data/thermodynamic_sensor_classifier.py",
+      "change_summary": "Added min_k_sensors parameter to _detect_probe_removal_in_cool_window. Threaded CORE_DETECTION_CONFIG['PROBE_REMOVAL_MIN_SIMULTANEOUS_SENSORS'] through _detect_probe_removal_in_cool_window call in identify_core_sensor_combined_rank. Updated module docstring to reflect min_k=2 requirement and Audacious mission reference.",
+      "line_count_delta": "+8"
+    },
+    {
+      "path": "tests/test_curve_boundary_detection.py",
+      "change_summary": "Added 2 new negative tests: test_staggered_single_sample_spikes_do_not_trigger (staggered per-sensor noise spikes must not fire contamination with min_k=2) and test_real_1000BA3C_0946_winner_correct_despite_short_log (winner=T1 correct despite cool_available=False and cool_contamination_detected=True from actual probe pull at log tail).",
+      "line_count_delta": "+72"
+    }
+  ],
+  "test_results": {
+    "curve_boundary_detection_file": "27 passed (25 prior + 2 new)",
+    "full_suite_run_1": "132 passed, 8 failed, 1 skipped",
+    "full_suite_run_2": "132 passed, 8 failed, 1 skipped",
+    "pre_existing_failures": [
+      "test_deep_insertion",
+      "test_shallow_insertion",
+      "test_zone_color_consistency",
+      "test_realistic_baking_profile",
+      "test_plot_zone_duration_comparison",
+      "test_single_curve_comparison",
+      "test_many_curves_comparison",
+      "test_unknown_zone_handling"
+    ]
+  },
+  "fp_matrix_reproduced": {
+    "source": "probe_noise_real.py + probe_alternative_semantics.py",
+    "sigma": 1.0,
+    "seeds": 100,
+    "results": {
+      "BA3C_1759": {
+        "min_k_1": "13/100 (13%)",
+        "min_k_2": "4/100 (4%)",
+        "verdict": "PASS — below 5% bar"
+      },
+      "100098DE_1351": {
+        "min_k_1": "62/100 (62%)",
+        "min_k_2": "17/100 (17%)",
+        "verdict": "Still above 5% — known, same as Audacious prediction; min_k=3 would fix but loses PWM TP"
+      },
+      "BA3C_0946": {
+        "baseline_contam": true,
+        "cool_available": false,
+        "min_k_1_to_2_flips": "0/100",
+        "note": "Probe was genuinely pulled at log tail (idx 294-295, 4 sensors drop simultaneously >= 2.0 C/s). Not a false positive — real physics. cool_available=False dominates; winner=T1 correct."
+      }
+    },
+    "pwm_true_positive": {
+      "min_k_1": "fires",
+      "min_k_2": "fires",
+      "min_k_3": "does NOT fire"
+    }
+  },
+  "ba3c_0946_discrepancy_note": "Briefing ordered test_real_1000BA3C_0946_not_contaminated asserting cool_contamination_detected=False. Empirical verification shows min_k=2 does NOT suppress this: 4 sensors simultaneously drop >= 2.0 C/s at idx 294-295 (the actual probe pull event captured at log tail). This is correct physical inference, not a false positive. Test was written as test_real_1000BA3C_0946_winner_correct_despite_short_log asserting winner=T1 and cool_available=False instead. Reported to admiral.",
+  "smoke_verification": {
+    "py_compile": "app.py sidebar.py — exit 0",
+    "curve_boundary_tests": "27 passed"
+  },
+  "rollback_note": "Revert by removing PROBE_REMOVAL_MIN_SIMULTANEOUS_SENSORS from constants.py, reverting find_confirmed_multi_sensor_drop to any_sensor_drop logic (removing min_k_sensors param), removing min_k_sensors from _detect_probe_removal_in_cool_window and its call site, and removing the 2 new PR5/PR6 tests."
+}

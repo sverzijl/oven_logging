@@ -1,0 +1,42 @@
+{
+  "ship": "HMS Spey",
+  "mission": "2026-04-23_121616_b56f691b",
+  "date": "2026-04-23",
+  "verdict": "STAND_DOWN_CLEAN",
+
+  "items_applied": {
+    "A_rise_magnitude_comment": {
+      "file": "src/data/curve_boundary_detector.py",
+      "location": "above `if rise_magnitude < 2.0 or rise_magnitude > 10.0:` (approx line 546)",
+      "change": "Added 13-line comment block documenting: empirical rise60s separation (lidded [3.05,3.55] vs non-lidded ≤1.0 or ≥14.5), theoretical vulnerability (slow-rise unlidded with rise60s≈5-10 and ≥60 s quasi-plateau at peak can spuriously fire), mitigation path (expand real unlidded fixtures to cover rise60s 2-14 in follow-up mission), and reference to mission 2026-04-23_121616_b56f691b red-cell verdict probe 8."
+    },
+    "B_first_scan_unused_param": {
+      "file": "src/data/curve_boundary_detector.py",
+      "location": "approx line 554 (was `_ = first_scan`)",
+      "choice": "acceptable_alternative — retained parameter, kept `_ = first_scan`, replaced the multi-line comment with a single-line comment explaining it is retained for signature symmetry with sibling candidates and must scan from peak_idx directly.",
+      "rationale": "Removing the parameter would break call-site symmetry in `_evaluate_exit_candidates`; the one-liner makes intent clear without restructuring the call."
+    },
+    "C_long_sample_period_doc": {
+      "file": "config/constants.py",
+      "location": "above `CORE_PEAK_PLATEAU_CONFIRM_SECONDS: 20` in CURVE_DETECTION_CONFIG",
+      "change": "Added 6-line comment explaining that CONFIRM_SECONDS is a floor-bounded target: at dt≥10 s, CONFIRMATION_WINDOW_SAMPLES dominates and the effective window becomes floor×dt seconds, not CONFIRM_SECONDS. References mission 2026-04-23_121616_b56f691b Note C. Documented as intentional and defensive, not a bug."
+    }
+  },
+
+  "smoke_results": {
+    "py_compile": "PASS — exit 0",
+    "boundary_tests_15": "15 passed",
+    "full_suite_run_1": "120 passed, 8 failed, 1 skipped",
+    "full_suite_run_2": "120 passed, 8 failed, 1 skipped",
+    "stray_hardcoded_plateau_rate": "CLEAN — grep returned no matches outside CORE_PEAK_PLATEAU",
+    "test_deep_insertion": "FAIL (pre-existing flake, confidence 40 vs expected ≥60 — see Ambush Note D, not actioned)"
+  },
+
+  "regressions": "none — 8 known pre-existing failures stable across both runs, no new failures introduced",
+
+  "rollback_note": "Revert lines added to `src/data/curve_boundary_detector.py` (comment block above rise_magnitude guard + one-liner replacing multi-line comment) and the comment block added above CORE_PEAK_PLATEAU_CONFIRM_SECONDS in `config/constants.py`. No logic changes were made; all edits are comments only.",
+
+  "items_deferred": {
+    "D_test_deep_insertion": "Pre-existing flake in surface_sensor_detector.py — per standing orders, NOT actioned. Flagged for separate follow-up mission."
+  }
+}

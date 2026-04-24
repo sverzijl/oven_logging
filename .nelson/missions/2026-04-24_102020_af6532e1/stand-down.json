@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Fix the curve-switch sensor-multiselect persistence bug in tabs/temperature_profile.py: widget keys are not qualified by curve_index, so selections made on one curve persist when switching to another, showing the wrong sensors on the plot.",
+  "actual_outcome": "tabs/temperature_profile.py widget keys changed to f-strings embedding current_curve_index. User's curve-rotation inconsistency resolved.",
+  "success_metric_result": "4 new regression tests green (RED on HEAD); full suite 139/8/1; +4 net passing, zero new regressions",
+  "duration_minutes": 4,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "inspect.getsource + regex assertions for Streamlit widget contracts without AppTest",
+      "Single-captain TDD mission for atomic bug fixes (skip F/T/A/META/polish chain when scope is genuinely narrow)"
+    ],
+    "avoid": [
+      "Streamlit widgets with constant key across a view that re-renders with different data (key should be scoped to the data selector)"
+    ]
+  },
+  "created_at": "2026-04-24T10:25:14Z"
+}

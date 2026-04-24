@@ -1,0 +1,46 @@
+{
+  "ship": "HMS Portland",
+  "role": "Test Baseline Captain",
+  "mission": "2026-04-24_090858_d46e235e",
+  "date": "2026-04-24",
+  "baseline_before_lancaster": {
+    "passed": 30,
+    "failed": 0
+  },
+  "baseline_after_lancaster": {
+    "passed": 29,
+    "failed": 1
+  },
+  "tests_flipped_red": [
+    {
+      "test": "TestCurveBoundaryDetection::test_ground_truth_real_csvs_tight",
+      "reason": "real_1000BA3C_1759 bake-1 end: expected 293, got 944 (assert 651 <= 2). The peak_idx+1 scan guard suppresses the cliff at j=293, causing the detector to merge bakes 1 and 2 into a single curve ending at 944."
+    }
+  ],
+  "tests_still_green": [
+    "test_wonder_white_lidded_real_csv (344)",
+    "TestCoreSensorClassifier::test_real_100098DE_core_is_t4 (306)",
+    "TestCoreSensorClassifier::test_real_1000BA3C_0946_core_is_t1 (293)",
+    "TestCoreSensorClassifier::test_real_1000BA3C_1759_core_is_t1",
+    "TestProbeRemovalContamination (all 5 tests)",
+    "TestCliffProbePullDetection (all 3 tests)",
+    "TestLiddedBakeDetection::test_existing_unlidded_fixtures_unchanged"
+  ],
+  "test_file_changes": {
+    "file": "tests/test_curve_boundary_detection.py",
+    "change": "Reordered checks in test_ground_truth_real_csvs_tight: moved the ambiguous/1759 branch before the tolerance-skip guard. The tolerance skip (intended for lidded real cases) was incorrectly gating 1759 before the ambiguous branch could execute, causing 1759's bake-1 end assertion to silently never run. No assertions were relaxed; no new tests were added."
+  },
+  "findings": {
+    "why_initial_run_was_all_green": "The 1759 fixture has 'tolerance: 5' set (carried over from prior annotation era). In test_ground_truth_real_csvs_tight, the tolerance-skip at line 78 executed before the ambiguous-branch at line 81, so 1759 was silently skipped entirely. After reordering, the ambiguous branch runs first and the bake-1 end assertion fires correctly.",
+    "why_test_existing_unlidded_fixtures_unchanged_stays_green": "That test explicitly skips cases with ambiguous=True at line 526. 1759 remains skipped there — correct, because bake-2/3 start indices are genuinely ambiguous (no PredictionState transition).",
+    "detector_output_for_1759": {
+      "n_curves": 2,
+      "curve_0": {"start_idx": 13, "end_idx": 944},
+      "curve_1": {"start_idx": 6032, "end_idx": 6185},
+      "expected_n_curves": 3,
+      "expected": [{"start": 13, "end": 293}, {"start": 766, "end": 944}, {"start": 6022, "end": 6185}]
+    }
+  },
+  "ready_for_duncan": true,
+  "duncan_task": "Remove peak_idx+1 scan guard in curve_boundary_detector.py so the cliff at j=293 is detected, splitting bake-1 from bake-2 and yielding 3 curves. This will flip test_ground_truth_real_csvs_tight GREEN."
+}

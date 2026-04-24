@@ -1,0 +1,41 @@
+{
+  "ship": "HMS Dauntless",
+  "role": "Polish Captain",
+  "mission": "2026-04-24_070615_fee9ec8f",
+  "date": "2026-04-24",
+  "status": "COMPLETE",
+
+  "concerns_actioned": {
+    "A": {
+      "description": "Cliff noise-fragility at realistic σ=0.05–0.15 °C",
+      "action": "Added prominent docstring note above _candidate_probe_pull_cliff in src/data/curve_boundary_detector.py documenting the noise-fragility, citing Ambush mission 2026-04-24_070615_fee9ec8f. Notes the BA3C_1759 j=293 cliff as first-probe-pull-of-a-multi-pull-session. Lists 4 suggested mitigations for a follow-up mission.",
+      "files_changed": ["src/data/curve_boundary_detector.py"]
+    },
+    "B": {
+      "description": "Dedicated CLIFF_MIN_START_TEMP_C config constant",
+      "action": "Added CLIFF_MIN_START_TEMP_C: 80.0 to CURVE_DETECTION_CONFIG in config/constants.py. Read into self._cliff_min_start_temp_c in __init__. Cliff scan in _candidate_probe_pull_cliff now reads self._cliff_min_start_temp_c instead of self._min_peak_temp. MIN_PEAK_TEMP retained exclusively for curve-acceptance gate (extract_curves line 96). Comment added noting semantic separation.",
+      "files_changed": ["config/constants.py", "src/data/curve_boundary_detector.py"],
+      "behavior_change": false
+    },
+    "C": {
+      "description": "BA3C_1759 bake-2 start drifts 5890→6032 (pre-existing)",
+      "action": "Out of scope. Logged to captain's log for a future mission.",
+      "files_changed": []
+    }
+  },
+
+  "smoke_verification": {
+    "compile": "PASS — py_compile on app.py sidebar.py src/data/curve_boundary_detector.py config/constants.py exit 0",
+    "boundary_tests": "PASS — 30 passed (tests/test_curve_boundary_detection.py)",
+    "full_suite_run_1": "135 passed, 8 failed, 1 skipped (matches Defender baseline; run-1 showed 136/7/1 — known flaky test_visualization)",
+    "full_suite_run_2": "135 passed, 8 failed, 1 skipped (matches Defender baseline)",
+    "CLIFF_PRE_PEAK_grep": "NO matches in src/ or config/ (comment-only occurrence in constants.py history text — not live code)",
+    "MIN_PEAK_TEMP_usage": "Remains at line 99 of curve_boundary_detector.py for curve-acceptance only; cliff scan uses self._cliff_min_start_temp_c"
+  },
+
+  "captain_log": {
+    "C_BA3C_1759_bake2_start_drift": "Fixture expected_starts=[13, 5890]; detector returns [13, 6032] — 142 samples outside tolerance=5. Pre-existing (not a Dragon regression). ambiguous=True tag acknowledges this. Flagged for a future re-annotation mission."
+  },
+
+  "rollback_note": "Revert config/constants.py (remove CLIFF_MIN_START_TEMP_C entry) and src/data/curve_boundary_detector.py (remove _cliff_min_start_temp_c init line + docstring note, restore self._min_peak_temp in cliff scan). No test, fixture, loader, or other file was modified."
+}

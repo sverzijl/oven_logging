@@ -1,0 +1,37 @@
+{
+  "ship": "HMS Portland",
+  "role": "Captain — Fixture Captain",
+  "mission": "2026-04-24_015052_25705c7a",
+  "status": "COMPLETE",
+  "timestamp": "2026-04-23",
+  "cases_added": [
+    "post_wonder_meal_lidded",
+    "probe_removal_contaminates_cool_rank"
+  ],
+  "total_cases_before": 16,
+  "total_cases_after": 18,
+  "validation": {
+    "pwm_check": "PASS — rows=376, VCT max=98.65 > 98, expected_core_sensor='T5'",
+    "synthetic_check": "PASS — T4 peak at idx 299, abs(val[298]-val[300])=13.27 > 10",
+    "count_check": "PASS — 18 cases (was 16; briefing said 14 but two core-sensor cases already existed)"
+  },
+  "pwm_ground_truth_rationale": {
+    "start": "idx 3 — PredictionState transitions 'Probe Not Inserted' -> 'Probe Inserted'",
+    "end": "idx 360 (tolerance 10) — before probe removal onset at idx 345",
+    "probe_removal_onset": "idx 345: VCT drops 18.7 deg C in one 5-second sample (3.74 deg C/s >> 2 deg C/s threshold)",
+    "heat_rank_T5": "T5 heat rank 1, t80=1230s (slowest to reach 80 deg C)",
+    "contaminated_cool_rank_at_idx_356": "T8>T7>T1>T2>T6>T3>T5>T4 — reflects probe-extraction sequence, not thermal mass",
+    "expected_core_sensor": "T5 — heat-only fallback when probe-removal contamination detected"
+  },
+  "synthetic_construction_verification": {
+    "heat_rank": "T4 rank 1 (t80=895s), T3 rank 2, T5 rank 3, T2 rank 4, T6 rank 5, T7 rank 6, T8 rank 7, T1 rank 8",
+    "contaminated_cool_rank_at_idx_311": "T7 rank 1 (46C), T8 rank 2 (44), T6 rank 3 (42), T5 rank 4 (40), T2 rank 5, T1 rank 6, T3 rank 7, T4 rank 8 (32)",
+    "combined_rank_contaminated": "T5=7, T7=7 (tie at combined 7); T4 scores 9 — combined falsely picks T5 or T7",
+    "divergence_confirmed": true,
+    "probe_removal_drop_T4": "-13.3 deg C/sample at idx 300 (>10 confirmed)",
+    "idxmax_T4": 299,
+    "validation_abs_diff": 13.27
+  },
+  "file_modified": "tests/fixtures/curve_boundary_cases.py",
+  "blockers": "none"
+}

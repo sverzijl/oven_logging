@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Correct the BA3C_1759 fixture annotation from 2 bakes to 3 bakes (starts=[13,766,6022], ends=[293,944,6185]) and remove Dragon's peak_idx+1 scan guard from prior mission so cliff fires correctly at j=293 (end of bake 1). Keep CLIFF_MIN_START_TEMP_C=80 guard which is separately necessary.",
+  "actual_outcome": "BA3C_1759 fixture corrected from 2 to 3 bakes. peak_idx+1 scan guard removed. _skip_probe_pull_tail added to prevent cooldown-tail absorption in next curve start. Detector now returns 3 clean curves for 1759, matching physical reality.",
+  "success_metric_result": "30/30 boundary tests green; 1759 = [13-293, 775-944, 6032-6185]; all other CSVs unchanged; full suite baseline held",
+  "duration_minutes": 48,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 5,
+    "total": 5,
+    "by_station_tier": {
+      "0": 2,
+      "1": 3,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Detector convention wins over admiral estimate for fixture alignment (bake_active_c=40 ruled over admiral's VCT>35 heuristic)",
+      "Test-order bugs as silent-green traps (Portland caught tolerance-skip before ambiguous-case branch)",
+      "Explicit reframing of prior-mission guards as paper-over when deeper bug found",
+      "Q3 as standing red-cell rubric: what other inconsistencies does this fix expose? (Artful caught bake-3 same 10-sample shift as bake-2)"
+    ],
+    "avoid": [
+      "Defending a fixture against detector output by adding a guard (Dragon's prior peak_idx+1 papered over misannotation)",
+      "Letting ambiguous=True silently suppress assertions that catch related issues (bake-3 drift hidden for a mission)",
+      "Declaring task complete when tests pass but introspection matrix shows user-visible defect (Duncan first handoff had 30/30 but wrong curve structure)"
+    ]
+  },
+  "created_at": "2026-04-24T10:01:31Z"
+}

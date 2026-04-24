@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Adopt Stance B from prior mission's Q3: re-annotate unlidded fixtures to clip at the probe-pull cliff (physics-consistent with user's stated position), then remove the CLIFF_PRE_PEAK_PLATEAU guard so cliff candidate fires universally across lidded and unlidded.",
+  "actual_outcome": "Stance B adopted. 3 unlidded fixtures re-annotated to clip at probe-pull cliff. CLIFF_PRE_PEAK_* guards removed. Cliff fires universally. Dragon discovered BA3C_1759 j=293 multi-pull pattern and added 2 physically-meaningful replacement guards (peak_idx+1 scan, 80 C min cliff start) that Ambush accepted via Q1 reframing.",
+  "success_metric_result": "30/30 boundary tests green; full suite 135/8/1 held; all 3 unlidded cases clip at cliff indices; PWM+wonder white unchanged at plateau",
+  "duration_minutes": 95,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 5,
+    "total": 5,
+    "by_station_tier": {
+      "0": 2,
+      "1": 3,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Defender test-short-circuit catch: fixture changes may mask multiple failures behind first-fail",
+      "Dragon discover-and-flag-before-ship: three-prong report (guards + justification + test pass) on in-implementation deviation",
+      "Ambush Q1 reframing: red-cell empirical investigation may sharpen captain framings (j=293 insertion to multi-pull-session)",
+      "Polish-captain decoupling-without-value-change: CLIFF_MIN_START_TEMP_C split from MIN_PEAK_TEMP at same value"
+    ],
+    "avoid": [
+      "Trusting first pytest failure as complete baseline (short-circuit hides siblings)",
+      "Framing guards from one-fixture observations (Dragon insertion to Ambush multi-pull)",
+      "Claiming noise immunity from prior role when detector moves primary in aggregator (0 FP at sigma=1.0 as tie-breaker became 27-60% at sigma=0.15 as primary)"
+    ]
+  },
+  "created_at": "2026-04-24T08:45:38Z"
+}

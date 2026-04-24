@@ -1,0 +1,27 @@
+{
+  "ship": "HMS Forth",
+  "role": "Fixture Captain",
+  "mission": "2026-04-24_105032_1b3801f8",
+  "status": "COMPLETE",
+  "date": "2026-04-24",
+  "files_modified": [
+    "tests/fixtures/curve_boundary_cases.py"
+  ],
+  "changes": {
+    "case": "real_1000BA3C_1759",
+    "expected_starts": {
+      "before": [13, 775, 6032],
+      "after": [13, 660, 5888]
+    },
+    "tolerance": {
+      "before": 5,
+      "after": 8
+    },
+    "expected_ends": "[293, 944, 6185] — UNCHANGED",
+    "expected_n_curves": "3 — UNCHANGED",
+    "ambiguous": "True — UNCHANGED",
+    "expected_core_sensor": "T1 — UNCHANGED"
+  },
+  "validation": "python3 validation command passed: '1759 re-annotated ok'",
+  "casualties": "None"
+}

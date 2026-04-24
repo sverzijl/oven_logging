@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Lidded-bake fixture: real CSV + synthetic plateau",
+      "owner": "HMS Trent",
+      "deliverable": "Add wonder_white_10k_lidded real case and >=2 synthetic lidded cases to tests/fixtures/curve_boundary_cases.py. Ground-truth oven-exit annotated via ambient-peak + core-peak-plateau inflection (document methodology in the case description).",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 0,
+      "file_ownership": [
+        "tests/fixtures/curve_boundary_cases.py"
+      ],
+      "validation_required": "pytest imports CASES without error; new cases exposed with expected_starts, expected_ends, expected_n_curves, source='real'/'synthetic', description with ground-truth methodology",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing lidded-bake tests",
+      "owner": "HMS Tamar",
+      "deliverable": "Add >=3 tests to tests/test_curve_boundary_detection.py: (a) real wonder-white ends at oven-exit not EOF, (b) synthetic plateau ends at plateau-onset, (c) existing unlidded cases unchanged. Target tests RED against branch HEAD before Warspite implements.",
+      "dependencies": [
+        1
+      ],
+      "dependents": [
+        3
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "tests/test_curve_boundary_detection.py"
+      ],
+      "validation_required": "pytest run recorded: new tests red, existing 11 tests still green",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Core-peak-plateau candidate implementation",
+      "owner": "HMS Warspite",
+      "deliverable": "COMPLETED: Added _candidate_core_peak_plateau + 3 config keys + plateau_fired flag + _skip_plateau_tail helper. 15 tests green; baseline 120/8/1 confirmed by Ambush.",
+      "dependencies": [
+        2
+      ],
+      "dependents": [
+        4
+      ],
+      "station_tier": 1,
+      "file_ownership": [],
+      "validation_required": "pytest tests/test_curve_boundary_detection.py fully green; pytest tests/ matches baseline (116 passed / 8 pre-existing failed / 1 skipped); HMS Ambush red-cell review accepts",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "Final polish + smoke (Ambush items A-C)",
+      "owner": "HMS Spey",
+      "deliverable": "Absorb Ambush non-blocking notes A-C (rise-magnitude fragility comment, unused first_scan param cleanup, long-sample-period doc). Run py_compile smoke and 2x pytest confirmation. Warspite has stood down; file ownership hands over sequentially.",
+      "dependencies": [
+        3
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/data/curve_boundary_detector.py",
+        "config/constants.py"
+      ],
+      "validation_required": "py_compile app.py sidebar.py passes; pytest tests/ held at 120/8/1 in 2 runs; grep confirms no new magic numbers outside config",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "agent-team",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Trent",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Tamar",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 2
+      },
+      {
+        "ship_name": "HMS Warspite",
+        "ship_class": "flagship",
+        "model": "opus",
+        "task_id": 3
+      },
+      {
+        "ship_name": "HMS Spey",
+        "ship_class": "patrol vessel",
+        "model": "sonnet",
+        "task_id": 4
+      }
+    ],
+    "red_cell": {
+      "ship_name": "HMS Ambush",
+      "model": "opus"
+    }
+  },
+  "created_at": "2026-04-23T12:16:52Z",
+  "amended_at": null
+}

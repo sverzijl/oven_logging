@@ -1,0 +1,63 @@
+{
+  "squadron": {
+    "admiral": { "ship_name": "HMS Admiralty", "model": "opus" },
+    "captains": [
+      { "ship_name": "HMS Portland", "ship_class": "frigate", "model": "sonnet", "task_id": 1 },
+      { "ship_name": "HMS St Albans", "ship_class": "frigate", "model": "sonnet", "task_id": 2 },
+      { "ship_name": "HMS Vanguard", "ship_class": "flagship", "model": "opus", "task_id": 3 },
+      { "ship_name": "HMS Duncan", "ship_class": "destroyer", "model": "sonnet", "task_id": 4 }
+    ],
+    "red_cell": { "ship_name": "HMS Audacious", "model": "opus" }
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Post Wonder Meal fixture + probe-removal synthetic",
+      "owner": "HMS Portland",
+      "deliverable": "Add post_wonder_meal_lidded real case (expected_core_sensor='T5', loads Post Wonder Meal 20251017.csv) to CASES. Add 1 synthetic case probe_removal_contaminates_cool_rank where combined-rank alone picks a wrong sensor but heat-only picks the right one. Document methodology.",
+      "dependencies": [],
+      "station_tier": 0,
+      "file_ownership": ["tests/fixtures/curve_boundary_cases.py"],
+      "validation_required": "CASES imports; new cases have expected_core_sensor; post_wonder_meal is T5",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Failing probe-removal contamination tests",
+      "owner": "HMS St Albans",
+      "deliverable": "Add ≥2 tests: (a) post_wonder_meal_lidded resolves to T5 (RED on HEAD — currently resolves to T7 via contaminated cool-rank), (b) probe_removal_contaminates_cool_rank synthetic resolves correctly. Guardrail: real_1000BA3C_1759 (real slow cooldown) still uses combined rank, not heat-only fallback.",
+      "dependencies": [1],
+      "station_tier": 1,
+      "file_ownership": ["tests/test_curve_boundary_detection.py"],
+      "validation_required": "pytest baseline: new target tests RED on HEAD, existing 21 boundary tests still GREEN",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Probe-removal contamination detection + heat-only fallback",
+      "owner": "HMS Vanguard",
+      "deliverable": "Add probe-removal detection to identify_core_sensor_combined_rank: scan for first post-peak sample with drop rate > threshold sustained for ≥2 samples; if it falls within cool_window_samples of common_peak, fall back to heat-only. Add config constants (PROBE_REMOVAL_RATE_C_PER_SEC, PROBE_REMOVAL_CONFIRM_SAMPLES). Surface a cool_contamination_detected flag in the diagnostics dict alongside the existing cool_available flag. Reuse drop-rate logic from curve_boundary_detector where practical — DRY.",
+      "dependencies": [2],
+      "station_tier": 1,
+      "file_ownership": ["src/data/thermodynamic_sensor_classifier.py", "config/constants.py"],
+      "validation_required": "pytest tests/test_curve_boundary_detection.py green; full suite baseline held; post_wonder_meal resolves to T5; wonder white still T5/T6; 3 unlidded guardrails still hold (real_1000BA3C_1759 uses combined rank); HMS Audacious red-cell accepts",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "Final polish + smoke",
+      "owner": "HMS Duncan",
+      "deliverable": "Absorb HMS Audacious non-blocking items; py_compile smoke; 2x pytest baseline confirmation.",
+      "dependencies": [3],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [],
+      "validation_required": "py_compile clean; pytest tests/ held at baseline (128/8/1 expected with +2 new tests) in 2 runs",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

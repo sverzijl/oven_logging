@@ -1,0 +1,27 @@
+{
+  "ship_name": "HMS Argyll",
+  "timestamp": "2026-04-23T00:00:00Z",
+  "hull_integrity_pct": 100,
+  "hull_integrity_status": "GREEN",
+  "relief_requested": false,
+  "context_summary": {
+    "task": "Cliff fixtures — revise post_wonder_meal_lidded and add cliff_probe_pull_with_monotonic_cooldown synthetic",
+    "file_modified": "tests/fixtures/curve_boundary_cases.py",
+    "changes": [
+      {
+        "fixture": "post_wonder_meal_lidded",
+        "change": "expected_ends updated [360] -> [344], tolerance tightened 10->5, description updated with cliff-candidate mission note"
+      },
+      {
+        "fixture": "cliff_probe_pull_with_monotonic_cooldown",
+        "change": "New synthetic added: 400 samples at 5s/sample, plateau 240..300 at 96C, cliff at idx 300->301 (drop=20C), monotonic decline 301..340, tail 341..399 ~31C. expected_starts=[0], expected_ends=[299], tolerance=5, source='synthetic', expected_core_sensor='T1'"
+      }
+    ],
+    "validation": {
+      "pwm_ends": "PASS — assert pwm['expected_ends']==[344]",
+      "cliff_drop": "PASS — drop=20.0 > 15 threshold",
+      "cliff_monotonic": "PASS — np.diff(subsequent.values) <= 0.01 for all subsequent samples"
+    },
+    "rollback_note": "Revert expected_ends from [344] back to [360] and remove the cliff_probe_pull_with_monotonic_cooldown case entry plus _build_cliff_probe_pull() builder and _cliff_probe_pull_df module-level variable to restore prior state."
+  }
+}

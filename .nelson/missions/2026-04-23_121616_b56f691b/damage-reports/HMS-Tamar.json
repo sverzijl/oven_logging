@@ -1,0 +1,56 @@
+{
+  "ship": "HMS Tamar",
+  "role": "Test Captain",
+  "mission": "2026-04-23_121616_b56f691b",
+  "date": "2026-04-23",
+  "status": "complete",
+  "pytest_summary": "3 failed, 12 passed (15 total)",
+  "new_tests": [
+    {
+      "name": "TestLiddedBakeDetection::test_wonder_white_lidded_real_csv",
+      "class": "TestLiddedBakeDetection",
+      "status_on_head": "RED",
+      "observed_end_idx": 358,
+      "observed_truncated": true,
+      "expected_end_idx": 340,
+      "tolerance": 5
+    },
+    {
+      "name": "TestLiddedBakeDetection::test_synthetic_lidded_plateau_classic_ends_at_plateau_not_removal",
+      "class": "TestLiddedBakeDetection",
+      "status_on_head": "RED",
+      "observed_end_idx": 480,
+      "observed_truncated": false,
+      "expected_end_idx": 300,
+      "tolerance": 5,
+      "note": "Detector currently picks probe-removal at 480 instead of plateau onset at 300"
+    },
+    {
+      "name": "TestLiddedBakeDetection::test_synthetic_lidded_plateau_truncated_ends_at_plateau_not_eof",
+      "class": "TestLiddedBakeDetection",
+      "status_on_head": "RED",
+      "observed_end_idx": 359,
+      "observed_truncated": true,
+      "expected_end_idx": 300,
+      "tolerance": 5,
+      "note": "Detector falls through to EOF (359) with truncated=True; target is 300 with truncated=False"
+    },
+    {
+      "name": "TestLiddedBakeDetection::test_existing_unlidded_fixtures_unchanged",
+      "class": "TestLiddedBakeDetection",
+      "status_on_head": "GREEN",
+      "note": "Guardrail. Skips: lidded cases, non_monotonic_timestamps, ambiguous cases (1000BA3C_1759), two_bakes_no_cool (known end-detection open issue on HEAD). Checks n_curves + end_idx within ±5 for remaining 8 cases."
+    }
+  ],
+  "existing_tests": {
+    "count": 11,
+    "status": "all GREEN",
+    "note": "test_ground_truth_real_csvs_tight required a filter to skip lidded cases (source=real but tolerance field present) — the new wonder_white_10k_lidded fixture caused it to fail. Filter added: skip any case with a tolerance field from the real-csv loop."
+  },
+  "observations_for_warspite": {
+    "wonder_white_10k_lidded": "end_idx=358, truncated=True (EOF fallthrough). Target: end_idx~340, truncated=False.",
+    "lidded_bake_plateau_classic": "end_idx=480 (probe-removal). Target: end_idx~300 (plateau onset). Probe-removal at idx 480 is the current exit signal.",
+    "lidded_bake_plateau_truncated": "end_idx=359, truncated=True (EOF). Target: end_idx~300, truncated=False. Log ends mid-plateau; detector must fire plateau-onset before reaching EOF."
+  },
+  "file_modified": "tests/test_curve_boundary_detection.py"
+}

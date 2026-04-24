@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:07:01Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:07:02Z",
+      "data": {
+        "captain_count": 4,
+        "has_red_cell": true,
+        "execution_mode": "agent-team",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:07:02Z",
+      "data": {
+        "task_count": 5,
+        "parallel_tracks": 1,
+        "critical_path_length": 5,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:07:03Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "FORMATION"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:07:03Z",
+      "data": {
+        "from_phase": "FORMATION",
+        "to_phase": "PERMISSION"
+      }
+    },
+    {
+      "type": "permission_granted",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:07:04Z",
+      "data": {}
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:07:05Z",
+      "data": {
+        "from_phase": "PERMISSION",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:11:38Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Re-annotate unlidded fixtures",
+        "owner": "HMS Kent",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-24T07:14:05Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Test baseline",
+        "owner": "HMS Defender",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T07:39:21Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "Remove CLIFF_PRE_PEAK guards",
+        "owner": "HMS Dragon",
+        "station_tier": 1,
+        "verification": "pending_redcell"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-24T08:13:26Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "META review",
+        "owner": "HMS Ambush",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-24T08:42:44Z",
+      "data": {
+        "task_id": 5,
+        "task_name": "Final polish",
+        "owner": "HMS Dauntless",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-24T08:45:38Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 5,
+        "tasks_total": 5,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 95,
+        "ships_used": 4,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

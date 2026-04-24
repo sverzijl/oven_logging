@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Tamar",
+  "timestamp": "2026-04-24T00:00:00Z",
+  "hull_integrity_pct": 100,
+  "hull_integrity_status": "nominal",
+  "relief_requested": false,
+  "context_summary": "TDD mission complete. Wrote regression test (test_widget_key_per_curve.py, 4 tests) confirmed RED on HEAD, then fixed both widget keys in tabs/temperature_profile.py. All 4 new tests GREEN. Full suite: 139 passed / 8 failed / 1 skipped — 8 pre-existing failures in test_visualization.py (TestThermalPlotter, TestEdgeCases), none introduced by this change. py_compile exit 0. Old hardcoded keys gone, 2 f-string keys present. No other tab files touched. Audit note: a quick recce of other tab files in tabs/ would be warranted to check for similar fixed-key bugs, but that is out of scope per sailing orders."
+}

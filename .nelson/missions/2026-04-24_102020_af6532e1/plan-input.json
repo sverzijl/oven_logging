@@ -1,0 +1,22 @@
+{
+  "squadron": {
+    "admiral": { "ship_name": "HMS Admiralty", "model": "opus" },
+    "captains": [
+      { "ship_name": "HMS Tamar", "ship_class": "patrol vessel", "model": "sonnet", "task_id": 1 }
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "TDD fix: per-curve widget keys in temperature_profile tab",
+      "owner": "HMS Tamar",
+      "deliverable": "Write a failing regression test that asserts tabs/temperature_profile.py's st.multiselect and st.checkbox widget `key` parameters include `current_curve_index` (or equivalent per-curve discriminator) so Streamlit does not persist sensor selections across curve rotations. Then implement the fix by changing `key=\"temp_profile_sensor_select\"` to `key=f\"temp_profile_sensor_select_{st.session_state.current_curve_index}\"` and similarly for `temp_profile_show_all`. Verify the test flips red->green; verify full pytest suite baseline held.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": ["tabs/temperature_profile.py", "tests/test_widget_key_per_curve.py"],
+      "validation_required": "new regression test RED on HEAD, GREEN after fix; full suite baseline held",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

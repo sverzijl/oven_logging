@@ -1,0 +1,68 @@
+{
+  "ship": "HMS Vanguard",
+  "role": "Captain — Implementation Captain (flagship)",
+  "mission": "2026-04-24_015052_25705c7a",
+  "status": "COMPLETE",
+  "date": "2026-04-24",
+  "files_modified": [
+    {
+      "path": "src/data/thermodynamic_sensor_classifier.py",
+      "change_summary": "Added _detect_probe_removal_in_cool_window helper. Wired probe-removal check into identify_core_sensor_combined_rank after common_peak_idx computation. Updated cool-rank collapse condition so combined score reduces to heat-only when EITHER cool_available=False OR cool_contamination_detected=True. Surfaced cool_contamination_detected as top-level diagnostic key. Updated module docstring to document both fallback conditions.",
+      "line_count_delta": "+50"
+    },
+    {
+      "path": "config/constants.py",
+      "change_summary": "Added PROBE_REMOVAL_RATE_C_PER_SEC=2.0 and PROBE_REMOVAL_CONFIRM_SAMPLES=2 to CORE_DETECTION_CONFIG with a physics-rationale comment naming mission 2026-04-24_015052_25705c7a and cross-referencing CURVE_DETECTION_CONFIG['DROP_RATE_THRESHOLD_C_PER_SEC'] (DRY).",
+      "line_count_delta": "+15"
+    },
+    {
+      "path": "src/data/_drop_rate_detection.py",
+      "change_summary": "NEW FILE. Shared drop-rate primitives. Exports find_confirmed_drop_start (single-series; used by curve boundary detector) and find_confirmed_multi_sensor_drop (any-sensor-per-sample; used by classifier contamination detector). Also exports _rate_at. Module docstring cross-references both call sites and the DRY rationale.",
+      "line_count_delta": "+120 (new)"
+    },
+    {
+      "path": "src/data/curve_boundary_detector.py",
+      "change_summary": "_candidate_drop_rate refactored from 27-line inline scan to 5-line call into find_confirmed_drop_start. Added import. Behaviour bit-identical (verified via full test_curve_boundary_detection.py — 25 passed).",
+      "line_count_delta": "-22"
+    },
+    {
+      "path": "tests/fixtures/curve_boundary_cases.py",
+      "change_summary": "Added VirtualSurfaceTemperature=T7 and VirtualAmbientTemperature=T8 plus VirtualCoreSensor=T1/VirtualSurfaceSensor=T7/VirtualAmbientSensor=T8 to _build_probe_removal_contaminates_cool_rank. Without the full Virtual* set the loader routed the fixture through legacy dynamic classification and never called identify_core_sensor_combined_rank — the contamination detector was bypassed entirely. Scope authorized by admiral after PR2 blocker escalation; matches sibling fixtures (core_sensor_unambiguous, core_sensor_disagreeing_metrics) which use _build_core_sensor_base with the same Virtual* assignments.",
+      "line_count_delta": "+11",
+      "admiral_authorization": "Yes — Option A authorized after PR2 blocker escalation."
+    }
+  ],
+  "dry_decision": {
+    "choice": "extracted shared helper",
+    "location": "src/data/_drop_rate_detection.py",
+    "rationale": "Both call sites (curve_boundary_detector._candidate_drop_rate and classifier._detect_probe_removal_in_cool_window) share identical rate-computation semantics (prev-curr)/dt with confirm_n sustained-window logic, just with different return offsets (j vs j-1) and different multiplicity (single-series vs multi-sensor-any). Extracting find_confirmed_drop_start + find_confirmed_multi_sensor_drop into a dedicated module keeps threshold and confirmation logic in one place — a future threshold change or bug fix only touches one file. Curve boundary detector was refactored accordingly (single-file edit permitted by briefing's conditional clause).",
+    "secondary_note": "During implementation I discovered the briefing's single-series confirm_n=2 contract under-triggers on PWM: no single sensor sustains rate>2°C/s for 2 consecutive samples (T1 pops idx 345, T5/T6 pop idx 346). Switched to any-sensor-per-sample which matches the physics of whole-probe extraction and fires correctly on PWM while still not triggering on BA3C_1759 (max drop 0.32°C/s across all sensors). Single-series helper kept for the curve boundary detector (behaviour bit-identical)."
+  },
+  "test_results": {
+    "target_class": {
+      "PR1_post_wonder_meal_lidded_core_is_t5": "GREEN (was RED)",
+      "PR2_synthetic_probe_removal_forces_heat_only": "GREEN (was RED)",
+      "PR3_real_1000BA3C_1759_still_uses_combined_rank": "GREEN (guardrail held)",
+      "PR4_contamination_diagnostic_flag_surfaces": "GREEN (was RED)"
+    },
+    "target_file": "tests/test_curve_boundary_detection.py — 25 passed / 0 failed (21 prior + 4 new all green)",
+    "full_suite": "131 passed, 7 failed, 1 skipped. Baseline pre-PR-tests was 126 passed / 8 failed / 1 skipped. St Albans' 4 PR tests plus my 3 flips from RED→GREEN give +5 net; PR3 was already green. The 7 remaining failures are pre-existing and unrelated to core-sensor classification (curve_comparison_integration, internal_sensor_filtering, surface_sensor_detection shallow/deep_insertion, visualization x 4)."
+  },
+  "introspection": {
+    "PWM_direct_call": "winner=T5, cool_contamination_detected=True — MATCHES BRIEFING",
+    "BA3C_1759_direct_call": "winner=T1, cool_contamination_detected=False — MATCHES BRIEFING (guardrail holds)",
+    "wonder_white_direct_call": "winner=T5, cool_contamination_detected=True, cool_available=True — contamination path fires first rather than EOF path; T5 result matches briefing's 'either path is fine' allowance"
+  },
+  "blockers": "none — PR2 blocker resolved with admiral-authorized Option A (fixture fix)",
+  "rollback_note": "Changes span 5 files. To roll back: (a) restore original _build_probe_removal_contaminates_cool_rank in tests/fixtures/curve_boundary_cases.py (remove the 6 lines of Virtual* columns + rationale comment); (b) delete src/data/_drop_rate_detection.py; (c) restore original _candidate_drop_rate inline scan in src/data/curve_boundary_detector.py; (d) remove PROBE_REMOVAL_RATE_C_PER_SEC and PROBE_REMOVAL_CONFIRM_SAMPLES from CORE_DETECTION_CONFIG; (e) remove _detect_probe_removal_in_cool_window, the probe_removal_idx block, the cool_informative split, and the cool_contamination_detected diagnostic key in src/data/thermodynamic_sensor_classifier.py. Curve boundary detector behaviour is bit-identical pre- and post-refactor.",
+  "risks_watched": {
+    "over_triggering_contamination": "MITIGATED — BA3C_1759 guardrail (PR3) green. Max drop rate 0.32°C/s across all 8 sensors, well below 2.0°C/s threshold. any-sensor-per-sample semantics did not lower the floor.",
+    "under_triggering": "MITIGATED on PWM — initial single-series helper under-triggered (no single sensor sustains rate>2°C/s for 2 consecutive samples). Switched to multi-sensor-any-per-sample. Fires correctly on PWM at idx 345; BA3C_1759 still does not trigger.",
+    "DRY_violation": "AVOIDED — single shared module src/data/_drop_rate_detection.py; curve boundary detector refactored to use it."
+  },
+  "handoff_notes_for_red_cell_and_polish": {
+    "portland_fixture_oversight": "Portland's damage report claimed the synthetic fixture was complete, but the Virtual* columns (VirtualCoreSensor/VirtualSurfaceSensor/VirtualAmbientSensor and VirtualSurfaceTemperature/VirtualAmbientTemperature) were missing — routing the synthetic through the legacy dynamic classification path and bypassing the combined-rank classifier. Admiral authorized Option A fixture patch as the lowest-blast-radius fix; no other fixture changes made. Audacious should verify the patch is minimal and idiomatic.",
+    "vanguard_design_deviation_from_brief": "Briefing specified a single-series confirm_n helper for probe-removal detection; empirical PWM data required multi-sensor-any-per-sample to avoid under-triggering. This is noted in both _drop_rate_detection.py module docstring and _detect_probe_removal_in_cool_window docstring. Red-cell review should validate this semantic choice against the BA3C_1759 guardrail and any future real probe-pull fixtures.",
+    "threshold_cross_reference": "PROBE_REMOVAL_RATE_C_PER_SEC intentionally mirrors CURVE_DETECTION_CONFIG['DROP_RATE_THRESHOLD_C_PER_SEC']=2.0; both are tuned to the same probe-pull physics. If a future mission tunes one, the other must be reviewed."
+  }
+}

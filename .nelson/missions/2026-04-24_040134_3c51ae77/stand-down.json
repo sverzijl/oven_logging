@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Add _candidate_probe_pull_cliff to CurveBoundaryDetector that fires on a single-sample drop >15 C followed by monotonic cooling. Handles Post Wonder Meal's case where plateau/drop-rate/cool-to-ambient candidates all miss because of PredictionState-never-reverts plus compressed plateau approach.",
+  "actual_outcome": "_candidate_probe_pull_cliff shipped with 4 config constants. PWM clips at idx 344 (was EOF truncated). 3 unlidded real CSVs guarded by pre-cliff plateau threshold (250s; 140s working range per Astute). Q3 escalated: should unlidded fixtures also clip at cliff?",
+  "success_metric_result": "30 boundary tests green; full suite 136/7/1 (+3 passing vs prior baseline); zero new regressions",
+  "duration_minutes": 90,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 5,
+    "total": 5,
+    "by_station_tier": {
+      "0": 2,
+      "1": 3,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Red-cell Q1/Q2/Q3 decomposition for reviews with embedded design questions",
+      "DRY judgement: reuse when semantics align, not when shapes look similar (cliff inline, not in _drop_rate_detection.py)",
+      "Perturbation threshold sweep ranges, not single-point margins (Astute 140s vs Ark Royal 65s)"
+    ],
+    "avoid": [
+      "Threshold reports as closest-fixture-to-boundary (missed 75s of valid working range)",
+      "Shipping a design question silently in a config constant",
+      "Docstring drift when changing a threshold (grep for old value before commit)"
+    ]
+  },
+  "created_at": "2026-04-24T05:35:56Z"
+}
