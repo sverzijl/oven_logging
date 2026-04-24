@@ -34,6 +34,14 @@ class ThermalProfileLoader:
         self.current_curve_index = 0  # Track which curve is currently selected
         self._sensor_overrides = {}  # Store sensor overrides per curve {curve_index: {'core': [...], 'surface': [...], 'ambient': [...]}}
         self._sensor_manager = SensorAssignmentManager(self)
+        # Optional per-curve expected-duration hint (M5 HMS Dauntless).
+        # None = no hint; list[float | None] = positional per-curve hints,
+        # matched to detected curves by order.  Consumed by
+        # ``_extract_all_baking_curves`` which forwards to
+        # ``CurveBoundaryDetector.extract_curves(expected_durations_s=...)``.
+        # UI layer (M6 Spartan) sets this via ``set_expected_durations``
+        # to get cache-invalidation for free.
+        self.expected_durations_s: list[float | None] | None = None
         
     def load_csv(self, file_path: str = None, file_buffer=None) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -478,6 +486,30 @@ class ThermalProfileLoader:
         # Fallback to deprecated sensor_assignments
         return getattr(self, 'sensor_assignments', {})
     
+    def set_expected_durations(
+        self, durations_s: list[float | None] | None
+    ) -> None:
+        """Set the per-curve expected-duration hint and re-run detection.
+
+        Introduced by flotilla mission M5 HMS Dauntless.  Mirrors the
+        cache-invalidation semantics of :meth:`set_sensor_override`: when
+        cached data is present, running this method triggers a fresh
+        ``_extract_all_baking_curves`` pass so analytics downstream see
+        the refined curves.
+
+        Args:
+            durations_s: ``None`` clears the hint.  A list of seconds (or
+                ``None`` entries for per-curve skips, e.g. truncated
+                bakes) is matched positionally to detected curves.
+        """
+        self.expected_durations_s = durations_s
+        if self.data is not None and len(self.data) > 0:
+            self.all_curves = self._extract_all_baking_curves(self.data.copy())
+            if self.all_curves:
+                # Preserve current_curve_index when valid; otherwise reset.
+                if self.current_curve_index >= len(self.all_curves):
+                    self.current_curve_index = 0
+
     def set_sensor_override(self, curve_index: int, role: str, sensor: str):
         """
         Allow user to override sensor assignments for a specific curve.
@@ -803,9 +835,30 @@ class ThermalProfileLoader:
         method layers per-curve sensor-role identification on top of each curve
         returned (the detector is domain-agnostic and does not know about role
         assignment).  The input DataFrame is not mutated.
+
+        When ``self.expected_durations_s`` is set (M5 HMS Dauntless), the
+        hint list is forwarded to the detector's ``expected_durations_s``
+        kwarg.  A list whose length mismatches the detected curve count
+        is accepted — the detector consumes hints positionally and
+        ignores entries beyond ``len(detected_curves)`` — but a warning
+        is logged so operators can diagnose a mis-entered hint.
         """
         detector = CurveBoundaryDetector(CURVE_DETECTION_CONFIG)
-        curves = detector.extract_curves(df)
+        curves = detector.extract_curves(
+            df, expected_durations_s=self.expected_durations_s
+        )
+
+        if (
+            self.expected_durations_s is not None
+            and len(self.expected_durations_s) != len(curves)
+        ):
+            _log.warning(
+                "expected_durations_s length mismatch: %d hint(s) supplied "
+                "but %d curve(s) detected; extra hints are ignored, missing "
+                "hints fall through to no-hint refinement.",
+                len(self.expected_durations_s),
+                len(curves),
+            )
 
         for curve_index, curve in enumerate(curves):
             curve["data"] = self._identify_sensor_roles_for_curve(
