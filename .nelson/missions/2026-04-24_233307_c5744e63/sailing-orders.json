@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Loader exposes raw_data attribute (full pre-extraction DataFrame) and set_curve_boundaries/clear_curve_boundaries methods so M2/M3 can plot raw CSV with auto-detected windows AND let users pin manual boundaries that override the detector.",
+  "success_metric": "5+ TDD tests pass: raw_data preserved after load; set_curve_boundaries overrides detector; kind set to manual_override; clear reverts to auto; override persists through set_expected_durations. All 101+ existing tests unchanged. Default behaviour byte-identical when no override applied.",
+  "deadline": "This session (M1 of 5-mission flotilla refactor/curve-boundary-review).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T23:33:07Z"
+}

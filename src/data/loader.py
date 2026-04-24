@@ -42,6 +42,21 @@ class ThermalProfileLoader:
         # UI layer (M6 Spartan) sets this via ``set_expected_durations``
         # to get cache-invalidation for free.
         self.expected_durations_s: list[float | None] | None = None
+        # Full pre-curve-extraction DataFrame (M1 HMS Ardent, mission
+        # 2026-04-24_233307_c5744e63).  Today ``self.data`` is overwritten
+        # with the first curve's slice immediately after extraction;
+        # ``raw_data`` keeps the full log so the Curve Boundary Review
+        # tab (M3) can plot it with detected windows overlaid.
+        # Also fixes a latent bug: ``set_expected_durations`` previously
+        # re-ran detection on ``self.data`` (the first curve only),
+        # silently dropping bakes 2+ on multi-bake CSVs.  Re-detection
+        # now uses ``self.raw_data``.
+        self.raw_data: pd.DataFrame | None = None
+        # Manual per-curve boundary overrides (M1 HMS Ardent).
+        # Keyed by curve_index; value is ``(start_idx, end_idx)`` in the
+        # raw_data index space.  When present, the override takes
+        # precedence over the detector AND the hint refinement.
+        self._boundary_overrides: dict[int, tuple[int, int]] = {}
         
     def load_csv(self, file_path: str = None, file_buffer=None) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -78,15 +93,20 @@ class ThermalProfileLoader:
         
         # Clean and validate the data
         self.data = self._clean_data(self.data)
-        
+
+        # Preserve the full pre-curve-extraction DataFrame for the
+        # Curve Boundary Review tab (M1 HMS Ardent).  ``copy()`` so
+        # downstream tab code mutating ``self.data`` cannot leak back.
+        self.raw_data = self.data.copy()
+
         # Extract all baking curves
         self.all_curves = self._extract_all_baking_curves(self.data)
-        
+
         # Set the first curve as default if any curves found
         if self.all_curves:
             self.data = self.all_curves[0]['data']
             self.current_curve_index = 0
-        
+
         return self.data, self.metadata
     
     def _parse_metadata(self, file_path: str) -> Dict:
@@ -503,12 +523,70 @@ class ThermalProfileLoader:
                 bakes) is matched positionally to detected curves.
         """
         self.expected_durations_s = durations_s
-        if self.data is not None and len(self.data) > 0:
-            self.all_curves = self._extract_all_baking_curves(self.data.copy())
+        # Re-run detection on the full raw log, NOT on self.data which
+        # has been overwritten with the first curve's slice (M1 HMS
+        # Ardent fixed this latent bug — pre-fix, multi-bake CSVs lost
+        # bakes 2+ on every set_expected_durations call).
+        source = self.raw_data if self.raw_data is not None else self.data
+        if source is not None and len(source) > 0:
+            self.all_curves = self._extract_all_baking_curves(source.copy())
             if self.all_curves:
                 # Preserve current_curve_index when valid; otherwise reset.
                 if self.current_curve_index >= len(self.all_curves):
                     self.current_curve_index = 0
+
+    def set_curve_boundaries(
+        self, curve_index: int, start_idx: int, end_idx: int
+    ) -> None:
+        """Pin curve ``curve_index`` to ``[start_idx, end_idx]`` in the
+        raw-log index space, regardless of detector decision or hint.
+
+        Introduced by flotilla mission M1 HMS Ardent (branch
+        ``refactor/curve-boundary-review``).  Used by the Curve Boundary
+        Review tab (M3) so the operator can pin a boundary when the
+        detector + hint can't reach the desired window.
+
+        Validation:
+        - ``curve_index`` must be a current detected-curve index.
+        - ``start_idx`` and ``end_idx`` must lie inside ``raw_data``.
+        - ``start_idx < end_idx``.
+
+        Re-applies overrides via a fresh re-detection so all derived
+        fields (``samples``, ``duration``, ``max_temp``, etc.) reflect
+        the pinned slice.  ``exit_candidate_kind`` becomes
+        ``"manual_override"`` for the pinned curve.
+        """
+        if not self.all_curves or curve_index < 0 or curve_index >= len(self.all_curves):
+            raise IndexError(
+                f"curve_index {curve_index} outside detected range "
+                f"[0, {len(self.all_curves) - 1}]"
+            )
+        n = len(self.raw_data) if self.raw_data is not None else 0
+        if not (0 <= start_idx < n) or not (0 <= end_idx < n):
+            raise ValueError(
+                f"start_idx={start_idx} and end_idx={end_idx} must lie in "
+                f"[0, {n - 1}]"
+            )
+        if start_idx >= end_idx:
+            raise ValueError(
+                f"start_idx={start_idx} must be less than end_idx={end_idx}"
+            )
+        self._boundary_overrides[curve_index] = (int(start_idx), int(end_idx))
+        self._reapply_boundary_state()
+
+    def clear_curve_boundaries(self, curve_index: int) -> None:
+        """Remove the manual override for ``curve_index`` (no-op if absent)."""
+        if curve_index in self._boundary_overrides:
+            del self._boundary_overrides[curve_index]
+            self._reapply_boundary_state()
+
+    def _reapply_boundary_state(self) -> None:
+        """Re-run detection on raw_data and apply manual overrides on top."""
+        if self.raw_data is None or len(self.raw_data) == 0:
+            return
+        self.all_curves = self._extract_all_baking_curves(self.raw_data.copy())
+        if self.all_curves and self.current_curve_index >= len(self.all_curves):
+            self.current_curve_index = 0
 
     def set_sensor_override(self, curve_index: int, role: str, sensor: str):
         """
@@ -860,6 +938,17 @@ class ThermalProfileLoader:
                 len(curves),
             )
 
+        # Apply per-curve manual boundary overrides (M1 HMS Ardent).
+        # The override pins the curve to ``(start_idx, end_idx)`` in the
+        # raw-log index space and rebuilds derived fields from the
+        # pinned slice.  ``exit_candidate_kind`` is set to
+        # ``"manual_override"`` so the new Boundary Review tab can show
+        # the operator that the detector's decision was overridden.
+        if self._boundary_overrides:
+            curves = self._apply_boundary_overrides(df, curves)
+
+        # Note: sensor-role identification runs AFTER boundary overrides
+        # so role detection uses the pinned slice, not the detector's.
         for curve_index, curve in enumerate(curves):
             curve["data"] = self._identify_sensor_roles_for_curve(
                 curve["data"], curve_index
@@ -880,7 +969,45 @@ class ThermalProfileLoader:
         else:
             _log.debug("Total curves found: %d", len(curves))
         return curves
-    
+
+    def _apply_boundary_overrides(
+        self, df: pd.DataFrame, curves: list
+    ) -> list:
+        """Replace each overridden curve's slice + derived fields with
+        the manually-pinned ``(start_idx, end_idx)`` from
+        ``self._boundary_overrides``.  Curves without an override are
+        returned unchanged.  Introduced by M1 HMS Ardent.
+        """
+        timestamps_full = df["Timestamp"].to_numpy(dtype=float)
+        for curve_index, (start_idx, end_idx) in self._boundary_overrides.items():
+            if curve_index < 0 or curve_index >= len(curves):
+                # Stale override (curve count changed since override was set).
+                continue
+            curve_data = df.iloc[start_idx : end_idx + 1].copy()
+            curve_data["Timestamp"] = (
+                curve_data["Timestamp"] - curve_data["Timestamp"].iloc[0]
+            )
+            curve_data["TimeMinutes"] = curve_data["Timestamp"] / 60.0
+            curve_data = curve_data.reset_index(drop=True)
+            # Rebuild every derived field from the pinned slice so
+            # downstream analytics see a consistent view.
+            core_col = "CoreTemperature" if "CoreTemperature" in curve_data.columns else "VirtualCoreTemperature"
+            peak_temp = float(curve_data[core_col].max()) if core_col in curve_data.columns else 0.0
+            curves[curve_index] = {
+                "data": curve_data,
+                "start_idx": int(start_idx),
+                "end_idx": int(end_idx),
+                "start_time": float(timestamps_full[start_idx]),
+                "end_time": float(timestamps_full[end_idx]),
+                "duration": float(curve_data["TimeMinutes"].max()),
+                "max_temp": peak_temp,
+                "curve_number": curve_index + 1,
+                "samples": len(curve_data),
+                "truncated": False,
+                "exit_candidate_kind": "manual_override",
+            }
+        return curves
+
     def get_sensor_data(self) -> pd.DataFrame:
         """Get only the temperature sensor columns."""
         sensor_cols = ['Timestamp', 'TimeMinutes', 'T1', 'T2', 'T3', 'T4', 
