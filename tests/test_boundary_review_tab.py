@@ -38,8 +38,8 @@ from tabs.boundary_review import (
 
 class TestBoundaryStateLabel:
     """Maps a curve dict to a one-word state label shown in the UI:
-    ``override`` or ``auto``.  Drives the badge colour next to the
-    curve number in the detail panel.
+    ``override``, ``user_added``, or ``auto``.  Drives the badge
+    colour next to the curve number in the detail panel.
     """
 
     def _curve(self, kind: str | None) -> dict:
@@ -47,6 +47,9 @@ class TestBoundaryStateLabel:
 
     def test_manual_override_kind_returns_override(self):
         assert boundary_state_label(self._curve("manual_override")) == "override"
+
+    def test_user_added_kind_returns_user_added(self):
+        assert boundary_state_label(self._curve("user_added")) == "user_added"
 
     def test_detector_kind_returns_auto(self):
         assert boundary_state_label(self._curve("probe_pull_cliff")) == "auto"

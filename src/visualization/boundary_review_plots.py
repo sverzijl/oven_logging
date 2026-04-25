@@ -47,6 +47,9 @@ _KIND_FILLCOLOR: dict[str, str] = {
     "room_temp_plateau": "rgba(255, 165, 0, 0.20)",    # orange
     "dip_with_rerise": "rgba(150, 150, 150, 0.20)",    # grey
     "manual_override": "rgba(245, 158, 11, 0.35)",     # amber, more saturated
+    # User-claimed curves (M11 HMS Endeavour) — purple to be visually
+    # distinct from detector kinds AND from manual_override.
+    "user_added": "rgba(168, 85, 247, 0.35)",
 }
 _KIND_FALLBACK_FILLCOLOR = "rgba(150, 150, 150, 0.20)"
 
@@ -214,6 +217,11 @@ def plot_raw_log_with_curves(
         xaxis_title="Time (min)",
         yaxis_title="Core temperature (°C)",
         hovermode="x unified",
+        # M11 HMS Endeavour: drag-to-box-select on the raw-log claims
+        # a region as a new user-added curve.  selectdirection="h"
+        # constrains the box to horizontal — y-extent is irrelevant.
+        dragmode="select",
+        selectdirection="h",
     )
     return fig
 

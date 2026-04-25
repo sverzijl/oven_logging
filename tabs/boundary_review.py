@@ -41,13 +41,16 @@ from src.visualization.boundary_review_plots import (
 
 
 def boundary_state_label(curve: dict[str, Any]) -> str:
-    """One-word UI badge for a curve: ``override`` or ``auto``.
+    """One-word UI badge for a curve: ``override``, ``user_added``,
+    or ``auto``.
 
-    M10 HMS Vanguard simplified this — the hint widget is gone, so
-    ``hint`` is no longer a reachable state from this tab.
+    M11 HMS Endeavour added the ``user_added`` state.
     """
-    if curve.get("exit_candidate_kind") == "manual_override":
+    kind = curve.get("exit_candidate_kind")
+    if kind == "manual_override":
         return "override"
+    if kind == "user_added":
+        return "user_added"
     return "auto"
 
 
@@ -134,14 +137,39 @@ def render() -> None:
         st.warning("No curves detected in this CSV.")
         return
 
-    # Top: full-log plot with detected windows overlaid.
+    # Top: full-log plot with detected windows overlaid.  Drag-box
+    # selection on this plot CLAIMS a new region as a user-added
+    # curve (M11 HMS Endeavour) — useful when the detector missed
+    # a low-peak bake or a region the operator knows is a bake.
     st.markdown("#### Raw CSV log")
+    st.caption(
+        "💡 **Drag a horizontal box on the raw log** to claim a region "
+        "the detector missed as a new bake — boundaries auto-refine "
+        "and you can fine-tune below."
+    )
     raw_fig = plot_raw_log_with_curves(loader.raw_data, curves)
-    st.plotly_chart(
+    raw_select_event = st.plotly_chart(
         raw_fig,
         use_container_width=True,
         key=f"raw_log_{current_file}",
+        on_select="rerun",
+        selection_mode="box",
     )
+    raw_sel_range = extract_x_range_from_selection(raw_select_event)
+    if raw_sel_range is not None:
+        consumed_key = f"raw_box_consumed__{current_file}"
+        sig = (round(raw_sel_range[0], 4), round(raw_sel_range[1], 4))
+        if st.session_state.get(consumed_key) != sig:
+            raw_timestamps = loader.raw_data["Timestamp"].to_numpy(dtype=float)
+            new_start = time_minutes_to_idx(raw_timestamps, raw_sel_range[0])
+            new_end = time_minutes_to_idx(raw_timestamps, raw_sel_range[1])
+            if new_start < new_end:
+                try:
+                    loader.add_manual_curve(new_start, new_end)
+                    st.session_state[consumed_key] = sig
+                    st.rerun()
+                except (ValueError, RuntimeError) as exc:
+                    st.error(f"Could not add curve: {exc}")
 
     # Curve selector.
     curve_labels = [
@@ -169,7 +197,11 @@ def _render_detail_panel(
     curve_number: int,
 ) -> None:
     state_label = boundary_state_label(curve)
-    badge_colour = "🟧" if state_label == "override" else "🟦"
+    badge_colour = {
+        "override": "🟧",
+        "user_added": "🟪",
+        "auto": "🟦",
+    }.get(state_label, "🟦")
 
     st.markdown(
         f"#### Bake {curve_number} detail &nbsp; {badge_colour} `{state_label}`"
@@ -283,16 +315,36 @@ def _render_detail_panel(
             st.info(
                 "Manual override pinned the boundary; detector input ignored."
             )
+        elif state_label == "user_added":
+            st.info(
+                "User-added bake (the detector did not find this region). "
+                "Drag a box on the detail plot to fine-tune; click "
+                "'Remove this bake' to discard."
+            )
 
-        # Reset to auto — single recovery button that clears the manual
-        # override for this curve.  Box-select is the only way to re-pin.
-        reset_clicked = st.button(
-            "Reset to auto",
-            key=f"reset_override__{current_file}__c{curve_number}",
+        # Reset / Remove dispatch:
+        #   - Detector curve with override → Reset to auto: clear override
+        #   - User-added curve → Remove this bake: drop the user-claim
+        #   - Plain detector curve → Reset is a no-op but still rendered
+        is_user_added = state_label == "user_added"
+        button_label = "Remove this bake" if is_user_added else "Reset to auto"
+        button_key = (
+            f"remove_added__{current_file}__c{curve_number}"
+            if is_user_added
+            else f"reset_override__{current_file}__c{curve_number}"
+        )
+        button_clicked = st.button(
+            button_label,
+            key=button_key,
             use_container_width=True,
         )
-        if reset_clicked:
-            loader.clear_curve_boundaries(curve_index)
+        if button_clicked:
+            if is_user_added:
+                loader.remove_manual_curve(curve_index)
+            else:
+                loader.clear_curve_boundaries(curve_index)
+            # Clear any lingering box-select consumed signature so the
+            # next drag pins fresh.
             consumed_key = (
                 f"detail_box_consumed__{current_file}__c{curve_number}"
             )

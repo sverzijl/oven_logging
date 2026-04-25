@@ -57,6 +57,16 @@ class ThermalProfileLoader:
         # raw_data index space.  When present, the override takes
         # precedence over the detector AND the hint refinement.
         self._boundary_overrides: dict[int, tuple[int, int]] = {}
+        # User-claimed regions that the detector missed (M11 HMS
+        # Endeavour, mission 2026-04-25_111859_56ebe5ee).  Each tuple
+        # is ``(start_idx, end_idx)`` in the raw_data index space.
+        # The Boundary Review tab populates this via
+        # ``add_manual_curve``; the boundaries are auto-refined on
+        # the sub-slice and the resulting curve appears in
+        # ``all_curves`` tagged with ``_user_added_idx`` (its position
+        # in this list).  ``set_curve_boundaries`` on a user-added
+        # curve updates THIS list rather than ``_boundary_overrides``.
+        self._added_curves: list[tuple[int, int]] = []
         # Snapshot of the detector's no-hint, no-override decision
         # taken at ``load_csv`` time (M7 HMS Inspector, mission
         # 2026-04-25_092326_ec2fbd6e).  The Boundary Review tab uses
@@ -597,7 +607,29 @@ class ThermalProfileLoader:
             raise ValueError(
                 f"start_idx={start_idx} must be less than end_idx={end_idx}"
             )
-        self._boundary_overrides[curve_index] = (int(start_idx), int(end_idx))
+
+        # M11 HMS Endeavour: dispatch by curve type.
+        target = self.all_curves[curve_index]
+        added_idx = target.get("_user_added_idx")
+        if added_idx is not None and 0 <= added_idx < len(self._added_curves):
+            # User-added curve — update its entry in ``_added_curves``
+            # so the same curve (identified by its position in that
+            # list) gets re-refined with the new range on next extract.
+            self._added_curves[added_idx] = (int(start_idx), int(end_idx))
+        else:
+            # Detector curve — translate the all_curves position back
+            # to the detector position (the position before any
+            # user-added curves were appended) so the override key
+            # stays stable as user-added curves come and go.
+            detector_pos = sum(
+                1
+                for c in self.all_curves[: curve_index + 1]
+                if c.get("_user_added_idx") is None
+            ) - 1
+            self._boundary_overrides[detector_pos] = (
+                int(start_idx),
+                int(end_idx),
+            )
         self._reapply_boundary_state()
 
     def clear_curve_boundaries(self, curve_index: int) -> None:
@@ -965,16 +997,37 @@ class ThermalProfileLoader:
             )
 
         # Apply per-curve manual boundary overrides (M1 HMS Ardent).
-        # The override pins the curve to ``(start_idx, end_idx)`` in the
-        # raw-log index space and rebuilds derived fields from the
-        # pinned slice.  ``exit_candidate_kind`` is set to
-        # ``"manual_override"`` so the new Boundary Review tab can show
-        # the operator that the detector's decision was overridden.
+        # ``_boundary_overrides`` is keyed by DETECTOR position (the
+        # index in ``curves`` returned by the detector, before any
+        # user-added curves are appended).  This stays stable across
+        # M11 HMS Endeavour user-claim insertions which only append.
         if self._boundary_overrides:
             curves = self._apply_boundary_overrides(df, curves)
 
+        # Append user-claimed curves (M11 HMS Endeavour).  Each
+        # ``_added_curves`` entry is a ``(start, end)`` operator-drawn
+        # range; we auto-refine via the detector on the sub-slice and
+        # tag the result with ``_user_added_idx`` so downstream code
+        # can distinguish user-added from detector output.
+        for added_idx, (added_start, added_end) in enumerate(self._added_curves):
+            refined_start, refined_end = self._refine_user_added_region(
+                df, added_start, added_end
+            )
+            curves.append(
+                self._build_user_added_curve_dict(
+                    df, refined_start, refined_end, added_idx
+                )
+            )
+
+        # Sort by start_idx so chronological order is preserved across
+        # detector + user-added curves; renumber curve_number to match.
+        curves.sort(key=lambda c: c["start_idx"])
+        for i, c in enumerate(curves):
+            c["curve_number"] = i + 1
+
         # Note: sensor-role identification runs AFTER boundary overrides
-        # so role detection uses the pinned slice, not the detector's.
+        # AND user-added insertion so role detection uses the final
+        # post-sort slice.
         for curve_index, curve in enumerate(curves):
             curve["data"] = self._identify_sensor_roles_for_curve(
                 curve["data"], curve_index
@@ -1033,6 +1086,157 @@ class ThermalProfileLoader:
                 "exit_candidate_kind": "manual_override",
             }
         return curves
+
+    def _build_user_added_curve_dict(
+        self, df: pd.DataFrame, start_idx: int, end_idx: int, added_idx: int
+    ) -> dict:
+        """Build a curve descriptor dict for a user-claimed region
+        (M11 HMS Endeavour).  Mirrors :meth:`_apply_boundary_overrides`'s
+        dict shape but tags the curve with ``_user_added_idx`` and
+        ``exit_candidate_kind="user_added"`` so the UI can render it
+        distinctly and ``set_curve_boundaries`` can dispatch updates
+        back into ``self._added_curves``.
+        """
+        timestamps_full = df["Timestamp"].to_numpy(dtype=float)
+        curve_data = df.iloc[start_idx : end_idx + 1].copy()
+        curve_data["Timestamp"] = (
+            curve_data["Timestamp"] - curve_data["Timestamp"].iloc[0]
+        )
+        curve_data["TimeMinutes"] = curve_data["Timestamp"] / 60.0
+        curve_data = curve_data.reset_index(drop=True)
+        core_col = (
+            "CoreTemperature"
+            if "CoreTemperature" in curve_data.columns
+            else "VirtualCoreTemperature"
+        )
+        peak_temp = (
+            float(curve_data[core_col].max())
+            if core_col in curve_data.columns
+            else 0.0
+        )
+        return {
+            "data": curve_data,
+            "start_idx": int(start_idx),
+            "end_idx": int(end_idx),
+            "start_time": float(timestamps_full[start_idx]),
+            "end_time": float(timestamps_full[end_idx]),
+            "duration": float(curve_data["TimeMinutes"].max()),
+            "max_temp": peak_temp,
+            "curve_number": -1,  # filled in by the sort + renumber loop
+            "samples": len(curve_data),
+            "truncated": False,
+            "exit_candidate_kind": "user_added",
+            "_user_added_idx": int(added_idx),
+        }
+
+    def _refine_user_added_region(
+        self, df: pd.DataFrame, start_idx: int, end_idx: int
+    ) -> tuple[int, int]:
+        """Auto-refine a user-claimed (start, end) region by running
+        the detector on the sub-slice.  Falls back to a BAKE_ACTIVE_C
+        trim if the detector finds no curve, and finally to the
+        operator's range as-is.
+
+        Translates the detector's sub-slice positional indices back
+        into raw_data positional indices by adding ``start_idx``.
+        Introduced by M11 HMS Endeavour.
+        """
+        n_raw = len(df)
+        if start_idx < 0 or end_idx >= n_raw or start_idx >= end_idx:
+            return (start_idx, end_idx)
+
+        sub = df.iloc[start_idx : end_idx + 1].reset_index(drop=True)
+
+        # First try: run the detector on the sub-slice.  If it finds a
+        # curve (passes MIN_PEAK_TEMP + MIN_CURVE_DURATION_SECONDS
+        # gates), use those refined boundaries.
+        try:
+            detector = CurveBoundaryDetector(CURVE_DETECTION_CONFIG)
+            sub_curves = detector.extract_curves(sub)
+        except Exception:  # pragma: no cover  (defensive)
+            sub_curves = []
+        if sub_curves:
+            sub_start = int(sub_curves[0]["start_idx"]) + start_idx
+            sub_end = int(sub_curves[0]["end_idx"]) + start_idx
+            if sub_start < sub_end:
+                return (sub_start, sub_end)
+
+        # Fallback: trim leading and trailing samples below
+        # BAKE_ACTIVE_C so a coarse user drag still snaps to roughly
+        # the bake's active region.
+        bake_active = float(
+            CURVE_DETECTION_CONFIG.get("BAKE_ACTIVE_THRESHOLD_C", 40.0)
+        )
+        core_col = (
+            "CoreTemperature"
+            if "CoreTemperature" in sub.columns
+            else "VirtualCoreTemperature"
+        )
+        if core_col in sub.columns:
+            temps = sub[core_col].to_numpy(dtype=float)
+            s_local = 0
+            while s_local < len(temps) and temps[s_local] < bake_active:
+                s_local += 1
+            e_local = len(temps) - 1
+            while e_local > s_local and temps[e_local] < bake_active:
+                e_local -= 1
+            if s_local < e_local:
+                return (start_idx + s_local, start_idx + e_local)
+
+        # Final fallback: accept the operator's range verbatim.
+        return (start_idx, end_idx)
+
+    def add_manual_curve(self, start_idx: int, end_idx: int) -> int:
+        """Claim a region the detector missed as a curve, refining the
+        boundaries against the detector / BAKE_ACTIVE_C threshold.
+
+        Returns the new curve's position in ``self.all_curves`` after
+        the sort.  Introduced by M11 HMS Endeavour.
+
+        Raises:
+          ValueError — if the range is inverted or out of bounds.
+        """
+        if self.raw_data is None or len(self.raw_data) == 0:
+            raise RuntimeError(
+                "raw_data is empty; load a CSV before claiming a curve."
+            )
+        n = len(self.raw_data)
+        if not (0 <= start_idx < n) or not (0 <= end_idx < n):
+            raise ValueError(
+                f"start_idx={start_idx} and end_idx={end_idx} must lie in "
+                f"[0, {n - 1}]."
+            )
+        if start_idx >= end_idx:
+            raise ValueError(
+                f"start_idx={start_idx} must be less than end_idx={end_idx}."
+            )
+
+        added_idx = len(self._added_curves)
+        self._added_curves.append((int(start_idx), int(end_idx)))
+        self._reapply_boundary_state()
+
+        # Find the user-added curve in the post-sort all_curves list
+        # via its ``_user_added_idx`` tag.
+        for i, c in enumerate(self.all_curves):
+            if c.get("_user_added_idx") == added_idx:
+                return i
+        return -1
+
+    def remove_manual_curve(self, curve_index: int) -> None:
+        """Remove a user-added curve.  No-op if ``curve_index`` points
+        at a detector curve.  Introduced by M11 HMS Endeavour.
+        """
+        if not (0 <= curve_index < len(self.all_curves)):
+            return
+        target = self.all_curves[curve_index]
+        added_idx = target.get("_user_added_idx")
+        if added_idx is None:
+            return
+        # Drop the entry; subsequent _user_added_idx values shift
+        # down on the next re-extract because the list index changes.
+        if 0 <= added_idx < len(self._added_curves):
+            del self._added_curves[added_idx]
+            self._reapply_boundary_state()
 
     def get_sensor_data(self) -> pd.DataFrame:
         """Get only the temperature sensor columns."""
