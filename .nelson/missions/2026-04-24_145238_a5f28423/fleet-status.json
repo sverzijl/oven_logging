@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Refine per-curve start when expected_durations_s hint supplied, shifting native start toward the expected-duration window subject to max_start_shift_samples cap + sigmoid_score gate + PredictionState horizon guard + search_from horizon guard. Preserve Method 2b max-sensor start and NC-1/NC-2 coupling when hint is absent.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T14:52:38Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T15:25:41Z"
+}

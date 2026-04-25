@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Add optional expected_durations_s kwarg to CurveBoundaryDetector.extract_curves; switch _detect_curve_end from earliest-wins to composite-scored-in-window-wins when hint provided; add exit_candidate_kind diagnostic field; preserve plateau_fired/cliff_fired flag coupling; byte-identical output when hint is None.",
+  "actual_outcome": "Detector END refinement landed: optional expected_durations_s kwarg plumbed through extract_curves; _detect_curve_end switches to composite-scored-in-window-wins arbitration when hint supplied; exit_candidate_kind diagnostic added; red-cell-found A1 peak-rederivation bug fixed.",
+  "success_metric_result": "14/14 new tests pass; 33/33 existing detection tests unchanged; 8 pre-existing full-suite failures preserved (baseline per memory follow-up (j)). Red-cell A1 probe (real_1000BA3C_1759 \u03c3=0.5 seed 7) verified: merged curve now correctly reports peak=97.13\u00b0C.",
+  "duration_minutes": 0,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 0,
+    "reliefs": 0,
+    "max_concurrent_ships": 0
+  },
+  "tasks": {
+    "completed": 0,
+    "total": 0,
+    "by_station_tier": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [],
+    "avoid": []
+  },
+  "created_at": "2026-04-24T14:43:32Z"
+}

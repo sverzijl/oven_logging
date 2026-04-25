@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "End-to-end empirical verification of the boundary-review flotilla. Permanent regression test exercising loader-level operations the M3 tab issues; memory update; final flotilla log.",
+  "success_metric": "5+ E2E tests pass on 3 real CSVs; full suite baseline preserved; flotilla entry (xi) appended to memory project plan; final captain's log summarises M1\u2013M5.",
+  "deadline": "This session (M5 of 5-mission flotilla \u2014 finale).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T23:59:12Z"
+}

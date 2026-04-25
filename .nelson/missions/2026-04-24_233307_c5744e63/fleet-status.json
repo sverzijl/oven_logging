@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Loader exposes raw_data attribute (full pre-extraction DataFrame) and set_curve_boundaries/clear_curve_boundaries methods so M2/M3 can plot raw CSV with auto-detected windows AND let users pin manual boundaries that override the detector.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T23:33:07Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T23:42:40Z"
+}

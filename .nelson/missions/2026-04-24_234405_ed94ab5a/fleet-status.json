@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Pure plot-builder module src/visualization/boundary_review_plots.py with plot_raw_log_with_curves, plot_curve_detail, downsample_for_plot. Reuses VisualizationConfig palette and Plotly conventions.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T23:44:05Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T23:50:03Z"
+}

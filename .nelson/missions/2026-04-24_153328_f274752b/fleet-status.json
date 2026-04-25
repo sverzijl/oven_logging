@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Add per-curve Expected bake time (min) number_input widgets to sidebar Analysis Settings; use curve_number-indexed widget keys (NOT current_curve_index) to avoid state bleed; on-change call loader.set_expected_durations and st.rerun; empty input stays None.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-24T15:33:28Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-24T15:37:58Z"
+}

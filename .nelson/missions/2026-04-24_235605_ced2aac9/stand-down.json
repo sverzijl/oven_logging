@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Remove M6 sidebar expected-bake-time expander; new tab is the single source of truth. Pure helpers in src/ui/expected_duration_widgets.py remain (consumed by M3 tab).",
+  "actual_outcome": "Sidebar M6 expected-bake-time expander removed; pure helpers preserved in src/ui/expected_duration_widgets.py and reused by M3 tab. 2 new contract tests anchor the removal.",
+  "success_metric_result": "13/13 sidebar-helper tests pass (11 pre-existing + 2 new M4 contract); sidebar imports cleanly without _render_expected_duration_hints; M3 tab still has access to session_key_for_curve and build_hint_list_from_session.",
+  "duration_minutes": 0,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 0,
+    "reliefs": 0,
+    "max_concurrent_ships": 0
+  },
+  "tasks": {
+    "completed": 0,
+    "total": 0,
+    "by_station_tier": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [],
+    "avoid": []
+  },
+  "created_at": "2026-04-24T23:58:01Z"
+}

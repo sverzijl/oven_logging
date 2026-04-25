@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "New tabs/boundary_review.py with raw-log + per-curve detail panel UI; widget keys scoped by (filename, curve_number); on-change calls loader.set_expected_durations or loader.set_curve_boundaries with rerun guard. app.py dispatch in second tab position.",
+  "success_metric": "TDD-first pure-helper tests pass; sidebar tab dispatch verified by import smoke; manual UX flow exercised in M5 finale.",
+  "deadline": "This session (M3 of 5-mission flotilla).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T23:51:34Z"
+}

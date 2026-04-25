@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Plumb optional expected_durations_s list through ThermalProfileLoader into _extract_all_baking_curves; expose set_expected_durations method with cache-invalidation; pad/truncate list to detected curve count with logger.warning on length mismatch.",
+  "success_metric": "3+ new tests pass: plumbing-smoke (hint reaches detector kwarg), length mismatch warning, cache-invalidation triggers re-detection. All M4/M3/M2/M1 tests unchanged. No-hint default preserves loader behaviour byte-identical.",
+  "deadline": "This session (M5 of 7-mission flotilla).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T15:28:08Z"
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Operator can claim a curve the detector missed by drag-box on the raw-log plot. New loader.add_manual_curve(start, end) auto-refines via detector on the sub-slice; falls back to BAKE_ACTIVE_C trim. New loader.remove_manual_curve. set_curve_boundaries dispatches by curve type (user-added \u2192 _added_curves; detector \u2192 existing _boundary_overrides keyed by detector position). User-added curves render with distinct colour.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-25T11:18:59Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-25T11:24:53Z"
+}

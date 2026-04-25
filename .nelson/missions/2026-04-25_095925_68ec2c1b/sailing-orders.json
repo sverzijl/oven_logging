@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Strip the input widgets in the Boundary Review detail panel right column now that drag-to-box-select is the primary mechanism. Remove hint number_input, manual range slider, Apply button. Keep readout text + Auto-optimisation outcome + Reset to auto button.",
+  "success_metric": "Tab still functions: box-select pins boundary; reset clears it; readout shows detected + outcome; deleted helpers (manual_range_key, manual_start_key, manual_end_key) and their tests; hint plumbing removed from this tab (loader API unchanged).",
+  "deadline": "This session.",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-25T09:59:25Z"
+}

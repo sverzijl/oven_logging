@@ -13,6 +13,11 @@ from config.constants import BAKEOUT_TARGETS
 from src.analysis.s_curve_analysis import SCurveAnalyzer
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.data.loader import ThermalProfileLoader, validate_thermal_data
+# Expected-bake-time helpers moved into the dedicated Curve Boundary
+# Review tab (M3 HMS Indomitable, mission 2026-04-24_235134_b68205bd);
+# the sidebar widget was removed in M4 HMS Defender (mission
+# 2026-04-24_235605_ced2aac9).  Pure helpers in
+# ``src/ui/expected_duration_widgets.py`` remain in use by that tab.
 
 
 def render():
@@ -406,3 +411,5 @@ def render():
         'selected_sensors': selected_sensors,
         'product_type': product_type,
     }
+
+

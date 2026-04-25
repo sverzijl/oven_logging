@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Enable horizontal box-select on the per-curve detail plot. Plotly dragmode=select with selectdirection=h; st.plotly_chart on_select=rerun captures the box; tab converts x-range minutes to raw_data idx via time_minutes_to_idx and calls loader.set_curve_boundaries. Slider remains for fine-tuning.",
+  "success_metric": "New extract_x_range_from_selection helper unit-tested; live drag updates boundary; existing tests + e2e green.",
+  "deadline": "This session.",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-25T09:44:50Z"
+}

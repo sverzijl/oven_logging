@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Final red-cell verification battery (36 runs: \u03c3 \u2208 {0.15, 0.5, 1.0} \u00d7 3 real CSVs \u00d7 4 hint modes), permanent regression test anchoring, memory updates, and flotilla captain's log.",
+  "success_metric": "36-run empirical battery produces correct curve counts + no cliff FP amplification; permanent pytest regression test lands; project_refactoring_plan.md updated with completion items; final captain's log documents whole flotilla.",
+  "deadline": "This session (M7 of 7-mission flotilla \u2014 finale).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-24T15:39:25Z"
+}

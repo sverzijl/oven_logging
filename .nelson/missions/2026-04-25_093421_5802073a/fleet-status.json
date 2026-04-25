@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Replace start/end number_inputs with single st.slider range widget for faster manual override editing. Single per-(filename, curve_number) key carrying (start_min, end_min) tuple. Live-preview vlines stay; Apply button uses the slider's current tuple.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-25T09:34:21Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-25T09:36:47Z"
+}

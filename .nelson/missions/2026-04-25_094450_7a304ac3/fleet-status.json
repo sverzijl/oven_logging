@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Enable horizontal box-select on the per-curve detail plot. Plotly dragmode=select with selectdirection=h; st.plotly_chart on_select=rerun captures the box; tab converts x-range minutes to raw_data idx via time_minutes_to_idx and calls loader.set_curve_boundaries. Slider remains for fine-tuning.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-25T09:44:50Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-25T09:48:00Z"
+}

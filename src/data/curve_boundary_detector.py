@@ -12,6 +12,7 @@ thresholds are expressed in °C/s so detection is invariant to sample period.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -19,6 +20,9 @@ import pandas as pd
 
 from src.data._drop_rate_detection import find_confirmed_drop_start
 from src.data.column_helpers import resolve_core_temperature_series
+from src.data.sigmoid_refinement import fit_logistic, score_end_candidate
+
+logger = logging.getLogger(__name__)
 
 # PredictionState value the firmware reports while the probe is out of the loaf.
 PROBE_NOT_INSERTED_STATE = 'Probe Not Inserted'
@@ -47,6 +51,11 @@ class CurveBoundaryDetector:
     """Extract curve boundaries from a thermal-profile DataFrame."""
 
     def __init__(self, config: dict[str, Any]):
+        # Preserve the full config dict for the sigmoid scorer (score_end_candidate
+        # reads its own thresholds via .get()).  Storing it verbatim avoids
+        # duplicating each key and keeps future config additions zero-cost.
+        self._config = dict(config)
+
         self._room_temp_max = float(config["ROOM_TEMP_MAX"])
         self._min_peak_temp = float(config["MIN_PEAK_TEMP"])
         self._min_duration_s = float(config["MIN_CURVE_DURATION_SECONDS"])
@@ -66,13 +75,45 @@ class CurveBoundaryDetector:
         # Cool-to-bake threshold: the VCT level below which we treat the
         # probe as "no longer baking".  Matches the fixture convention.
         self._bake_active_c = float(config["BAKE_ACTIVE_THRESHOLD_C"])
+        # Optional expected-duration hint (M3 HMS Agincourt).  When a hint
+        # is supplied for a curve, end-candidate arbitration switches from
+        # earliest-wins to composite-scored-in-window-wins within this band.
+        self._duration_tolerance_frac = float(
+            config.get("EXPECTED_DURATION_TOLERANCE_FRAC", 0.15)
+        )
+        self._duration_min_tolerance_s = float(
+            config.get("EXPECTED_DURATION_MIN_TOLERANCE_SECONDS", 60.0)
+        )
+        # Upper bound on start-refinement shifts (M4 HMS Hood).
+        self._duration_max_start_shift_s = float(
+            config.get("EXPECTED_DURATION_MAX_START_SHIFT_SECONDS", 30.0)
+        )
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def extract_curves(self, df: pd.DataFrame) -> list[dict[str, Any]]:
-        """Return list of curve-descriptor dicts — does not mutate ``df``."""
+    def extract_curves(
+        self,
+        df: pd.DataFrame,
+        expected_durations_s: list[float | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return list of curve-descriptor dicts — does not mutate ``df``.
+
+        When ``expected_durations_s`` is ``None`` (default) the detector uses
+        the earliest-wins arbitration it always has.  When supplied, each
+        non-``None`` entry in the list is matched positionally to the
+        detected curves: for a curve at position ``k``, a hint of
+        ``expected_durations_s[k]`` (in seconds) narrows end-candidate
+        arbitration to the ``±EXPECTED_DURATION_TOLERANCE_FRAC`` window
+        around ``start_time + hint`` and picks the candidate with the
+        highest composite sigmoid-fit + proximity score.  If no confirmed
+        candidate lies inside the band the detector falls back to
+        earliest-wins and emits a ``logger.warning`` — the decision is
+        NEVER silently moved to a non-candidate index.
+
+        Introduced by flotilla mission M3 HMS Agincourt.
+        """
         if df is None or len(df) == 0:
             return []
 
@@ -101,14 +142,56 @@ class CurveBoundaryDetector:
             if start_idx is None:
                 break
 
-            end_idx, peak_idx, truncated, plateau_fired, cliff_fired = self._detect_curve_end(
+            # Positional hint lookup — the hint for the curve we are about to
+            # detect is at index ``len(curves)`` in the caller-supplied list.
+            # A ``None`` entry or a list shorter than the detected curve count
+            # cleanly falls through to the no-hint path.
+            curve_slot = len(curves)
+            expected_dur_s: float | None = None
+            if (
+                expected_durations_s is not None
+                and curve_slot < len(expected_durations_s)
+            ):
+                hint_value = expected_durations_s[curve_slot]
+                if hint_value is not None:
+                    expected_dur_s = float(hint_value)
+
+            (
+                end_idx,
+                peak_idx,
+                truncated,
+                plateau_fired,
+                cliff_fired,
+                exit_kind,
+            ) = self._detect_curve_end(
                 temps,
                 timestamps,
                 start_idx,
                 cooking_continuous=cooking_continuous,
+                expected_duration_s=expected_dur_s,
             )
             if peak_idx is None:
                 break
+
+            # Start refinement (M4 HMS Hood).  Runs only when a hint is
+            # supplied AND the curve is not truncated (a truncated log's
+            # duration is undefined, so duration-based start refinement
+            # would be meaningless).  The refinement is bounded by
+            # EXPECTED_DURATION_MAX_START_SHIFT_SECONDS, the horizon
+            # (``search_from`` — prevents crossing a previous curve's
+            # tail), and the PredictionState 'Probe Not Inserted' guard.
+            if expected_dur_s is not None and not truncated:
+                start_idx, peak_idx = self._refine_start_with_hint(
+                    temps,
+                    timestamps,
+                    pred_state,
+                    start_idx=start_idx,
+                    end_idx=end_idx,
+                    peak_idx=peak_idx,
+                    expected_duration_s=expected_dur_s,
+                    horizon=search_from,
+                )
+
             peak_temp = float(temps[peak_idx])
 
             duration_s = float(timestamps[end_idx] - timestamps[start_idx])
@@ -136,6 +219,7 @@ class CurveBoundaryDetector:
                         "curve_number": len(curves) + 1,
                         "samples": len(curve_data),
                         "truncated": bool(truncated),
+                        "exit_candidate_kind": exit_kind,
                     }
                 )
 
@@ -380,14 +464,20 @@ class CurveBoundaryDetector:
         timestamps: np.ndarray,
         start_idx: int,
         cooking_continuous: bool,
-    ) -> tuple[int, int | None, bool, bool, bool]:
-        """Return ``(end_idx, peak_idx, truncated, plateau_fired, cliff_fired)``
-        for a curve starting at ``start_idx``.
+        expected_duration_s: float | None = None,
+    ) -> tuple[int, int | None, bool, bool, bool, str | None]:
+        """Return ``(end_idx, peak_idx, truncated, plateau_fired, cliff_fired,
+        exit_kind)`` for a curve starting at ``start_idx``.
 
         The peak is computed incrementally (running max) so a taller peak
         belonging to a *later* curve never leaks into the current one.  Once
         exit candidates become active (after ``post_peak_grace`` samples past
-        the running peak), we pick the earliest confirmed one.
+        the running peak), we pick the earliest confirmed one — this is the
+        "baseline" decision.  When ``expected_duration_s`` is supplied, the
+        baseline is overridden by the highest-composite-scored candidate
+        whose firing time falls inside the tolerance band around the expected
+        end.  If no confirmed candidate sits inside that band the detector
+        falls back to the baseline AND emits a ``logger.warning``.
 
         ``cooking_continuous``: when the log's ``PredictionState`` never
         reverts to 'Probe Not Inserted', brief dips below ``bake_active_c``
@@ -402,10 +492,16 @@ class CurveBoundaryDetector:
         ``cliff_fired`` is True when the winning candidate was the
         probe-pull cliff; callers use it to skip the hot cooldown tail so
         the start detector does not re-trigger on still-warm post-cliff samples.
+
+        ``exit_kind`` names the winning candidate (string from
+        ``_VALID_KINDS``, or ``None`` when the curve is truncated with no
+        cliff fallback available).  Added in M3 HMS Agincourt as a
+        diagnostic — consumers can log the transition history without
+        re-deriving it.
         """
         n = len(temps)
         if start_idx >= n:
-            return n - 1, None, True, False, False
+            return n - 1, None, True, False, False, None
 
         peak_idx = start_idx
         peak_temp = float(temps[start_idx])
@@ -419,6 +515,10 @@ class CurveBoundaryDetector:
             else self._confirm_n
         )
 
+        # Stage 1 — scan for the earliest-wins baseline.  Preserves the
+        # pre-M3 semantics byte-for-byte when no hint is supplied (see
+        # below).
+        baseline: tuple[int, str, bool, bool] | None = None
         for j in range(start_idx, n):
             if temps[j] > peak_temp:
                 peak_temp = float(temps[j])
@@ -428,21 +528,73 @@ class CurveBoundaryDetector:
             if j < first_scan:
                 continue
 
-            exit_idx, plateau_fired, cliff_fired = self._evaluate_exit_candidates(
-                temps, timestamps, j, peak_idx, peak_temp, cool_window
+            exit_idx, plateau_fired, cliff_fired, kind = (
+                self._evaluate_exit_candidates(
+                    temps, timestamps, j, peak_idx, peak_temp, cool_window
+                )
             )
             if exit_idx is not None:
-                return exit_idx, peak_idx, False, plateau_fired, cliff_fired
+                baseline = (exit_idx, kind or "", plateau_fired, cliff_fired)
+                break
 
         # Grace-window fallback: the cliff can fire AT peak_idx, which is inside
         # the post_peak_grace window.  If the log ends before the grace window
         # expires, the loop above never evaluates the cliff candidate.  Run it
         # once over the full array from peak_idx before declaring truncated.
-        cliff = self._candidate_probe_pull_cliff(temps, timestamps, peak_idx)
-        if cliff is not None:
-            return cliff, peak_idx, False, False, True
+        if baseline is None:
+            cliff = self._candidate_probe_pull_cliff(
+                temps, timestamps, peak_idx
+            )
+            if cliff is not None:
+                baseline = (cliff, "probe_pull_cliff", False, True)
 
-        return n - 1, peak_idx, True, False, False
+        if baseline is None:
+            return n - 1, peak_idx, True, False, False, None
+
+        # Stage 2 — no hint: return the baseline unchanged (identical to
+        # pre-M3 behaviour; ``exit_kind`` is the only added field).
+        if expected_duration_s is None:
+            exit_idx, kind, plateau_fired, cliff_fired = baseline
+            return (
+                exit_idx,
+                peak_idx,
+                False,
+                plateau_fired,
+                cliff_fired,
+                kind or None,
+            )
+
+        # Stage 3 — hint-driven refinement.
+        refined = self._refine_end_with_hint(
+            temps,
+            timestamps,
+            start_idx,
+            peak_idx,
+            cool_window,
+            baseline,
+            expected_duration_s,
+        )
+        r_idx, r_kind, r_plateau, r_cliff = refined
+
+        # Re-derive peak within the refined [start_idx, r_idx] range.
+        # If the hint extends the end beyond the baseline firing, the
+        # running-max peak computed during stage 1 may pre-date a later
+        # true peak and leak a below-MIN_PEAK_TEMP value into the outer
+        # acceptance gate (red-cell A1, HMS Red Cell 2026-04-25, probe
+        # reproduced on real_1000BA3C_1759 σ=0.5 seed 7: baseline peak
+        # idx 5894 @ 36.6 °C would cause the merged curve to be dropped
+        # even though the refined range contains idx 6183 @ 97.1 °C).
+        refined_peak_idx = (
+            start_idx + int(np.argmax(temps[start_idx : r_idx + 1]))
+        )
+        return (
+            r_idx,
+            refined_peak_idx,
+            False,
+            r_plateau,
+            r_cliff,
+            r_kind or None,
+        )
 
     @staticmethod
     def _probe_cooking_continuous(pred_state: np.ndarray | None) -> bool:
@@ -498,53 +650,374 @@ class CurveBoundaryDetector:
         peak_idx: int,
         peak_temp: float,
         cool_window: int,
-    ) -> tuple[int | None, bool, bool]:
+    ) -> tuple[int | None, bool, bool, str | None]:
         """Scan exit candidates up to sample ``j``; return
-        ``(earliest confirmed, plateau_fired, cliff_fired)``
-        where the fired flags are True when the winning candidate was
-        core-peak-plateau or probe-pull-cliff respectively.
+        ``(earliest confirmed, plateau_fired, cliff_fired, kind)``
+        where ``kind`` names the winning candidate (or ``None`` when
+        none fired).  The fired flags remain derived from ``kind`` and
+        preserve their pre-M3 semantics: ``plateau_fired`` drives
+        ``_skip_plateau_tail`` and ``cliff_fired`` drives
+        ``_skip_probe_pull_tail`` after this curve is accepted.
         """
         first_scan = peak_idx + self._post_peak_grace
         upto = j + 1  # exclusive upper bound for sub-arrays
 
         earliest: int | None = None
+        earliest_kind: str | None = None
 
-        a = self._candidate_drop_rate(
-            temps[:upto], timestamps[:upto], first_scan
+        def _consider(idx: int | None, kind: str) -> None:
+            nonlocal earliest, earliest_kind
+            if idx is None:
+                return
+            if earliest is None or idx < earliest:
+                earliest = idx
+                earliest_kind = kind
+
+        _consider(
+            self._candidate_drop_rate(
+                temps[:upto], timestamps[:upto], first_scan
+            ),
+            "drop_rate",
         )
-        earliest = self._min_opt(earliest, a)
-
-        b = self._candidate_cool_to_ambient(
-            temps[:upto], first_scan, cool_window
+        _consider(
+            self._candidate_cool_to_ambient(
+                temps[:upto], first_scan, cool_window
+            ),
+            "cool_to_ambient",
         )
-        earliest = self._min_opt(earliest, b)
-
-        c = self._candidate_room_temp_plateau(
-            temps[:upto], first_scan, cool_window
+        _consider(
+            self._candidate_room_temp_plateau(
+                temps[:upto], first_scan, cool_window
+            ),
+            "room_temp_plateau",
         )
-        earliest = self._min_opt(earliest, c)
-
-        d = self._candidate_dip_with_rerise(
-            temps[:upto], peak_idx, peak_temp
+        _consider(
+            self._candidate_dip_with_rerise(
+                temps[:upto], peak_idx, peak_temp
+            ),
+            "dip_with_rerise",
         )
-        earliest = self._min_opt(earliest, d)
-
-        e = self._candidate_core_peak_plateau(
-            temps[:upto], timestamps[:upto], peak_idx
+        _consider(
+            self._candidate_core_peak_plateau(
+                temps[:upto], timestamps[:upto], peak_idx
+            ),
+            "core_peak_plateau",
         )
-        earliest = self._min_opt(earliest, e)
-
         # peak_idx+1 guard removed in mission 2026-04-24_090858_d46e235e: the
-        # BA3C_1759 j=293 "multi-pull session" framing papered over a mis-annotated
-        # fixture that should have been 3 bakes.  Scan from peak_idx directly.
-        f = self._candidate_probe_pull_cliff(
-            temps[:upto], timestamps[:upto], peak_idx
+        # BA3C_1759 j=293 "multi-pull session" framing papered over a
+        # mis-annotated fixture that should have been 3 bakes.  Scan from
+        # peak_idx directly.
+        _consider(
+            self._candidate_probe_pull_cliff(
+                temps[:upto], timestamps[:upto], peak_idx
+            ),
+            "probe_pull_cliff",
         )
-        earliest = self._min_opt(earliest, f)
 
-        plateau_fired = e is not None and earliest == e
-        cliff_fired = f is not None and earliest == f
-        return earliest, plateau_fired, cliff_fired
+        plateau_fired = earliest_kind == "core_peak_plateau"
+        cliff_fired = earliest_kind == "probe_pull_cliff"
+        return earliest, plateau_fired, cliff_fired, earliest_kind
+
+    # ------------------------------------------------------------------
+    # Hint-driven refinement (M3 HMS Agincourt)
+    # ------------------------------------------------------------------
+
+    def _refine_end_with_hint(
+        self,
+        temps: np.ndarray,
+        timestamps: np.ndarray,
+        start_idx: int,
+        peak_idx: int,
+        cool_window: int,
+        baseline: tuple[int, str, bool, bool],
+        expected_duration_s: float,
+    ) -> tuple[int, str, bool, bool]:
+        """Re-rank all confirmed candidates by composite sigmoid score
+        within the tolerance band around ``start + expected_duration_s``.
+
+        Falls back to ``baseline`` (earliest-wins) and emits a structured
+        warning when no confirmed candidate sits in the band — the
+        decision is NEVER silently moved to a non-candidate index.
+        """
+        band_width = max(
+            expected_duration_s * self._duration_tolerance_frac,
+            self._duration_min_tolerance_s,
+        )
+        t_start = float(timestamps[start_idx])
+        t_expected_end = t_start + expected_duration_s
+        t_lo = t_expected_end - band_width
+        t_hi = t_expected_end + band_width
+
+        candidates = self._collect_all_candidates(
+            temps, timestamps, peak_idx, cool_window, baseline
+        )
+
+        in_band = [
+            (idx, kind)
+            for idx, kind in candidates
+            if t_lo <= float(timestamps[idx]) <= t_hi
+        ]
+
+        if not in_band:
+            b_idx, b_kind, b_plateau, b_cliff = baseline
+            logger.warning(
+                "expected_duration_s hint produced no candidate in tolerance "
+                "band [%.1fs, %.1fs] (expected_end=%.1fs, start=%.1fs, "
+                "hint=%.1fs); falling back to earliest-wins baseline "
+                "kind=%s end_idx=%d",
+                t_lo,
+                t_hi,
+                t_expected_end,
+                t_start,
+                expected_duration_s,
+                b_kind,
+                b_idx,
+            )
+            return baseline
+
+        # Score each in-band candidate; ties broken by earlier idx, then
+        # by kind lexical order for determinism.
+        scored: list[tuple[float, int, str]] = []
+        for idx, kind in in_band:
+            score = score_end_candidate(
+                temps,
+                timestamps,
+                start_idx,
+                idx,
+                expected_duration_s,
+                self._config,
+            )
+            scored.append((score, idx, kind))
+        scored.sort(key=lambda t: (-t[0], t[1], t[2]))
+
+        _best_score, best_idx, best_kind = scored[0]
+        plateau_fired = best_kind == "core_peak_plateau"
+        cliff_fired = best_kind == "probe_pull_cliff"
+        return best_idx, best_kind, plateau_fired, cliff_fired
+
+    def _collect_all_candidates(
+        self,
+        temps: np.ndarray,
+        timestamps: np.ndarray,
+        peak_idx: int,
+        cool_window: int,
+        baseline: tuple[int, str, bool, bool],
+    ) -> list[tuple[int, str]]:
+        """Run every candidate over the full array; return ``(idx, kind)``
+        pairs.  The baseline is always folded in — protects against the
+        grace-window cliff fallback where the cliff fires at ``peak_idx``
+        inside the post-peak grace window and is only observable via the
+        dedicated fallback path.
+        """
+        first_scan = peak_idx + self._post_peak_grace
+        peak_temp = float(temps[peak_idx])
+        results: list[tuple[int, str]] = []
+
+        def _collect(idx: int | None, kind: str) -> None:
+            if idx is not None:
+                results.append((idx, kind))
+
+        _collect(
+            self._candidate_drop_rate(temps, timestamps, first_scan),
+            "drop_rate",
+        )
+        _collect(
+            self._candidate_cool_to_ambient(
+                temps, first_scan, cool_window
+            ),
+            "cool_to_ambient",
+        )
+        _collect(
+            self._candidate_room_temp_plateau(
+                temps, first_scan, cool_window
+            ),
+            "room_temp_plateau",
+        )
+        _collect(
+            self._candidate_dip_with_rerise(temps, peak_idx, peak_temp),
+            "dip_with_rerise",
+        )
+        _collect(
+            self._candidate_core_peak_plateau(temps, timestamps, peak_idx),
+            "core_peak_plateau",
+        )
+        _collect(
+            self._candidate_probe_pull_cliff(temps, timestamps, peak_idx),
+            "probe_pull_cliff",
+        )
+
+        # Ensure the baseline is represented — the scan above should
+        # always find it, but the grace-window cliff fallback can land
+        # a cliff at peak_idx that the scan still rejects (e.g. if
+        # CLIFF_MIN_START_TEMP_C gating differs from the scan path).
+        b_idx, b_kind, _, _ = baseline
+        if b_kind and not any(
+            idx == b_idx and kind == b_kind for idx, kind in results
+        ):
+            results.append((b_idx, b_kind))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Start-refinement (M4 HMS Hood)
+    # ------------------------------------------------------------------
+
+    def _refine_start_with_hint(
+        self,
+        temps: np.ndarray,
+        timestamps: np.ndarray,
+        pred_state: np.ndarray | None,
+        start_idx: int,
+        end_idx: int,
+        peak_idx: int,
+        expected_duration_s: float,
+        horizon: int,
+    ) -> tuple[int, int]:
+        """Possibly shift ``start_idx`` toward the expected-start window.
+
+        Window = ``[end_time - expected*(1+tol), end_time - expected*(1-tol)]``
+        (lower bound = earliest valid start, upper bound = latest).  When
+        the native start sits inside the window, no shift occurs.  When
+        outside, the detector proposes a shift capped by
+        ``EXPECTED_DURATION_MAX_START_SHIFT_SECONDS`` samples and gated
+        by ``score_start_candidate >= SIGMOID_FIT_MIN_R2``.
+
+        Guards:
+          * ``horizon`` — shift cannot move start earlier than the outer
+            loop's ``search_from`` (protects against crossing a previous
+            curve's tail — NC-1/NC-2 coupling with ``_skip_probe_pull_tail``).
+          * ``PredictionState`` — if shift would cross a
+            ``'Probe Not Inserted'`` marker the shift is aborted and a
+            warning is emitted.
+
+        Returns ``(refined_start_idx, refined_peak_idx)``.  Peak is
+        re-derived over the refined range so that a start shift that
+        extends the curve does not leak a below-``MIN_PEAK_TEMP`` peak.
+        """
+        n = len(timestamps)
+        if n < 2 or end_idx <= start_idx:
+            return start_idx, peak_idx
+
+        dt = float(np.median(np.diff(timestamps)))
+        if dt <= 0:
+            return start_idx, peak_idx
+
+        band_width = max(
+            expected_duration_s * self._duration_tolerance_frac,
+            self._duration_min_tolerance_s,
+        )
+        t_end = float(timestamps[end_idx])
+        t_start_center = t_end - expected_duration_s
+        t_start_lo = t_start_center - band_width
+        t_start_hi = t_start_center + band_width
+        t_native_start = float(timestamps[start_idx])
+
+        # Already in window — no-op.
+        if t_start_lo <= t_native_start <= t_start_hi:
+            return start_idx, peak_idx
+
+        max_shift_samples = max(
+            int(round(self._duration_max_start_shift_s / dt)), 1
+        )
+
+        if t_native_start > t_start_hi:
+            # Detector started too late; shift EARLIER toward window.
+            target_idx = (
+                int(np.searchsorted(timestamps, t_start_hi, side="right")) - 1
+            )
+            target_idx = max(target_idx, 0)
+            shifted = max(
+                target_idx, start_idx - max_shift_samples, int(horizon)
+            )
+            direction = "earlier"
+        else:
+            # Detector started too early; shift LATER toward window.
+            target_idx = int(
+                np.searchsorted(timestamps, t_start_lo, side="left")
+            )
+            target_idx = min(target_idx, end_idx - 1)
+            shifted = min(target_idx, start_idx + max_shift_samples)
+            direction = "later"
+
+        if shifted == start_idx:
+            return start_idx, peak_idx
+
+        # PredictionState guard — abort if the proposed shift would
+        # cross a 'Probe Not Inserted' marker.  NC-1/NC-2 coupling with
+        # _skip_probe_pull_tail depends on this; a silent crossing
+        # could re-include a cooldown-tail sample as "in the bake".
+        if pred_state is not None:
+            lo, hi = (
+                (shifted, start_idx)
+                if shifted < start_idx
+                else (start_idx, shifted)
+            )
+            crossing_idxs = [
+                i
+                for i in range(lo, hi + 1)
+                if pred_state[i] == PROBE_NOT_INSERTED_STATE
+            ]
+            if crossing_idxs:
+                logger.warning(
+                    "Start-refinement %s shift from %d to %d aborted: "
+                    "would cross PredictionState='%s' at idx %s",
+                    direction,
+                    start_idx,
+                    shifted,
+                    PROBE_NOT_INSERTED_STATE,
+                    crossing_idxs,
+                )
+                return start_idx, peak_idx
+
+        # Sigmoid-shape gate.  Fit a 4-parameter logistic over the
+        # ACTUAL [shifted, end_idx] window and gate on R² alone.
+        # Rationale: for END refinement (M3) we care about *when* the
+        # bake ends so the proximity term to the expected duration is
+        # load-bearing.  For START refinement (M4) we already trust the
+        # end (it came out of M3); we only want to know whether the
+        # shifted window is a CLEAN S-curve.  Using the composite score
+        # would penalise short bakes twice (proximity=0 when
+        # actual < expected * (1 - tol)) and reject shifts that are
+        # shape-wise fine.
+        min_samples = int(self._config.get("SIGMOID_FIT_MIN_SAMPLES", 30))
+        window_len = end_idx - shifted + 1
+        if window_len >= min_samples:
+            t_fit = timestamps[shifted : end_idx + 1] - timestamps[shifted]
+            T_fit = temps[shifted : end_idx + 1]
+            fit = fit_logistic(t_fit, T_fit)
+            r2 = fit.r2 if fit.converged else 0.0
+        else:
+            r2 = 0.0
+        min_r2 = float(self._config.get("SIGMOID_FIT_MIN_R2", 0.85))
+        if r2 < min_r2:
+            logger.warning(
+                "Start-refinement %s shift from %d to %d rejected: "
+                "sigmoid R² %.3f < SIGMOID_FIT_MIN_R2 %.3f",
+                direction,
+                start_idx,
+                shifted,
+                r2,
+                min_r2,
+            )
+            return start_idx, peak_idx
+
+        # Apply shift — re-derive peak over the refined range so a
+        # longer curve cannot leak a below-MIN_PEAK_TEMP peak value
+        # (same principle as M3 A1 fix for end-refinement).
+        refined_peak_idx = shifted + int(
+            np.argmax(temps[shifted : end_idx + 1])
+        )
+        logger.info(
+            "Start refined %s: %d -> %d "
+            "(expected_dur=%.1fs, shift_samples=%d, r2=%.3f)",
+            direction,
+            start_idx,
+            shifted,
+            expected_duration_s,
+            shifted - start_idx,
+            r2,
+        )
+        return shifted, refined_peak_idx
 
     @staticmethod
     def _min_opt(a: int | None, b: int | None) -> int | None:

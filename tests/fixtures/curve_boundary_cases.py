@@ -773,6 +773,14 @@ _cliff_probe_pull_df = _build_cliff_probe_pull()
 #   source          "real" | "synthetic"
 #   truncated       bool  — True when log ends mid-bake (optional, default False)
 #   ambiguous       bool  — True when ground truth is uncertain (optional)
+#   expected_durations_s  list[float] | None  — per-curve bake duration in seconds;
+#                   REQUIRED on real cases (M1 HMS Illustrious, branch
+#                   refactor/expected-bake-time). None is reserved for truncated
+#                   logs where duration is physically undefined. The schema-shape
+#                   contract is verified by tests/test_curve_boundary_fixture_schema.py.
+#   duration_tolerance_frac  float | None  — OPTIONAL per-case override for the
+#                   detector's default ±tolerance band (EXPECTED_DURATION_TOLERANCE_FRAC).
+#                   When present must satisfy 0 < x ≤ 1; omit to use the config default.
 # ---------------------------------------------------------------------------
 
 CASES = [
@@ -790,6 +798,9 @@ CASES = [
         # drop=21.65 °C, monotonic_next_5=True. Clip at idx 306.
         "expected_starts": [3],
         "expected_ends": [306],
+        # (306 - 3) × 5.0 s/sample = 1515.0 s ≈ 25.25 min. Sample period from CSV
+        # header ("Sample Period: 5000" ms). M1 HMS Illustrious annotation.
+        "expected_durations_s": [1515.0],
         "expected_n_curves": 1,
         "raises": None,
         "source": "real",
@@ -818,6 +829,11 @@ CASES = [
         # drop=20.05 °C, monotonic=True. Clip at idx 293.
         "expected_starts": [13],
         "expected_ends": [293],
+        # Log truncated mid-cooldown at idx 299 (VCT=41.1 °C still falling).
+        # Duration hint is physically meaningless for an incomplete bake — the
+        # detector must short-circuit duration-based refinement when it sees
+        # None here. M1 HMS Illustrious annotation.
+        "expected_durations_s": None,
         "expected_n_curves": 1,
         "raises": None,
         "source": "real",
@@ -862,6 +878,15 @@ CASES = [
         #   consistent with bake-2's 766→775 correction (mission 2026-04-24_090858_d46e235e).
         "expected_starts": [13, 651, 5888],
         "expected_ends": [293, 944, 6185],
+        # Per-bake durations derived from (end - start) × 5.0 s/sample:
+        #   bake-1: (293 -   13) × 5 = 1400.0 s  (~23.3 min)
+        #   bake-2: (944 -  651) × 5 = 1465.0 s  (~24.4 min)  — ambiguous start
+        #   bake-3: (6185 - 5888) × 5 = 1485.0 s (~24.8 min)  — ambiguous start
+        # Case-level ambiguous=True is retained (see below); a partial duration
+        # hint is still useful because the tolerance band absorbs the ±8-sample
+        # start uncertainty already accepted via the case-level "tolerance": 8.
+        # M1 HMS Illustrious annotation.
+        "expected_durations_s": [1400.0, 1465.0, 1485.0],
         "expected_n_curves": 3,
         "raises": None,
         "source": "real",
@@ -1072,6 +1097,9 @@ CASES = [
         # Convention: oven-exit = first sample of ambient decline = ambient peak index.
         "expected_starts": [0],
         "expected_ends": [340],
+        # (340 - 0) × 5.0 s/sample = 1700.0 s ≈ 28.3 min. Sample Period: 5000 ms
+        # confirmed in CSV header. M1 HMS Illustrious annotation.
+        "expected_durations_s": [1700.0],
         "expected_n_curves": 1,
         "raises": None,
         "source": "real",
@@ -1203,6 +1231,9 @@ CASES = [
         # Prior annotation [360] was a placeholder when no candidate handled this signature.
         "expected_starts": [3],
         "expected_ends": [344],
+        # (344 - 3) × 5.0 s/sample = 1705.0 s ≈ 28.4 min. Sample Period: 5000 ms
+        # confirmed in CSV header. M1 HMS Illustrious annotation.
+        "expected_durations_s": [1705.0],
         "expected_n_curves": 1,
         "raises": None,
         "source": "real",

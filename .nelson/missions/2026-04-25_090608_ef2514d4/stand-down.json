@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Address user UX feedback: (1) move Curve Boundaries to first tab position, (2) plot x-axis in minutes (not seconds \u2014 log lengths >10,000 s are unreadable), (3) manual override widgets accept time in minutes (converted to idx via searchsorted), (4) live-preview vlines on detail plot as user edits before Apply.",
+  "actual_outcome": "Tab moved to position 1; plot x-axis in minutes; manual override widgets accept time-in-minutes (converted to idx via searchsorted nearest-neighbour); live preview vlines while typing before Apply; vline annotations now include idx values; hover tooltips show time + idx + temp.",
+  "success_metric_result": "56/56 plot/tab/E2E tests pass; 5 new time_minutes_to_idx unit tests; live smoke shows x-axis Time (min) and bake-2 range 49-83 min.",
+  "duration_minutes": 0,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 0,
+    "reliefs": 0,
+    "max_concurrent_ships": 0
+  },
+  "tasks": {
+    "completed": 0,
+    "total": 0,
+    "by_station_tier": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [],
+    "avoid": []
+  },
+  "created_at": "2026-04-25T09:10:50Z"
+}

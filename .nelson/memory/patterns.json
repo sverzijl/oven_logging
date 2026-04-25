@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-24T11:27:01Z",
-  "pattern_count": 10,
+  "updated_at": "2026-04-25T11:24:53Z",
+  "pattern_count": 27,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -256,6 +256,278 @@
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-24_135328_1963f3d2",
+      "completed_at": "2026-04-24T13:58:40Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Introduce src/data/sigmoid_refinement.py (pure, no pandas/streamlit imports) with fit_logistic + score_end_candidate + score_start_candidate; add 6 new config keys to CURVE_DETECTION_CONFIG for tolerance band and fit-quality thresholds.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_140502_3cc73444",
+      "completed_at": "2026-04-24T14:43:32Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Add optional expected_durations_s kwarg to CurveBoundaryDetector.extract_curves; switch _detect_curve_end from earliest-wins to composite-scored-in-window-wins when hint provided; add exit_candidate_kind diagnostic field; preserve plateau_fired/cliff_fired flag coupling; byte-identical output when hint is None.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_145238_a5f28423",
+      "completed_at": "2026-04-24T15:25:41Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Refine per-curve start when expected_durations_s hint supplied, shifting native start toward the expected-duration window subject to max_start_shift_samples cap + sigmoid_score gate + PredictionState horizon guard + search_from horizon guard. Preserve Method 2b max-sensor start and NC-1/NC-2 coupling when hint is absent.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_152808_3bb51e80",
+      "completed_at": "2026-04-24T15:32:07Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Plumb optional expected_durations_s list through ThermalProfileLoader into _extract_all_baking_curves; expose set_expected_durations method with cache-invalidation; pad/truncate list to detected curve count with logger.warning on length mismatch.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_153328_f274752b",
+      "completed_at": "2026-04-24T15:37:58Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Add per-curve Expected bake time (min) number_input widgets to sidebar Analysis Settings; use curve_number-indexed widget keys (NOT current_curve_index) to avoid state bleed; on-change call loader.set_expected_durations and st.rerun; empty input stays None.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_153925_025516f4",
+      "completed_at": "2026-04-24T18:01:00Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Final red-cell verification battery (36 runs: \u03c3 \u2208 {0.15, 0.5, 1.0} \u00d7 3 real CSVs \u00d7 4 hint modes), permanent regression test anchoring, memory updates, and flotilla captain's log.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_233307_c5744e63",
+      "completed_at": "2026-04-24T23:42:40Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Loader exposes raw_data attribute (full pre-extraction DataFrame) and set_curve_boundaries/clear_curve_boundaries methods so M2/M3 can plot raw CSV with auto-detected windows AND let users pin manual boundaries that override the detector.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_234405_ed94ab5a",
+      "completed_at": "2026-04-24T23:50:03Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Pure plot-builder module src/visualization/boundary_review_plots.py with plot_raw_log_with_curves, plot_curve_detail, downsample_for_plot. Reuses VisualizationConfig palette and Plotly conventions.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_235134_b68205bd",
+      "completed_at": "2026-04-24T23:54:25Z",
+      "outcome_achieved": true,
+      "planned_outcome": "New tabs/boundary_review.py with raw-log + per-curve detail panel UI; widget keys scoped by (filename, curve_number); on-change calls loader.set_expected_durations or loader.set_curve_boundaries with rerun guard. app.py dispatch in second tab position.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_235605_ced2aac9",
+      "completed_at": "2026-04-24T23:58:01Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Remove M6 sidebar expected-bake-time expander; new tab is the single source of truth. Pure helpers in src/ui/expected_duration_widgets.py remain (consumed by M3 tab).",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-24_235912_a7eef390",
+      "completed_at": "2026-04-25T00:00:46Z",
+      "outcome_achieved": true,
+      "planned_outcome": "End-to-end empirical verification of the boundary-review flotilla. Permanent regression test exercising loader-level operations the M3 tab issues; memory update; final flotilla log.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-25_090608_ef2514d4",
+      "completed_at": "2026-04-25T09:10:50Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Address user UX feedback: (1) move Curve Boundaries to first tab position, (2) plot x-axis in minutes (not seconds \u2014 log lengths >10,000 s are unreadable), (3) manual override widgets accept time in minutes (converted to idx via searchsorted), (4) live-preview vlines on detail plot as user edits before Apply.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-25_092326_ec2fbd6e",
+      "completed_at": "2026-04-25T09:36:46Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Surface the auto-optimisation outcome so operators can see what the hint actually did. Snapshot baseline (no-hint, no-override) curves at load_csv time; detail plot overlays faint dotted baseline vlines when boundary shifted; right-column readout shows \u0394start/\u0394end in samples when hint moved things, or 'no change needed' message when hint agrees with detector.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-25_093421_5802073a",
+      "completed_at": "2026-04-25T09:36:47Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Replace start/end number_inputs with single st.slider range widget for faster manual override editing. Single per-(filename, curve_number) key carrying (start_min, end_min) tuple. Live-preview vlines stay; Apply button uses the slider's current tuple.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-25_094450_7a304ac3",
+      "completed_at": "2026-04-25T09:47:59Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Enable horizontal box-select on the per-curve detail plot. Plotly dragmode=select with selectdirection=h; st.plotly_chart on_select=rerun captures the box; tab converts x-range minutes to raw_data idx via time_minutes_to_idx and calls loader.set_curve_boundaries. Slider remains for fine-tuning.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-25_095925_68ec2c1b",
+      "completed_at": "2026-04-25T10:02:26Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Strip the input widgets in the Boundary Review detail panel right column now that drag-to-box-select is the primary mechanism. Remove hint number_input, manual range slider, Apply button. Keep readout text + Auto-optimisation outcome + Reset to auto button.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-25_111859_56ebe5ee",
+      "completed_at": "2026-04-25T11:24:53Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Operator can claim a curve the detector missed by drag-box on the raw-log plot. New loader.add_manual_curve(start, end) auto-refines via detector on the sub-slice; falls back to BAKE_ACTIVE_C trim. New loader.remove_manual_curve. set_curve_boundaries dispatches by curve type (user-added \u2192 _added_curves; detector \u2192 existing _boundary_overrides keyed by detector position). User-added curves render with distinct colour.",
+      "adopt": [],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": null
       }
     }
   ]
