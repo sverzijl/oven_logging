@@ -57,7 +57,14 @@ class ThermalProfileLoader:
         # raw_data index space.  When present, the override takes
         # precedence over the detector AND the hint refinement.
         self._boundary_overrides: dict[int, tuple[int, int]] = {}
-        
+        # Snapshot of the detector's no-hint, no-override decision
+        # taken at ``load_csv`` time (M7 HMS Inspector, mission
+        # 2026-04-25_092326_ec2fbd6e).  The Boundary Review tab uses
+        # this to show the operator what the auto-optimisation moved.
+        # Subsequent set_expected_durations / set_curve_boundaries
+        # calls leave it untouched.
+        self.baseline_curves: list = []
+
     def load_csv(self, file_path: str = None, file_buffer=None) -> Tuple[pd.DataFrame, Dict]:
         """
         Load a thermal profile CSV file.
@@ -102,12 +109,31 @@ class ThermalProfileLoader:
         # Extract all baking curves
         self.all_curves = self._extract_all_baking_curves(self.data)
 
+        # Snapshot the detector's no-hint, no-override decision so the
+        # Boundary Review tab can show what auto-optimisation moved
+        # later (M7 HMS Inspector).  At this point neither
+        # expected_durations_s nor _boundary_overrides are populated,
+        # so all_curves IS the baseline by definition.
+        self.baseline_curves = [self._copy_curve_dict(c) for c in self.all_curves]
+
         # Set the first curve as default if any curves found
         if self.all_curves:
             self.data = self.all_curves[0]['data']
             self.current_curve_index = 0
 
         return self.data, self.metadata
+
+    @staticmethod
+    def _copy_curve_dict(curve: dict) -> dict:
+        """Return an independent copy of a curve descriptor for the
+        baseline snapshot.  The ``data`` slice is duplicated so a tab
+        mutating it cannot bleed into ``all_curves``; other fields are
+        primitives (int/float/bool/str) and copy by value.
+        """
+        out = dict(curve)
+        if "data" in out and out["data"] is not None:
+            out["data"] = out["data"].copy()
+        return out
     
     def _parse_metadata(self, file_path: str) -> Dict:
         """Parse metadata from the CSV header."""

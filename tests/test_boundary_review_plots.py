@@ -260,6 +260,35 @@ class TestPlotCurveDetail:
         fig = plot_curve_detail(df, curve)
         assert "min" in (fig.layout.xaxis.title.text or "").lower()
 
+    def test_baseline_indices_draws_dotted_vlines_when_differ(self):
+        """When baseline_indices differ from detected, faint dotted
+        vlines must be drawn so the operator sees what moved."""
+        df = _synthetic_raw_log()
+        curve = _synthetic_curves()[0]
+        # Baseline is 5 samples earlier on each end.
+        baseline = (curve["start_idx"] - 5, curve["end_idx"] - 5)
+        fig_with = plot_curve_detail(df, curve, baseline_indices=baseline)
+        fig_without = plot_curve_detail(df, curve)
+        vlines_with = [s for s in fig_with.layout.shapes if s.type == "line"]
+        vlines_without = [s for s in fig_without.layout.shapes if s.type == "line"]
+        assert len(vlines_with) > len(vlines_without), (
+            "supplying differing baseline_indices must produce extra vlines"
+        )
+
+    def test_baseline_indices_match_detected_skipped(self):
+        """When baseline matches detected (no auto-optimisation shift),
+        the baseline overlay is suppressed — visually redundant."""
+        df = _synthetic_raw_log()
+        curve = _synthetic_curves()[0]
+        baseline_same = (curve["start_idx"], curve["end_idx"])
+        fig_match = plot_curve_detail(df, curve, baseline_indices=baseline_same)
+        fig_none = plot_curve_detail(df, curve)
+        vlines_match = [s for s in fig_match.layout.shapes if s.type == "line"]
+        vlines_none = [s for s in fig_none.layout.shapes if s.type == "line"]
+        assert len(vlines_match) == len(vlines_none), (
+            "baseline matching detected should produce no extra vlines"
+        )
+
     def test_no_downsample_artefact_in_detail(self):
         """Detail plot should not aggressively downsample the curve
         region itself — that's where the operator is looking closely."""

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Surface the auto-optimisation outcome so operators can see what the hint actually did. Snapshot baseline (no-hint, no-override) curves at load_csv time; detail plot overlays faint dotted baseline vlines when boundary shifted; right-column readout shows \u0394start/\u0394end in samples when hint moved things, or 'no change needed' message when hint agrees with detector.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-25T09:23:26Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-25T09:36:46Z"
+}

@@ -39,13 +39,26 @@ from src.visualization.boundary_review_plots import (
 
 
 def manual_start_key(filename: str, curve_number: int) -> str:
-    """Streamlit widget key for the manual-start-index input."""
+    """[DEPRECATED — M8 HMS Mercury collapsed start/end into a single
+    range slider key.]  Retained for backwards-compat with any
+    external callers; not used internally."""
     return f"manual_start_idx__{filename}__c{int(curve_number)}"
 
 
 def manual_end_key(filename: str, curve_number: int) -> str:
-    """Streamlit widget key for the manual-end-index input."""
+    """[DEPRECATED — see :func:`manual_start_key`.]"""
     return f"manual_end_idx__{filename}__c{int(curve_number)}"
+
+
+def manual_range_key(filename: str, curve_number: int) -> str:
+    """Streamlit widget key for the manual-override range slider.
+
+    Introduced by M8 HMS Mercury — a single ``st.slider(value=(lo, hi))``
+    range widget replaced the two number_inputs because keystroke-by-
+    keystroke editing of two paired numbers was slow.  The slider's
+    handles let the operator drag start and end simultaneously.
+    """
+    return f"manual_range__{filename}__c{int(curve_number)}"
 
 
 def compute_hint_window_seconds(
@@ -189,15 +202,47 @@ def _render_detail_panel(
     n_raw = len(raw_timestamps)
     log_max_minutes = float(raw_timestamps[-1]) / 60.0 if n_raw > 0 else 0.0
 
-    # Manual override values from session — stored in MINUTES so the
-    # operator can read them off the time-axis plot (M6 HMS Refit).
-    # Defaults: detector's start/end timestamps converted to minutes.
-    ms_key = manual_start_key(current_file, curve_number)
-    me_key = manual_end_key(current_file, curve_number)
+    # Baseline (no-hint, no-override) decision snapshot from M7
+    # HMS Inspector — used to show the operator what auto-optimisation
+    # moved.  If hint/override has shifted the boundary, we surface
+    # the diff in the readout AND overlay faint baseline vlines on
+    # the detail plot.
+    baseline_curves = getattr(loader, "baseline_curves", []) or []
+    baseline_curve = (
+        baseline_curves[curve_index]
+        if curve_index < len(baseline_curves)
+        else None
+    )
+    baseline_start = (
+        int(baseline_curve["start_idx"]) if baseline_curve else detected_start
+    )
+    baseline_end = (
+        int(baseline_curve["end_idx"]) if baseline_curve else detected_end
+    )
+    baseline_kind = (
+        baseline_curve.get("exit_candidate_kind") if baseline_curve else None
+    )
+    boundary_shifted = (
+        baseline_start != detected_start or baseline_end != detected_end
+    )
+
+    # Manual override values from session — single range-slider key
+    # carrying ``(start_min, end_min)`` tuple (M8 HMS Mercury — the
+    # earlier two-number_input layout was sluggish on multi-bake CSVs
+    # because each keystroke triggered a full Streamlit rerun).
+    range_key = manual_range_key(current_file, curve_number)
     detected_start_min = float(raw_timestamps[detected_start]) / 60.0
     detected_end_min = float(raw_timestamps[detected_end]) / 60.0
-    manual_start_min = float(st.session_state.get(ms_key, detected_start_min))
-    manual_end_min = float(st.session_state.get(me_key, detected_end_min))
+    stored_range = st.session_state.get(range_key)
+    if (
+        isinstance(stored_range, (list, tuple))
+        and len(stored_range) == 2
+    ):
+        manual_start_min = float(stored_range[0])
+        manual_end_min = float(stored_range[1])
+    else:
+        manual_start_min = detected_start_min
+        manual_end_min = detected_end_min
 
     # Convert MINUTES → IDX for the live-preview vlines and the eventual
     # loader call.
@@ -242,6 +287,9 @@ def _render_detail_panel(
             curve,
             hint_window_s=hint_window,
             override_indices=override_indices,
+            baseline_indices=(baseline_start, baseline_end)
+            if boundary_shifted
+            else None,
         )
         st.plotly_chart(
             detail_fig,
@@ -259,6 +307,34 @@ def _render_detail_panel(
             f"Kind: {curve.get('exit_candidate_kind') or '—'}"
         )
 
+        # Auto-optimisation outcome (M7 HMS Inspector).  Three cases:
+        #   1. No hint / override active → nothing extra to show.
+        #   2. Hint/override active AND boundary moved → show Δ.
+        #   3. Hint active AND boundary unchanged → reassure: "no
+        #      change needed; detector's decision matches the hint".
+        if boundary_shifted:
+            delta_start = detected_start - baseline_start
+            delta_end = detected_end - baseline_end
+            baseline_start_min = float(raw_timestamps[baseline_start]) / 60.0
+            baseline_end_min = float(raw_timestamps[baseline_end]) / 60.0
+            st.markdown("**Auto-optimisation shift**")
+            st.text(
+                f"Baseline: {baseline_start_min:.2f}→{baseline_end_min:.2f} min "
+                f"(idx {baseline_start}→{baseline_end}, {baseline_kind or '—'})\n"
+                f"Now:      {detected_start_min:.2f}→{detected_end_min:.2f} min "
+                f"(idx {detected_start}→{detected_end}, "
+                f"{curve.get('exit_candidate_kind') or '—'})\n"
+                f"Δstart: {delta_start:+d}  Δend: {delta_end:+d} samples"
+            )
+        elif hint_active or state_label == "override":
+            reason = (
+                "Manual override pinned the boundary; detector input ignored."
+                if state_label == "override"
+                else "Hint accepted; detector's decision is already inside "
+                "the hint's tolerance band — no boundary change needed."
+            )
+            st.info(reason)
+
         st.markdown("**Hint**")
         st.number_input(
             "Expected bake time (min)",
@@ -275,28 +351,25 @@ def _render_detail_panel(
 
         st.markdown("**Manual override**")
         st.caption(
-            f"Hover the plot to read off times. Current preview: "
-            f"idx {preview_start_idx} → {preview_end_idx} "
+            f"Drag the slider handles to set start/end. Live preview "
+            f"vlines update instantly. Click Apply to pin. "
+            f"Preview: idx {preview_start_idx} → {preview_end_idx} "
             f"({preview_end_idx - preview_start_idx} samples)."
         )
-        new_manual_start_min = st.number_input(
-            "Start time (min)",
-            key=ms_key,
+        new_manual_range = st.slider(
+            "Manual override range (min)",
+            key=range_key,
             min_value=0.0,
-            max_value=log_max_minutes,
+            max_value=float(log_max_minutes) or 1.0,
+            value=(manual_start_min, manual_end_min),
             step=0.1,
-            value=manual_start_min,
-            help="Drag-free manual start. Snaps to nearest sample on Apply.",
+            help=(
+                "Drag the left/right handles. Times snap to the nearest "
+                "sample on Apply."
+            ),
         )
-        new_manual_end_min = st.number_input(
-            "End time (min)",
-            key=me_key,
-            min_value=0.0,
-            max_value=log_max_minutes,
-            step=0.1,
-            value=manual_end_min,
-            help="Drag-free manual end. Snaps to nearest sample on Apply.",
-        )
+        new_manual_start_min = float(new_manual_range[0])
+        new_manual_end_min = float(new_manual_range[1])
 
         apply_col, reset_col = st.columns(2)
         with apply_col:
@@ -333,11 +406,10 @@ def _render_detail_panel(
             # Clear hint widget too — Reset to auto means BOTH off.
             if hint_key in st.session_state:
                 del st.session_state[hint_key]
-            # Clear manual time widgets so defaults reapply on rerun.
-            if ms_key in st.session_state:
-                del st.session_state[ms_key]
-            if me_key in st.session_state:
-                del st.session_state[me_key]
+            # Clear manual range widget so the slider snaps back to
+            # detector defaults on rerun.
+            if range_key in st.session_state:
+                del st.session_state[range_key]
             # Also drop the hint from the loader if no other curve carries one.
             other_hints = build_hint_list_from_session(
                 filename=current_file,

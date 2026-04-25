@@ -50,8 +50,9 @@ _KIND_FILLCOLOR: dict[str, str] = {
 }
 _KIND_FALLBACK_FILLCOLOR = "rgba(150, 150, 150, 0.20)"
 
-_DETECTED_BOUNDARY_COLOR = "#0066CC"   # detector decision
+_DETECTED_BOUNDARY_COLOR = "#0066CC"   # detector decision (post-hint, post-override)
 _OVERRIDE_BOUNDARY_COLOR = "#F59E0B"   # operator decision
+_BASELINE_BOUNDARY_COLOR = "#888888"   # detector decision before hint applied (M7 Inspector)
 _HINT_WINDOW_COLOR = "rgba(180, 212, 255, 0.30)"
 _RAW_TRACE_COLOR = "#333333"
 
@@ -228,20 +229,27 @@ def plot_curve_detail(
     *,
     hint_window_s: tuple[float, float] | None = None,
     override_indices: tuple[int, int] | None = None,
+    baseline_indices: tuple[int, int] | None = None,
 ) -> go.Figure:
     """Zoomed plot of one curve's neighbourhood with overlays.
 
     The x-axis is in MINUTES.  Public parameters remain in seconds
-    (``hint_window_s``) and idx (``override_indices``) so the caller
-    contract is unchanged; conversion happens at draw time.
+    (``hint_window_s``) and idx (``override_indices``,
+    ``baseline_indices``) so the caller contract is unchanged;
+    conversion happens at draw time.
 
-    * Detected start/end are drawn as solid blue vlines.
+    * Detected start/end are drawn as solid blue vlines (the *current*
+      decision — post-hint, post-override).
     * ``hint_window_s = (lo, hi)`` (in absolute log seconds) draws a
       translucent blue vrect for the operator's expected-end window.
     * ``override_indices = (start, end)`` (raw_df index space) draws
-      dashed amber vlines distinct from the detector's decision —
-      used both for *applied* overrides (``manual_override`` curves)
-      and for *live preview* (operator typing in widget before Apply).
+      dashed amber vlines for *applied* overrides or *live preview*
+      (operator typing in widget before Apply).
+    * ``baseline_indices = (start, end)`` (raw_df index space) draws
+      faint dotted grey vlines for the detector's PRE-hint decision —
+      used by the Boundary Review tab (M7 HMS Inspector) to show
+      operators what auto-optimisation moved.  Skipped when
+      baseline_indices match the detected start/end.
     """
     fig = go.Figure()
     if raw_df is None or len(raw_df) == 0:
@@ -290,7 +298,31 @@ def plot_curve_detail(
             annotation_position="top right",
         )
 
-    # Detected start / end vlines.
+    # Baseline start / end vlines — drawn FIRST so the solid current
+    # vlines paint over them.  Only drawn when the baseline differs
+    # from the current decision (otherwise visually redundant).
+    if baseline_indices is not None:
+        bs, be = baseline_indices
+        if 0 <= bs < len(full_ts) and bs != s:
+            fig.add_vline(
+                x=float(full_ts[bs]) / 60.0,
+                line=dict(
+                    color=_BASELINE_BOUNDARY_COLOR, width=1, dash="dot"
+                ),
+                annotation_text=f"Baseline start (idx {bs})",
+                annotation_position="bottom left",
+            )
+        if 0 <= be < len(full_ts) and be != e:
+            fig.add_vline(
+                x=float(full_ts[be]) / 60.0,
+                line=dict(
+                    color=_BASELINE_BOUNDARY_COLOR, width=1, dash="dot"
+                ),
+                annotation_text=f"Baseline end (idx {be})",
+                annotation_position="bottom right",
+            )
+
+    # Detected start / end vlines (post-hint, post-override).
     fig.add_vline(
         x=float(full_ts[s]) / 60.0,
         line=dict(color=_DETECTED_BOUNDARY_COLOR, width=2),

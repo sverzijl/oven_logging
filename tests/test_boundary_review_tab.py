@@ -23,6 +23,7 @@ from tabs.boundary_review import (
     boundary_state_label,
     compute_hint_window_seconds,
     manual_end_key,
+    manual_range_key,
     manual_start_key,
     time_minutes_to_idx,
 )
@@ -62,6 +63,39 @@ class TestWidgetKeyShapes:
         a = manual_start_key("foo.csv", 1)
         b = manual_start_key("foo.csv", 2)
         assert a != b
+
+
+class TestManualRangeKey:
+    """M8 HMS Mercury collapsed start/end into a single range slider key.
+
+    Same per-(filename, curve_number) scoping as the deprecated
+    start/end keys, so swapping the currently-viewed curve does not
+    bleed widget state across curves.
+    """
+
+    def test_includes_filename_and_curve_number(self):
+        k = manual_range_key("foo.csv", 2)
+        assert "foo.csv" in k
+        assert "2" in k
+
+    def test_keys_for_different_files_differ(self):
+        a = manual_range_key("a.csv", 1)
+        b = manual_range_key("b.csv", 1)
+        assert a != b
+
+    def test_keys_for_different_curves_differ(self):
+        a = manual_range_key("foo.csv", 1)
+        b = manual_range_key("foo.csv", 2)
+        assert a != b
+
+    def test_distinct_from_deprecated_start_end_keys(self):
+        """The new range-slider key must not collide with the
+        deprecated start/end keys (else stale session-state from a
+        pre-M8 session would clobber the slider's tuple value)."""
+        rk = manual_range_key("foo.csv", 1)
+        sk = manual_start_key("foo.csv", 1)
+        ek = manual_end_key("foo.csv", 1)
+        assert rk not in {sk, ek}
 
 
 # ---------------------------------------------------------------------------
