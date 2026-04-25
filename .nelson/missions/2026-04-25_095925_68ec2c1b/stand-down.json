@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Strip the input widgets in the Boundary Review detail panel right column now that drag-to-box-select is the primary mechanism. Remove hint number_input, manual range slider, Apply button. Keep readout text + Auto-optimisation outcome + Reset to auto button.",
+  "actual_outcome": "Stripped redundant entry widgets from the right column. Removed: hint number_input, manual range slider, Apply button, hint plumbing block. Removed helpers: manual_start_key, manual_end_key, manual_range_key, compute_hint_window_seconds. Reset to auto button retained as standalone single-click recovery. Box-select on the detail plot is now the sole input mechanism.",
+  "success_metric_result": "tabs/boundary_review.py reduced 515\u2192245 lines; 90/90 review-tab + plots + baseline + E2E + loader + sidebar tests pass; readout retained (Detected + Boundary shift / override info).",
+  "duration_minutes": 0,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 0,
+    "reliefs": 0,
+    "max_concurrent_ships": 0
+  },
+  "tasks": {
+    "completed": 0,
+    "total": 0,
+    "by_station_tier": {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [],
+    "avoid": []
+  },
+  "created_at": "2026-04-25T10:02:26Z"
+}

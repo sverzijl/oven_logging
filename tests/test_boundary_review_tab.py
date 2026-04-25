@@ -1,13 +1,18 @@
-"""Pure-helper tests for the Boundary Review tab (M3 HMS Indomitable).
+"""Pure-helper tests for the Boundary Review tab.
 
-The Streamlit widget integration is verified by browser smoke (M5 HMS
-Achilles) — tests here cover the tab module's pure helpers:
+The Streamlit widget integration is verified by browser smoke
+(M5 HMS Achilles, M9 HMS Lookout). Tests here cover the module's
+pure helpers:
 
-- session-state key construction for manual override widgets
-- hint-window computation from the detector config (mirrors what the
-  detail plot draws)
-- precedence helper that decides whether a curve is showing
-  detector / hint / override boundaries
+- ``boundary_state_label`` — UI badge state (override or auto)
+- ``time_minutes_to_idx`` — minutes → raw_data idx (nearest-neighbour)
+- ``extract_x_range_from_selection`` — Plotly selection event parser
+
+History note: M10 HMS Vanguard removed the entry widgets (hint
+number_input, manual range slider, Apply button) since drag-to-box-
+select is the sole input mechanism. The associated helpers
+(``manual_start_key``, ``manual_end_key``, ``manual_range_key``,
+``compute_hint_window_seconds``) and their tests were retired.
 """
 
 from __future__ import annotations
@@ -21,101 +26,79 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tabs.boundary_review import (
     boundary_state_label,
-    compute_hint_window_seconds,
-    manual_end_key,
-    manual_range_key,
-    manual_start_key,
+    extract_x_range_from_selection,
     time_minutes_to_idx,
 )
 
 
 # ---------------------------------------------------------------------------
-# Tests: widget-key shapes
+# Tests: boundary_state_label
 # ---------------------------------------------------------------------------
 
 
-class TestWidgetKeyShapes:
-    """Manual override widgets must use per-(filename, curve_number) keys
-    so swapping the currently-viewed curve does not bleed widget state.
+class TestBoundaryStateLabel:
+    """Maps a curve dict to a one-word state label shown in the UI:
+    ``override`` or ``auto``.  Drives the badge colour next to the
+    curve number in the detail panel.
     """
 
-    def test_manual_start_key_includes_filename_and_curve_number(self):
-        k = manual_start_key("foo.csv", 2)
-        assert "foo.csv" in k
-        assert "2" in k
+    def _curve(self, kind: str | None) -> dict:
+        return {"exit_candidate_kind": kind, "curve_number": 1}
 
-    def test_manual_end_key_includes_filename_and_curve_number(self):
-        k = manual_end_key("foo.csv", 2)
-        assert "foo.csv" in k
-        assert "2" in k
+    def test_manual_override_kind_returns_override(self):
+        assert boundary_state_label(self._curve("manual_override")) == "override"
 
-    def test_start_and_end_keys_differ_for_same_curve(self):
-        s = manual_start_key("foo.csv", 1)
-        e = manual_end_key("foo.csv", 1)
-        assert s != e
+    def test_detector_kind_returns_auto(self):
+        assert boundary_state_label(self._curve("probe_pull_cliff")) == "auto"
 
-    def test_keys_for_different_files_differ(self):
-        a = manual_start_key("a.csv", 1)
-        b = manual_start_key("b.csv", 1)
-        assert a != b
-
-    def test_keys_for_different_curves_differ(self):
-        a = manual_start_key("foo.csv", 1)
-        b = manual_start_key("foo.csv", 2)
-        assert a != b
+    def test_unknown_kind_returns_auto(self):
+        assert boundary_state_label(self._curve(None)) == "auto"
 
 
-class TestManualRangeKey:
-    """M8 HMS Mercury collapsed start/end into a single range slider key.
+# ---------------------------------------------------------------------------
+# Tests: time_minutes_to_idx
+# ---------------------------------------------------------------------------
 
-    Same per-(filename, curve_number) scoping as the deprecated
-    start/end keys, so swapping the currently-viewed curve does not
-    bleed widget state across curves.
+
+class TestTimeMinutesToIdx:
+    """Operator-entered manual override times (in minutes) must convert
+    cleanly to the raw_data sample index space the loader API expects.
     """
 
-    def test_includes_filename_and_curve_number(self):
-        k = manual_range_key("foo.csv", 2)
-        assert "foo.csv" in k
-        assert "2" in k
+    def _ts_5s(self, n: int):
+        return [i * 5.0 for i in range(n)]
 
-    def test_keys_for_different_files_differ(self):
-        a = manual_range_key("a.csv", 1)
-        b = manual_range_key("b.csv", 1)
-        assert a != b
+    def test_zero_minutes_maps_to_zero_index(self):
+        ts = self._ts_5s(100)
+        assert time_minutes_to_idx(ts, 0.0) == 0
 
-    def test_keys_for_different_curves_differ(self):
-        a = manual_range_key("foo.csv", 1)
-        b = manual_range_key("foo.csv", 2)
-        assert a != b
+    def test_exact_minute_maps_to_corresponding_idx(self):
+        ts = self._ts_5s(100)
+        assert time_minutes_to_idx(ts, 1.0) == 12
 
-    def test_distinct_from_deprecated_start_end_keys(self):
-        """The new range-slider key must not collide with the
-        deprecated start/end keys (else stale session-state from a
-        pre-M8 session would clobber the slider's tuple value)."""
-        rk = manual_range_key("foo.csv", 1)
-        sk = manual_start_key("foo.csv", 1)
-        ek = manual_end_key("foo.csv", 1)
-        assert rk not in {sk, ek}
+    def test_between_samples_picks_nearest(self):
+        ts = self._ts_5s(100)
+        assert time_minutes_to_idx(ts, 0.05) == 1
+        assert time_minutes_to_idx(ts, 0.03) == 0
+
+    def test_beyond_last_sample_clamps(self):
+        ts = self._ts_5s(100)
+        assert time_minutes_to_idx(ts, 9999.0) == 99
+
+    def test_empty_array_returns_zero_safely(self):
+        assert time_minutes_to_idx([], 5.0) == 0
 
 
 # ---------------------------------------------------------------------------
-# Tests: extract_x_range_from_selection (M9 HMS Lookout)
+# Tests: extract_x_range_from_selection
 # ---------------------------------------------------------------------------
-
-
-from tabs.boundary_review import extract_x_range_from_selection  # noqa: E402
 
 
 class TestExtractXRangeFromSelection:
     """Streamlit's ``st.plotly_chart(on_select="rerun", selection_mode="box")``
-    returns a dict-like event with shape::
-
-        {"selection": {"box": [{"x": [x0, x1], "y": [...], ...}], ...}, ...}
-
-    The helper parses this into a ``(lo, hi)`` tuple in minutes (since
-    the detail plot's x-axis is in minutes), or ``None`` when no box
-    is present.  Robust against the various shapes Streamlit/Plotly
-    may emit across versions.
+    returns a dict-like event; the helper parses it into ``(lo, hi)``
+    in minutes or ``None`` when no box is present.  Robust against the
+    various shapes Streamlit/Plotly may emit across versions.
     """
 
     def test_none_event_returns_none(self):
@@ -154,8 +137,6 @@ class TestExtractXRangeFromSelection:
         assert out == (12.5, 18.2)
 
     def test_reverse_order_x_normalised(self):
-        """If the user drags right-to-left, x[0] > x[1].  Helper must
-        return (lo, hi) regardless of drag direction."""
         event = {
             "selection": {
                 "box": [{"x": [25.0, 10.0], "y": [0, 1]}],
@@ -167,7 +148,6 @@ class TestExtractXRangeFromSelection:
         assert out == (10.0, 25.0)
 
     def test_zero_width_box_returns_none(self):
-        """A box with x[0] == x[1] is degenerate; treat as no selection."""
         event = {
             "selection": {
                 "box": [{"x": [15.0, 15.0], "y": [0, 1]}],
@@ -186,143 +166,3 @@ class TestExtractXRangeFromSelection:
             }
         }
         assert extract_x_range_from_selection(event) is None
-
-
-# ---------------------------------------------------------------------------
-# Tests: compute_hint_window_seconds
-# ---------------------------------------------------------------------------
-
-
-class TestComputeHintWindowSeconds:
-    """The detail plot draws the hint band at
-    ``[end_time - hint*(1+tol), end_time - hint*(1-tol)]`` so the
-    operator can see "where the bake would END if it took the hinted
-    duration".  The helper centralises this calculation so the plot
-    and the detector agree.
-    """
-
-    def test_returns_none_when_hint_missing(self):
-        assert compute_hint_window_seconds(
-            end_time_s=1000.0, hint_seconds=None, tolerance_frac=0.15
-        ) is None
-
-    def test_returns_centered_band_around_end_minus_hint(self):
-        """Hint = 600 s, end_time = 1000 s → expected start ≈ 400 s.
-        ±15 % of hint = 90 s → window [310, 490]."""
-        out = compute_hint_window_seconds(
-            end_time_s=1000.0, hint_seconds=600.0, tolerance_frac=0.15
-        )
-        assert out is not None
-        lo, hi = out
-        assert lo == pytest.approx(310.0)
-        assert hi == pytest.approx(490.0)
-
-    def test_min_tolerance_seconds_floor_applies(self):
-        """Tiny hint → tolerance band would be < 60 s; floor lifts it."""
-        out = compute_hint_window_seconds(
-            end_time_s=200.0,
-            hint_seconds=120.0,
-            tolerance_frac=0.15,
-            min_tolerance_seconds=60.0,
-        )
-        lo, hi = out
-        # band centre = 200 - 120 = 80 s; ±60 floor → [20, 140]
-        assert lo == pytest.approx(20.0)
-        assert hi == pytest.approx(140.0)
-
-    def test_negative_hint_treated_as_no_hint(self):
-        """Defensive: an upstream bug that produces a negative hint
-        must not crash."""
-        assert (
-            compute_hint_window_seconds(
-                end_time_s=1000.0, hint_seconds=-1.0, tolerance_frac=0.15
-            )
-            is None
-        )
-
-    def test_zero_hint_treated_as_no_hint(self):
-        """0.0 minutes is the empty-input sentinel from M6 widgets."""
-        assert (
-            compute_hint_window_seconds(
-                end_time_s=1000.0, hint_seconds=0.0, tolerance_frac=0.15
-            )
-            is None
-        )
-
-
-# ---------------------------------------------------------------------------
-# Tests: boundary_state_label
-# ---------------------------------------------------------------------------
-
-
-class TestBoundaryStateLabel:
-    """Maps a curve dict to a one-word state label shown in the UI:
-    'override' / 'hint' / 'auto'.  Drives the badge colour next to the
-    curve number in the detail panel.
-    """
-
-    def _curve(self, kind: str | None) -> dict:
-        return {"exit_candidate_kind": kind, "curve_number": 1}
-
-    def test_manual_override_kind_returns_override(self):
-        assert boundary_state_label(self._curve("manual_override")) == "override"
-
-    def test_other_kinds_with_hint_returns_hint(self):
-        assert (
-            boundary_state_label(
-                self._curve("probe_pull_cliff"), hint_active=True
-            )
-            == "hint"
-        )
-
-    def test_other_kinds_without_hint_returns_auto(self):
-        assert (
-            boundary_state_label(
-                self._curve("probe_pull_cliff"), hint_active=False
-            )
-            == "auto"
-        )
-
-    def test_unknown_kind_falls_back_to_auto(self):
-        assert boundary_state_label(self._curve(None), hint_active=False) == "auto"
-
-
-# ---------------------------------------------------------------------------
-# Tests: time_minutes_to_idx (M6 HMS Refit)
-# ---------------------------------------------------------------------------
-
-
-class TestTimeMinutesToIdx:
-    """Operator-entered manual override times (in minutes) must convert
-    cleanly to the raw_data sample index space the loader API expects.
-    """
-
-    def _ts_5s(self, n: int):
-        # Synthetic 5 s/sample timestamps starting at t=0.
-        return [i * 5.0 for i in range(n)]
-
-    def test_zero_minutes_maps_to_zero_index(self):
-        ts = self._ts_5s(100)
-        assert time_minutes_to_idx(ts, 0.0) == 0
-
-    def test_exact_minute_maps_to_corresponding_idx(self):
-        ts = self._ts_5s(100)
-        # 1.0 min = 60 s = idx 12 at 5 s/sample
-        assert time_minutes_to_idx(ts, 1.0) == 12
-
-    def test_between_samples_picks_nearest(self):
-        """Time falling halfway between samples picks the closer one."""
-        ts = self._ts_5s(100)
-        # 0.05 min = 3 s; closer to idx 1 (5 s) than idx 0 (0 s) — wait,
-        # |3-0|=3, |3-5|=2 → idx 1 is nearer.
-        assert time_minutes_to_idx(ts, 0.05) == 1
-        # 0.03 min = 1.8 s; closer to idx 0 (0 s) than idx 1 (5 s).
-        assert time_minutes_to_idx(ts, 0.03) == 0
-
-    def test_beyond_last_sample_clamps(self):
-        ts = self._ts_5s(100)
-        # Very large time falls past the last sample → clamps to last idx.
-        assert time_minutes_to_idx(ts, 9999.0) == 99
-
-    def test_empty_array_returns_zero_safely(self):
-        assert time_minutes_to_idx([], 5.0) == 0

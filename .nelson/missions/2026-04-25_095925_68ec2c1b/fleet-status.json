@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Strip the input widgets in the Boundary Review detail panel right column now that drag-to-box-select is the primary mechanism. Remove hint number_input, manual range slider, Apply button. Keep readout text + Auto-optimisation outcome + Reset to auto button.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-25T09:59:25Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 0,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 0
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [],
+  "blockers": [],
+  "recent_events": [
+    "Mission initialized"
+  ],
+  "last_updated": "2026-04-25T10:02:26Z"
+}

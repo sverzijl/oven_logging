@@ -1,17 +1,25 @@
-"""Curve Boundary Review tab (M3 HMS Indomitable).
+"""Curve Boundary Review tab.
 
 Operator workflow:
 
 1. View the full raw CSV log with auto-detected bake windows overlaid.
 2. Pick a curve to review via radio selector.
-3. Edit its expected bake time → triggers M3/M4 hint refinement
-   (no new logic — see ``loader.set_expected_durations``).
-4. Or pin a manual start/end override → bypasses the detector
-   entirely for that curve (see ``loader.set_curve_boundaries``).
-5. Reset to auto → clears both override and hint for the curve.
+3. **Drag a horizontal box on the detail plot** to set start/end —
+   the box's x-range pins the boundary directly (M9 HMS Lookout).
+4. Reset to auto → clears the manual override for the selected curve.
 
-Widget keys are scoped by ``(filename, curve_number)`` so swapping the
-currently-viewed curve does not bleed widget state across curves.
+Widget keys are scoped by ``(filename, curve_number)`` so swapping
+the currently-viewed curve does not bleed widget state across curves.
+
+History:
+  M3 HMS Indomitable — initial tab (raw log + per-curve detail panel).
+  M6 HMS Refit — minutes-based axis + live preview.
+  M7 HMS Inspector — baseline snapshot + diff readout.
+  M8 HMS Mercury — single range slider for manual override.
+  M9 HMS Lookout — drag-to-box-select on the detail plot.
+  M10 HMS Vanguard — strip the redundant entry widgets (hint
+    number_input, manual slider, Apply button) since box-select is
+    now the sole input mechanism.  Loader hint API is untouched.
 """
 
 from __future__ import annotations
@@ -21,12 +29,6 @@ from typing import Any
 import numpy as np
 import streamlit as st
 
-from config.constants import CURVE_DETECTION_CONFIG
-from src.ui.expected_duration_widgets import (
-    build_hint_list_from_session,
-    seconds_to_minutes,
-    session_key_for_curve,
-)
 from src.visualization.boundary_review_plots import (
     plot_curve_detail,
     plot_raw_log_with_curves,
@@ -38,58 +40,14 @@ from src.visualization.boundary_review_plots import (
 # ---------------------------------------------------------------------------
 
 
-def manual_start_key(filename: str, curve_number: int) -> str:
-    """[DEPRECATED — M8 HMS Mercury collapsed start/end into a single
-    range slider key.]  Retained for backwards-compat with any
-    external callers; not used internally."""
-    return f"manual_start_idx__{filename}__c{int(curve_number)}"
+def boundary_state_label(curve: dict[str, Any]) -> str:
+    """One-word UI badge for a curve: ``override`` or ``auto``.
 
-
-def manual_end_key(filename: str, curve_number: int) -> str:
-    """[DEPRECATED — see :func:`manual_start_key`.]"""
-    return f"manual_end_idx__{filename}__c{int(curve_number)}"
-
-
-def manual_range_key(filename: str, curve_number: int) -> str:
-    """Streamlit widget key for the manual-override range slider.
-
-    Introduced by M8 HMS Mercury — a single ``st.slider(value=(lo, hi))``
-    range widget replaced the two number_inputs because keystroke-by-
-    keystroke editing of two paired numbers was slow.  The slider's
-    handles let the operator drag start and end simultaneously.
+    M10 HMS Vanguard simplified this — the hint widget is gone, so
+    ``hint`` is no longer a reachable state from this tab.
     """
-    return f"manual_range__{filename}__c{int(curve_number)}"
-
-
-def compute_hint_window_seconds(
-    *,
-    end_time_s: float,
-    hint_seconds: float | None,
-    tolerance_frac: float,
-    min_tolerance_seconds: float = 60.0,
-) -> tuple[float, float] | None:
-    """Return ``(lo, hi)`` for the hint-window vrect, or ``None`` when
-    no hint is in effect.
-
-    Mirrors the detector's tolerance-band calculation in M3 so the plot
-    band matches the actual auto-optimisation window.
-    """
-    if hint_seconds is None or hint_seconds <= 0.0:
-        return None
-    band = max(hint_seconds * tolerance_frac, min_tolerance_seconds)
-    centre = float(end_time_s) - float(hint_seconds)
-    return (centre - band, centre + band)
-
-
-def boundary_state_label(
-    curve: dict[str, Any], hint_active: bool = False
-) -> str:
-    """One-word UI badge for a curve: ``override`` / ``hint`` / ``auto``."""
-    kind = curve.get("exit_candidate_kind")
-    if kind == "manual_override":
+    if curve.get("exit_candidate_kind") == "manual_override":
         return "override"
-    if hint_active:
-        return "hint"
     return "auto"
 
 
@@ -100,13 +58,9 @@ def extract_x_range_from_selection(
     return value into ``(lo, hi)`` in MINUTES (since the detail plot's
     x-axis is in minutes) — or ``None`` when no box selection is
     present.  Defensive against missing fields and reverse-drag boxes.
-
-    Introduced by M9 HMS Lookout.
     """
     if selection_event is None:
         return None
-    # Streamlit's plotly state object behaves dict-like.  Support both
-    # subscript access and attribute access for forward-compat.
     selection = None
     if isinstance(selection_event, dict):
         selection = selection_event.get("selection")
@@ -139,9 +93,7 @@ def extract_x_range_from_selection(
 
 def time_minutes_to_idx(timestamps_s, target_minutes: float) -> int:
     """Find the raw_data row index whose Timestamp is closest to
-    ``target_minutes``.  Used to convert operator-entered manual
-    override times (in minutes) back to sample indices for the
-    loader's ``set_curve_boundaries`` API.
+    ``target_minutes``.
 
     ``timestamps_s`` is the raw_data Timestamp column (seconds).
     Returns an int in ``[0, len(timestamps_s) - 1]``.
@@ -152,8 +104,6 @@ def time_minutes_to_idx(timestamps_s, target_minutes: float) -> int:
         return 0
     pos = int(np.searchsorted(arr, target_s, side="left"))
     pos = max(0, min(pos, len(arr) - 1))
-    # searchsorted gives the LEFT insertion point; check whether the
-    # neighbour to the left is actually closer.
     if pos > 0 and abs(arr[pos - 1] - target_s) < abs(arr[pos] - target_s):
         pos -= 1
     return pos
@@ -168,10 +118,9 @@ def render() -> None:
     """Render the Curve Boundary Review tab."""
     st.subheader("🔬 Curve Boundary Review")
     st.caption(
-        "See the raw CSV with auto-detected bake windows. Adjust a "
-        "bake's expected duration to refine the boundary, or pin a "
-        "manual start/end if the auto-optimisation can't reach the "
-        "boundary you want."
+        "Inspect the raw CSV with auto-detected bake windows. Drag a "
+        "horizontal box on the detail plot to pin a manual start/end "
+        "for any bake."
     )
 
     loader = st.session_state.get("loader")
@@ -185,9 +134,7 @@ def render() -> None:
         st.warning("No curves detected in this CSV.")
         return
 
-    # ------------------------------------------------------------------
-    # Top: full-log plot with detected windows overlaid
-    # ------------------------------------------------------------------
+    # Top: full-log plot with detected windows overlaid.
     st.markdown("#### Raw CSV log")
     raw_fig = plot_raw_log_with_curves(loader.raw_data, curves)
     st.plotly_chart(
@@ -196,9 +143,7 @@ def render() -> None:
         key=f"raw_log_{current_file}",
     )
 
-    # ------------------------------------------------------------------
-    # Curve selector
-    # ------------------------------------------------------------------
+    # Curve selector.
     curve_labels = [
         f"Bake {c.get('curve_number', i + 1)}"
         for i, c in enumerate(curves)
@@ -223,18 +168,8 @@ def _render_detail_panel(
     curve_index: int,
     curve_number: int,
 ) -> None:
-    hint_key = session_key_for_curve(current_file, curve_number)
-    hint_minutes_raw = st.session_state.get(hint_key)
-    hint_minutes = float(hint_minutes_raw) if hint_minutes_raw else 0.0
-    hint_seconds = hint_minutes * 60.0 if hint_minutes > 0.0 else None
-    hint_active = hint_seconds is not None
-
-    state_label = boundary_state_label(curve, hint_active=hint_active)
-    badge_colour = {
-        "auto": "🟦",
-        "hint": "🟩",
-        "override": "🟧",
-    }.get(state_label, "⬜")
+    state_label = boundary_state_label(curve)
+    badge_colour = "🟧" if state_label == "override" else "🟦"
 
     st.markdown(
         f"#### Bake {curve_number} detail &nbsp; {badge_colour} `{state_label}`"
@@ -243,14 +178,12 @@ def _render_detail_panel(
     detected_start = int(curve["start_idx"])
     detected_end = int(curve["end_idx"])
     raw_timestamps = loader.raw_data["Timestamp"].to_numpy(dtype=float)
-    n_raw = len(raw_timestamps)
-    log_max_minutes = float(raw_timestamps[-1]) / 60.0 if n_raw > 0 else 0.0
+    detected_start_min = float(raw_timestamps[detected_start]) / 60.0
+    detected_end_min = float(raw_timestamps[detected_end]) / 60.0
 
     # Baseline (no-hint, no-override) decision snapshot from M7
     # HMS Inspector — used to show the operator what auto-optimisation
-    # moved.  If hint/override has shifted the boundary, we surface
-    # the diff in the readout AND overlay faint baseline vlines on
-    # the detail plot.
+    # OR a manual override moved.
     baseline_curves = getattr(loader, "baseline_curves", []) or []
     baseline_curve = (
         baseline_curves[curve_index]
@@ -270,79 +203,24 @@ def _render_detail_panel(
         baseline_start != detected_start or baseline_end != detected_end
     )
 
-    # Manual override values from session — single range-slider key
-    # carrying ``(start_min, end_min)`` tuple (M8 HMS Mercury — the
-    # earlier two-number_input layout was sluggish on multi-bake CSVs
-    # because each keystroke triggered a full Streamlit rerun).
-    range_key = manual_range_key(current_file, curve_number)
-    detected_start_min = float(raw_timestamps[detected_start]) / 60.0
-    detected_end_min = float(raw_timestamps[detected_end]) / 60.0
-    stored_range = st.session_state.get(range_key)
-    if (
-        isinstance(stored_range, (list, tuple))
-        and len(stored_range) == 2
-    ):
-        manual_start_min = float(stored_range[0])
-        manual_end_min = float(stored_range[1])
-    else:
-        manual_start_min = detected_start_min
-        manual_end_min = detected_end_min
-
-    # Convert MINUTES → IDX for the live-preview vlines and the eventual
-    # loader call.
-    preview_start_idx = time_minutes_to_idx(raw_timestamps, manual_start_min)
-    preview_end_idx = time_minutes_to_idx(raw_timestamps, manual_end_min)
-
-    # Live preview: show override vlines whenever the operator's typed
-    # values differ from the detector's decision, even before they hit
-    # Apply.  Once applied, ``state_label == "override"`` keeps them
-    # visible (now reflecting the pinned curve dict).
-    show_override_overlay = (
-        state_label == "override"
-        or preview_start_idx != detected_start
-        or preview_end_idx != detected_end
-    )
-
-    # ------------------------------------------------------------------
-    # Two-column layout: plot left, controls right
-    # ------------------------------------------------------------------
+    # Two-column layout: plot left, readout right.
     plot_col, ctrl_col = st.columns([3, 2], gap="medium")
 
     with plot_col:
-        hint_window = compute_hint_window_seconds(
-            end_time_s=float(raw_timestamps[detected_end]),
-            hint_seconds=hint_seconds,
-            tolerance_frac=float(
-                CURVE_DETECTION_CONFIG.get("EXPECTED_DURATION_TOLERANCE_FRAC", 0.15)
-            ),
-            min_tolerance_seconds=float(
-                CURVE_DETECTION_CONFIG.get(
-                    "EXPECTED_DURATION_MIN_TOLERANCE_SECONDS", 60.0
-                )
-            ),
-        )
-        override_indices = (
-            (preview_start_idx, preview_end_idx)
-            if show_override_overlay
-            else None
-        )
         detail_fig = plot_curve_detail(
             loader.raw_data,
             curve,
-            hint_window_s=hint_window,
-            override_indices=override_indices,
+            override_indices=(detected_start, detected_end)
+            if state_label == "override"
+            else None,
             baseline_indices=(baseline_start, baseline_end)
             if boundary_shifted
             else None,
         )
         st.caption(
-            "💡 Drag a horizontal box on the plot to set start/end "
-            "directly. Use the toolbar's Zoom tool for navigation, "
-            "or scroll-wheel zoom."
+            "💡 **Drag a horizontal box on the plot** to pin start/end "
+            "directly. Use the modebar (top-right) for zoom/pan."
         )
-        # M9 HMS Lookout: drag-to-select. The plot's dragmode is
-        # "select" with selectdirection="h", and on_select="rerun"
-        # propagates the box-select event back to Python.
         select_event = st.plotly_chart(
             detail_fig,
             use_container_width=True,
@@ -350,10 +228,9 @@ def _render_detail_panel(
             on_select="rerun",
             selection_mode="box",
         )
-        # If a NEW box selection has occurred since the last frame,
-        # convert its x-range (minutes) to raw_data idx and pin the
-        # boundary.  Track via a "consumed" key so the same selection
-        # isn't re-applied across unrelated reruns.
+        # Convert a NEW box selection into a pinned boundary.  The
+        # consumed-signature gate prevents re-applying the same box
+        # across reruns triggered by other widgets.
         sel_range = extract_x_range_from_selection(select_event)
         if sel_range is not None:
             consumed_key = (
@@ -372,10 +249,6 @@ def _render_detail_panel(
                         curve_index, box_start_idx, box_end_idx
                     )
                     st.session_state[consumed_key] = sig
-                    # Clear the slider so it picks up the new pinned
-                    # values from the curve dict on next render.
-                    if range_key in st.session_state:
-                        del st.session_state[range_key]
                     st.rerun()
 
     with ctrl_col:
@@ -388,17 +261,16 @@ def _render_detail_panel(
             f"Kind: {curve.get('exit_candidate_kind') or '—'}"
         )
 
-        # Auto-optimisation outcome (M7 HMS Inspector).  Three cases:
-        #   1. No hint / override active → nothing extra to show.
-        #   2. Hint/override active AND boundary moved → show Δ.
-        #   3. Hint active AND boundary unchanged → reassure: "no
-        #      change needed; detector's decision matches the hint".
+        # Outcome readout — three states surfaced for operator clarity:
+        #   - boundary shifted → show Δ vs the no-hint, no-override baseline
+        #   - state = override → reassure the detector input is ignored
+        #   - else → nothing extra (auto detection unchanged)
         if boundary_shifted:
             delta_start = detected_start - baseline_start
             delta_end = detected_end - baseline_end
             baseline_start_min = float(raw_timestamps[baseline_start]) / 60.0
             baseline_end_min = float(raw_timestamps[baseline_end]) / 60.0
-            st.markdown("**Auto-optimisation shift**")
+            st.markdown("**Boundary shift**")
             st.text(
                 f"Baseline: {baseline_start_min:.2f}→{baseline_end_min:.2f} min "
                 f"(idx {baseline_start}→{baseline_end}, {baseline_kind or '—'})\n"
@@ -407,108 +279,23 @@ def _render_detail_panel(
                 f"{curve.get('exit_candidate_kind') or '—'})\n"
                 f"Δstart: {delta_start:+d}  Δend: {delta_end:+d} samples"
             )
-        elif hint_active or state_label == "override":
-            reason = (
+        elif state_label == "override":
+            st.info(
                 "Manual override pinned the boundary; detector input ignored."
-                if state_label == "override"
-                else "Hint accepted; detector's decision is already inside "
-                "the hint's tolerance band — no boundary change needed."
             )
-            st.info(reason)
 
-        st.markdown("**Hint**")
-        st.number_input(
-            "Expected bake time (min)",
-            key=hint_key,
-            min_value=0.0,
-            max_value=240.0,
-            step=0.5,
-            value=hint_minutes,
-            help=(
-                "Optional. When set, the detector arbitrates end candidates "
-                "within ±15 % of the hinted duration. Set to 0 to disable."
-            ),
+        # Reset to auto — single recovery button that clears the manual
+        # override for this curve.  Box-select is the only way to re-pin.
+        reset_clicked = st.button(
+            "Reset to auto",
+            key=f"reset_override__{current_file}__c{curve_number}",
+            use_container_width=True,
         )
-
-        st.markdown("**Manual override**")
-        st.caption(
-            f"Drag the slider handles to set start/end. Live preview "
-            f"vlines update instantly. Click Apply to pin. "
-            f"Preview: idx {preview_start_idx} → {preview_end_idx} "
-            f"({preview_end_idx - preview_start_idx} samples)."
-        )
-        new_manual_range = st.slider(
-            "Manual override range (min)",
-            key=range_key,
-            min_value=0.0,
-            max_value=float(log_max_minutes) or 1.0,
-            value=(manual_start_min, manual_end_min),
-            step=0.1,
-            help=(
-                "Drag the left/right handles. Times snap to the nearest "
-                "sample on Apply."
-            ),
-        )
-        new_manual_start_min = float(new_manual_range[0])
-        new_manual_end_min = float(new_manual_range[1])
-
-        apply_col, reset_col = st.columns(2)
-        with apply_col:
-            apply_clicked = st.button(
-                "Apply override",
-                key=f"apply_override__{current_file}__c{curve_number}",
-                type="primary",
-                use_container_width=True,
-            )
-        with reset_col:
-            reset_clicked = st.button(
-                "Reset to auto",
-                key=f"reset_override__{current_file}__c{curve_number}",
-                use_container_width=True,
-            )
-
-        if apply_clicked:
-            apply_start_idx = time_minutes_to_idx(
-                raw_timestamps, new_manual_start_min
-            )
-            apply_end_idx = time_minutes_to_idx(
-                raw_timestamps, new_manual_end_min
-            )
-            if apply_start_idx >= apply_end_idx:
-                st.error("Start time must be before end time.")
-            else:
-                loader.set_curve_boundaries(
-                    curve_index, apply_start_idx, apply_end_idx
-                )
-                st.rerun()
-
         if reset_clicked:
             loader.clear_curve_boundaries(curve_index)
-            # Clear hint widget too — Reset to auto means BOTH off.
-            if hint_key in st.session_state:
-                del st.session_state[hint_key]
-            # Clear manual range widget so the slider snaps back to
-            # detector defaults on rerun.
-            if range_key in st.session_state:
-                del st.session_state[range_key]
-            # Also drop the hint from the loader if no other curve carries one.
-            other_hints = build_hint_list_from_session(
-                filename=current_file,
-                n_curves=len(loader.all_curves),
-                session_store=st.session_state,
+            consumed_key = (
+                f"detail_box_consumed__{current_file}__c{curve_number}"
             )
-            if loader.expected_durations_s != other_hints:
-                loader.set_expected_durations(other_hints)
+            if consumed_key in st.session_state:
+                del st.session_state[consumed_key]
             st.rerun()
-
-    # ------------------------------------------------------------------
-    # Hint plumbing — runs every render so widget edits flow to the loader
-    # ------------------------------------------------------------------
-    hint_list = build_hint_list_from_session(
-        filename=current_file,
-        n_curves=len(loader.all_curves),
-        session_store=st.session_state,
-    )
-    if loader.expected_durations_s != hint_list:
-        loader.set_expected_durations(hint_list)
-        st.rerun()
