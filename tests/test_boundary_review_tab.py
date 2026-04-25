@@ -99,6 +99,96 @@ class TestManualRangeKey:
 
 
 # ---------------------------------------------------------------------------
+# Tests: extract_x_range_from_selection (M9 HMS Lookout)
+# ---------------------------------------------------------------------------
+
+
+from tabs.boundary_review import extract_x_range_from_selection  # noqa: E402
+
+
+class TestExtractXRangeFromSelection:
+    """Streamlit's ``st.plotly_chart(on_select="rerun", selection_mode="box")``
+    returns a dict-like event with shape::
+
+        {"selection": {"box": [{"x": [x0, x1], "y": [...], ...}], ...}, ...}
+
+    The helper parses this into a ``(lo, hi)`` tuple in minutes (since
+    the detail plot's x-axis is in minutes), or ``None`` when no box
+    is present.  Robust against the various shapes Streamlit/Plotly
+    may emit across versions.
+    """
+
+    def test_none_event_returns_none(self):
+        assert extract_x_range_from_selection(None) is None
+
+    def test_empty_dict_returns_none(self):
+        assert extract_x_range_from_selection({}) is None
+
+    def test_no_selection_field_returns_none(self):
+        assert extract_x_range_from_selection({"points": []}) is None
+
+    def test_empty_box_list_returns_none(self):
+        assert (
+            extract_x_range_from_selection(
+                {"selection": {"box": [], "lasso": [], "points": []}}
+            )
+            is None
+        )
+
+    def test_well_formed_box_returns_lo_hi(self):
+        event = {
+            "selection": {
+                "box": [
+                    {
+                        "xref": "x",
+                        "yref": "y",
+                        "x": [12.5, 18.2],
+                        "y": [20.0, 100.0],
+                    }
+                ],
+                "lasso": [],
+                "points": [],
+            }
+        }
+        out = extract_x_range_from_selection(event)
+        assert out == (12.5, 18.2)
+
+    def test_reverse_order_x_normalised(self):
+        """If the user drags right-to-left, x[0] > x[1].  Helper must
+        return (lo, hi) regardless of drag direction."""
+        event = {
+            "selection": {
+                "box": [{"x": [25.0, 10.0], "y": [0, 1]}],
+                "lasso": [],
+                "points": [],
+            }
+        }
+        out = extract_x_range_from_selection(event)
+        assert out == (10.0, 25.0)
+
+    def test_zero_width_box_returns_none(self):
+        """A box with x[0] == x[1] is degenerate; treat as no selection."""
+        event = {
+            "selection": {
+                "box": [{"x": [15.0, 15.0], "y": [0, 1]}],
+                "lasso": [],
+                "points": [],
+            }
+        }
+        assert extract_x_range_from_selection(event) is None
+
+    def test_missing_x_in_box_returns_none(self):
+        event = {
+            "selection": {
+                "box": [{"y": [0, 1]}],
+                "lasso": [],
+                "points": [],
+            }
+        }
+        assert extract_x_range_from_selection(event) is None
+
+
+# ---------------------------------------------------------------------------
 # Tests: compute_hint_window_seconds
 # ---------------------------------------------------------------------------
 

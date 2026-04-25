@@ -93,6 +93,50 @@ def boundary_state_label(
     return "auto"
 
 
+def extract_x_range_from_selection(
+    selection_event: Any,
+) -> tuple[float, float] | None:
+    """Parse Streamlit's ``st.plotly_chart(on_select=..., selection_mode="box")``
+    return value into ``(lo, hi)`` in MINUTES (since the detail plot's
+    x-axis is in minutes) — or ``None`` when no box selection is
+    present.  Defensive against missing fields and reverse-drag boxes.
+
+    Introduced by M9 HMS Lookout.
+    """
+    if selection_event is None:
+        return None
+    # Streamlit's plotly state object behaves dict-like.  Support both
+    # subscript access and attribute access for forward-compat.
+    selection = None
+    if isinstance(selection_event, dict):
+        selection = selection_event.get("selection")
+    else:
+        selection = getattr(selection_event, "selection", None)
+        if selection is None and hasattr(selection_event, "get"):
+            try:
+                selection = selection_event.get("selection")
+            except Exception:
+                selection = None
+    if not selection:
+        return None
+    boxes = None
+    if isinstance(selection, dict):
+        boxes = selection.get("box")
+    else:
+        boxes = getattr(selection, "box", None)
+    if not boxes:
+        return None
+    box = boxes[0]
+    xs = box.get("x") if isinstance(box, dict) else getattr(box, "x", None)
+    if xs is None or len(xs) < 2:
+        return None
+    lo = float(min(xs))
+    hi = float(max(xs))
+    if hi <= lo:
+        return None
+    return (lo, hi)
+
+
 def time_minutes_to_idx(timestamps_s, target_minutes: float) -> int:
     """Find the raw_data row index whose Timestamp is closest to
     ``target_minutes``.  Used to convert operator-entered manual
@@ -291,11 +335,48 @@ def _render_detail_panel(
             if boundary_shifted
             else None,
         )
-        st.plotly_chart(
+        st.caption(
+            "💡 Drag a horizontal box on the plot to set start/end "
+            "directly. Use the toolbar's Zoom tool for navigation, "
+            "or scroll-wheel zoom."
+        )
+        # M9 HMS Lookout: drag-to-select. The plot's dragmode is
+        # "select" with selectdirection="h", and on_select="rerun"
+        # propagates the box-select event back to Python.
+        select_event = st.plotly_chart(
             detail_fig,
             use_container_width=True,
             key=f"curve_detail_{current_file}_c{curve_number}",
+            on_select="rerun",
+            selection_mode="box",
         )
+        # If a NEW box selection has occurred since the last frame,
+        # convert its x-range (minutes) to raw_data idx and pin the
+        # boundary.  Track via a "consumed" key so the same selection
+        # isn't re-applied across unrelated reruns.
+        sel_range = extract_x_range_from_selection(select_event)
+        if sel_range is not None:
+            consumed_key = (
+                f"detail_box_consumed__{current_file}__c{curve_number}"
+            )
+            sig = (round(sel_range[0], 4), round(sel_range[1], 4))
+            if st.session_state.get(consumed_key) != sig:
+                box_start_idx = time_minutes_to_idx(
+                    raw_timestamps, sel_range[0]
+                )
+                box_end_idx = time_minutes_to_idx(
+                    raw_timestamps, sel_range[1]
+                )
+                if box_start_idx < box_end_idx:
+                    loader.set_curve_boundaries(
+                        curve_index, box_start_idx, box_end_idx
+                    )
+                    st.session_state[consumed_key] = sig
+                    # Clear the slider so it picks up the new pinned
+                    # values from the curve dict on next render.
+                    if range_key in st.session_state:
+                        del st.session_state[range_key]
+                    st.rerun()
 
     with ctrl_col:
         st.markdown("**Detected**")

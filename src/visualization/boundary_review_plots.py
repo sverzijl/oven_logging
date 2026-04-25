@@ -365,6 +365,12 @@ def plot_curve_detail(
         xaxis=dict(range=[lo_t / 60.0, hi_t / 60.0], title="Time (min)"),
         yaxis_title="Core temperature (°C)",
         hovermode="x unified",
+        # M9 HMS Lookout: drag-to-box-select sets the boundary
+        # directly on the plot.  selectdirection="h" constrains the
+        # box to horizontal only — y-extent is irrelevant for time-
+        # bounded boundaries.
+        dragmode="select",
+        selectdirection="h",
     )
     return fig
 
