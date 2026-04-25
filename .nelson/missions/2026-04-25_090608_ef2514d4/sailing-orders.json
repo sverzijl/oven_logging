@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Address user UX feedback: (1) move Curve Boundaries to first tab position, (2) plot x-axis in minutes (not seconds \u2014 log lengths >10,000 s are unreadable), (3) manual override widgets accept time in minutes (converted to idx via searchsorted), (4) live-preview vlines on detail plot as user edits before Apply.",
+  "success_metric": "Existing tests updated to reflect minutes axis + minutes inputs; new tests for searchsorted conversion + live preview; full test suite green; manual smoke shows readable axes and time-based pinning.",
+  "deadline": "This session (follow-up to flotilla refactor/curve-boundary-review).",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-25T09:06:08Z"
+}

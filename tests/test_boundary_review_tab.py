@@ -24,6 +24,7 @@ from tabs.boundary_review import (
     compute_hint_window_seconds,
     manual_end_key,
     manual_start_key,
+    time_minutes_to_idx,
 )
 
 
@@ -160,3 +161,44 @@ class TestBoundaryStateLabel:
 
     def test_unknown_kind_falls_back_to_auto(self):
         assert boundary_state_label(self._curve(None), hint_active=False) == "auto"
+
+
+# ---------------------------------------------------------------------------
+# Tests: time_minutes_to_idx (M6 HMS Refit)
+# ---------------------------------------------------------------------------
+
+
+class TestTimeMinutesToIdx:
+    """Operator-entered manual override times (in minutes) must convert
+    cleanly to the raw_data sample index space the loader API expects.
+    """
+
+    def _ts_5s(self, n: int):
+        # Synthetic 5 s/sample timestamps starting at t=0.
+        return [i * 5.0 for i in range(n)]
+
+    def test_zero_minutes_maps_to_zero_index(self):
+        ts = self._ts_5s(100)
+        assert time_minutes_to_idx(ts, 0.0) == 0
+
+    def test_exact_minute_maps_to_corresponding_idx(self):
+        ts = self._ts_5s(100)
+        # 1.0 min = 60 s = idx 12 at 5 s/sample
+        assert time_minutes_to_idx(ts, 1.0) == 12
+
+    def test_between_samples_picks_nearest(self):
+        """Time falling halfway between samples picks the closer one."""
+        ts = self._ts_5s(100)
+        # 0.05 min = 3 s; closer to idx 1 (5 s) than idx 0 (0 s) — wait,
+        # |3-0|=3, |3-5|=2 → idx 1 is nearer.
+        assert time_minutes_to_idx(ts, 0.05) == 1
+        # 0.03 min = 1.8 s; closer to idx 0 (0 s) than idx 1 (5 s).
+        assert time_minutes_to_idx(ts, 0.03) == 0
+
+    def test_beyond_last_sample_clamps(self):
+        ts = self._ts_5s(100)
+        # Very large time falls past the last sample → clamps to last idx.
+        assert time_minutes_to_idx(ts, 9999.0) == 99
+
+    def test_empty_array_returns_zero_safely(self):
+        assert time_minutes_to_idx([], 5.0) == 0

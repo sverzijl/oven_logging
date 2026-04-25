@@ -120,8 +120,11 @@ def plot_raw_log_with_curves(
     """Plot the full raw CSV log with each detected curve drawn as a
     translucent vrect band coloured by ``exit_candidate_kind``.
 
-    Adds start and end scatter markers per curve so the operator can
-    see exactly which samples the detector picked.
+    The x-axis is in MINUTES so multi-hour logs (e.g. BA3C_1759 at
+    ~520 min) remain readable; the public contract still passes
+    seconds-based timestamps internally.  Hover tooltips show both
+    minutes and the underlying sample index so operators can read off
+    idx values for manual-override entry.
     """
     fig = go.Figure()
     if raw_df is None or len(raw_df) == 0:
@@ -133,18 +136,24 @@ def plot_raw_log_with_curves(
 
     plot_df = downsample_for_plot(raw_df, max_points=downsample_to)
     core_col = _resolve_core_column(plot_df)
-    timestamps = plot_df["Timestamp"].to_numpy(dtype=float)
+    timestamps_min = plot_df["Timestamp"].to_numpy(dtype=float) / 60.0
+    plot_idx = plot_df.index.to_numpy()
 
     # Main raw-log trace.
     if core_col is not None:
         fig.add_trace(
             go.Scatter(
-                x=timestamps,
+                x=timestamps_min,
                 y=plot_df[core_col].to_numpy(dtype=float),
+                customdata=plot_idx,
                 mode="lines",
                 name="Core temperature (raw)",
                 line=dict(color=_RAW_TRACE_COLOR, width=1.5),
-                hovertemplate="t=%{x:.0f}s<br>T=%{y:.2f}°C<extra></extra>",
+                hovertemplate=(
+                    "t=%{x:.2f} min<br>"
+                    "idx=%{customdata}<br>"
+                    "T=%{y:.2f}°C<extra></extra>"
+                ),
             )
         )
 
@@ -164,8 +173,8 @@ def plot_raw_log_with_curves(
         e = int(curve["end_idx"])
         kind = curve.get("exit_candidate_kind")
         fig.add_vrect(
-            x0=float(full_ts[s]),
-            x1=float(full_ts[e]),
+            x0=float(full_ts[s]) / 60.0,
+            x1=float(full_ts[e]) / 60.0,
             fillcolor=_kind_color(kind),
             line_width=0,
             layer="below",
@@ -178,8 +187,9 @@ def plot_raw_log_with_curves(
         if full_core is not None:
             fig.add_trace(
                 go.Scatter(
-                    x=[float(full_ts[s]), float(full_ts[e])],
+                    x=[float(full_ts[s]) / 60.0, float(full_ts[e]) / 60.0],
                     y=[float(full_core[s]), float(full_core[e])],
+                    customdata=[s, e],
                     mode="markers",
                     name=f"Bake {curve.get('curve_number', '?')} bounds",
                     marker=dict(
@@ -189,14 +199,18 @@ def plot_raw_log_with_curves(
                         line=dict(width=2, color="white"),
                     ),
                     showlegend=False,
-                    hovertemplate="t=%{x:.0f}s<br>T=%{y:.2f}°C<extra></extra>",
+                    hovertemplate=(
+                        "t=%{x:.2f} min<br>"
+                        "idx=%{customdata}<br>"
+                        "T=%{y:.2f}°C<extra></extra>"
+                    ),
                 )
             )
 
     fig.update_layout(
         **VisualizationConfig.DEFAULT_LAYOUT,
         title="Raw CSV log with detected bake windows",
-        xaxis_title="Time (s)",
+        xaxis_title="Time (min)",
         yaxis_title="Core temperature (°C)",
         hovermode="x unified",
     )
@@ -217,11 +231,17 @@ def plot_curve_detail(
 ) -> go.Figure:
     """Zoomed plot of one curve's neighbourhood with overlays.
 
+    The x-axis is in MINUTES.  Public parameters remain in seconds
+    (``hint_window_s``) and idx (``override_indices``) so the caller
+    contract is unchanged; conversion happens at draw time.
+
     * Detected start/end are drawn as solid blue vlines.
     * ``hint_window_s = (lo, hi)`` (in absolute log seconds) draws a
       translucent blue vrect for the operator's expected-end window.
     * ``override_indices = (start, end)`` (raw_df index space) draws
-      dashed amber vlines distinct from the detector's decision.
+      dashed amber vlines distinct from the detector's decision —
+      used both for *applied* overrides (``manual_override`` curves)
+      and for *live preview* (operator typing in widget before Apply).
     """
     fig = go.Figure()
     if raw_df is None or len(raw_df) == 0:
@@ -243,12 +263,17 @@ def plot_curve_detail(
     if core_col is not None:
         fig.add_trace(
             go.Scatter(
-                x=window_df["Timestamp"].to_numpy(dtype=float),
+                x=window_df["Timestamp"].to_numpy(dtype=float) / 60.0,
                 y=window_df[core_col].to_numpy(dtype=float),
+                customdata=window_df.index.to_numpy(),
                 mode="lines",
                 name="Core temperature",
                 line=dict(color=_RAW_TRACE_COLOR, width=1.5),
-                hovertemplate="t=%{x:.0f}s<br>T=%{y:.2f}°C<extra></extra>",
+                hovertemplate=(
+                    "t=%{x:.2f} min<br>"
+                    "idx=%{customdata}<br>"
+                    "T=%{y:.2f}°C<extra></extra>"
+                ),
             )
         )
 
@@ -256,8 +281,8 @@ def plot_curve_detail(
     if hint_window_s is not None:
         lo_h, hi_h = hint_window_s
         fig.add_vrect(
-            x0=float(lo_h),
-            x1=float(hi_h),
+            x0=float(lo_h) / 60.0,
+            x1=float(hi_h) / 60.0,
             fillcolor=_HINT_WINDOW_COLOR,
             line_width=0,
             layer="below",
@@ -267,15 +292,15 @@ def plot_curve_detail(
 
     # Detected start / end vlines.
     fig.add_vline(
-        x=float(full_ts[s]),
+        x=float(full_ts[s]) / 60.0,
         line=dict(color=_DETECTED_BOUNDARY_COLOR, width=2),
-        annotation_text="Detected start",
+        annotation_text=f"Detected start (idx {s})",
         annotation_position="top left",
     )
     fig.add_vline(
-        x=float(full_ts[e]),
+        x=float(full_ts[e]) / 60.0,
         line=dict(color=_DETECTED_BOUNDARY_COLOR, width=2),
-        annotation_text="Detected end",
+        annotation_text=f"Detected end (idx {e})",
         annotation_position="top right",
     )
 
@@ -285,27 +310,27 @@ def plot_curve_detail(
         os_, oe_ = override_indices
         if 0 <= os_ < len(full_ts):
             fig.add_vline(
-                x=float(full_ts[os_]),
+                x=float(full_ts[os_]) / 60.0,
                 line=dict(
                     color=_OVERRIDE_BOUNDARY_COLOR, width=2, dash="dash"
                 ),
-                annotation_text="Override start",
+                annotation_text=f"Override start (idx {os_})",
                 annotation_position="bottom left",
             )
         if 0 <= oe_ < len(full_ts):
             fig.add_vline(
-                x=float(full_ts[oe_]),
+                x=float(full_ts[oe_]) / 60.0,
                 line=dict(
                     color=_OVERRIDE_BOUNDARY_COLOR, width=2, dash="dash"
                 ),
-                annotation_text="Override end",
+                annotation_text=f"Override end (idx {oe_})",
                 annotation_position="bottom right",
             )
 
     fig.update_layout(
         **VisualizationConfig.DEFAULT_LAYOUT,
         title=f"Bake {curve.get('curve_number', '?')} detail",
-        xaxis=dict(range=[lo_t, hi_t], title="Time (s)"),
+        xaxis=dict(range=[lo_t / 60.0, hi_t / 60.0], title="Time (min)"),
         yaxis_title="Core temperature (°C)",
         hovermode="x unified",
     )

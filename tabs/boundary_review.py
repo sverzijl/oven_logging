@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import streamlit as st
 
 from config.constants import CURVE_DETECTION_CONFIG
@@ -77,6 +78,28 @@ def boundary_state_label(
     if hint_active:
         return "hint"
     return "auto"
+
+
+def time_minutes_to_idx(timestamps_s, target_minutes: float) -> int:
+    """Find the raw_data row index whose Timestamp is closest to
+    ``target_minutes``.  Used to convert operator-entered manual
+    override times (in minutes) back to sample indices for the
+    loader's ``set_curve_boundaries`` API.
+
+    ``timestamps_s`` is the raw_data Timestamp column (seconds).
+    Returns an int in ``[0, len(timestamps_s) - 1]``.
+    """
+    target_s = float(target_minutes) * 60.0
+    arr = np.asarray(timestamps_s, dtype=float)
+    if len(arr) == 0:
+        return 0
+    pos = int(np.searchsorted(arr, target_s, side="left"))
+    pos = max(0, min(pos, len(arr) - 1))
+    # searchsorted gives the LEFT insertion point; check whether the
+    # neighbour to the left is actually closer.
+    if pos > 0 and abs(arr[pos - 1] - target_s) < abs(arr[pos] - target_s):
+        pos -= 1
+    return pos
 
 
 # ---------------------------------------------------------------------------
@@ -162,13 +185,34 @@ def _render_detail_panel(
 
     detected_start = int(curve["start_idx"])
     detected_end = int(curve["end_idx"])
-    n_raw = len(loader.raw_data)
+    raw_timestamps = loader.raw_data["Timestamp"].to_numpy(dtype=float)
+    n_raw = len(raw_timestamps)
+    log_max_minutes = float(raw_timestamps[-1]) / 60.0 if n_raw > 0 else 0.0
 
-    # Manual override values from session (default = detector's decision).
+    # Manual override values from session — stored in MINUTES so the
+    # operator can read them off the time-axis plot (M6 HMS Refit).
+    # Defaults: detector's start/end timestamps converted to minutes.
     ms_key = manual_start_key(current_file, curve_number)
     me_key = manual_end_key(current_file, curve_number)
-    manual_start = int(st.session_state.get(ms_key, detected_start))
-    manual_end = int(st.session_state.get(me_key, detected_end))
+    detected_start_min = float(raw_timestamps[detected_start]) / 60.0
+    detected_end_min = float(raw_timestamps[detected_end]) / 60.0
+    manual_start_min = float(st.session_state.get(ms_key, detected_start_min))
+    manual_end_min = float(st.session_state.get(me_key, detected_end_min))
+
+    # Convert MINUTES → IDX for the live-preview vlines and the eventual
+    # loader call.
+    preview_start_idx = time_minutes_to_idx(raw_timestamps, manual_start_min)
+    preview_end_idx = time_minutes_to_idx(raw_timestamps, manual_end_min)
+
+    # Live preview: show override vlines whenever the operator's typed
+    # values differ from the detector's decision, even before they hit
+    # Apply.  Once applied, ``state_label == "override"`` keeps them
+    # visible (now reflecting the pinned curve dict).
+    show_override_overlay = (
+        state_label == "override"
+        or preview_start_idx != detected_start
+        or preview_end_idx != detected_end
+    )
 
     # ------------------------------------------------------------------
     # Two-column layout: plot left, controls right
@@ -177,7 +221,7 @@ def _render_detail_panel(
 
     with plot_col:
         hint_window = compute_hint_window_seconds(
-            end_time_s=float(loader.raw_data["Timestamp"].iloc[detected_end]),
+            end_time_s=float(raw_timestamps[detected_end]),
             hint_seconds=hint_seconds,
             tolerance_frac=float(
                 CURVE_DETECTION_CONFIG.get("EXPECTED_DURATION_TOLERANCE_FRAC", 0.15)
@@ -189,8 +233,8 @@ def _render_detail_panel(
             ),
         )
         override_indices = (
-            (manual_start, manual_end)
-            if state_label == "override"
+            (preview_start_idx, preview_end_idx)
+            if show_override_overlay
             else None
         )
         detail_fig = plot_curve_detail(
@@ -208,14 +252,15 @@ def _render_detail_panel(
     with ctrl_col:
         st.markdown("**Detected**")
         st.text(
-            f"Start idx: {detected_start}  →  End idx: {detected_end}\n"
+            f"Start: {detected_start_min:.2f} min (idx {detected_start})\n"
+            f"End:   {detected_end_min:.2f} min (idx {detected_end})\n"
             f"Duration: {curve.get('duration', 0.0):.1f} min\n"
             f"Peak: {curve.get('max_temp', 0.0):.1f} °C\n"
             f"Kind: {curve.get('exit_candidate_kind') or '—'}"
         )
 
         st.markdown("**Hint**")
-        new_hint_minutes = st.number_input(
+        st.number_input(
             "Expected bake time (min)",
             key=hint_key,
             min_value=0.0,
@@ -224,26 +269,33 @@ def _render_detail_panel(
             value=hint_minutes,
             help=(
                 "Optional. When set, the detector arbitrates end candidates "
-                "within ±15% of the hinted duration. Set to 0 to disable."
+                "within ±15 % of the hinted duration. Set to 0 to disable."
             ),
         )
 
         st.markdown("**Manual override**")
-        new_manual_start = st.number_input(
-            "Start sample idx",
-            key=ms_key,
-            min_value=0,
-            max_value=max(n_raw - 2, 0),
-            step=1,
-            value=manual_start,
+        st.caption(
+            f"Hover the plot to read off times. Current preview: "
+            f"idx {preview_start_idx} → {preview_end_idx} "
+            f"({preview_end_idx - preview_start_idx} samples)."
         )
-        new_manual_end = st.number_input(
-            "End sample idx",
+        new_manual_start_min = st.number_input(
+            "Start time (min)",
+            key=ms_key,
+            min_value=0.0,
+            max_value=log_max_minutes,
+            step=0.1,
+            value=manual_start_min,
+            help="Drag-free manual start. Snaps to nearest sample on Apply.",
+        )
+        new_manual_end_min = st.number_input(
+            "End time (min)",
             key=me_key,
-            min_value=1,
-            max_value=max(n_raw - 1, 1),
-            step=1,
-            value=manual_end,
+            min_value=0.0,
+            max_value=log_max_minutes,
+            step=0.1,
+            value=manual_end_min,
+            help="Drag-free manual end. Snaps to nearest sample on Apply.",
         )
 
         apply_col, reset_col = st.columns(2)
@@ -262,11 +314,17 @@ def _render_detail_panel(
             )
 
         if apply_clicked:
-            if new_manual_start >= new_manual_end:
-                st.error("Start sample must be before end sample.")
+            apply_start_idx = time_minutes_to_idx(
+                raw_timestamps, new_manual_start_min
+            )
+            apply_end_idx = time_minutes_to_idx(
+                raw_timestamps, new_manual_end_min
+            )
+            if apply_start_idx >= apply_end_idx:
+                st.error("Start time must be before end time.")
             else:
                 loader.set_curve_boundaries(
-                    curve_index, int(new_manual_start), int(new_manual_end)
+                    curve_index, apply_start_idx, apply_end_idx
                 )
                 st.rerun()
 
@@ -275,7 +333,7 @@ def _render_detail_panel(
             # Clear hint widget too — Reset to auto means BOTH off.
             if hint_key in st.session_state:
                 del st.session_state[hint_key]
-            # Clear manual idx widgets so defaults reapply on rerun.
+            # Clear manual time widgets so defaults reapply on rerun.
             if ms_key in st.session_state:
                 del st.session_state[ms_key]
             if me_key in st.session_state:

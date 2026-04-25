@@ -185,6 +185,21 @@ class TestPlotRawLogWithCurves:
         # they differ.
         assert rects[0].fillcolor != rects[1].fillcolor
 
+    def test_x_axis_title_in_minutes_for_raw_log(self):
+        fig = plot_raw_log_with_curves(_synthetic_raw_log(), _synthetic_curves())
+        assert "min" in (fig.layout.xaxis.title.text or "").lower()
+
+    def test_vrects_are_in_minute_coordinates(self):
+        """vrect x0/x1 must reflect minutes (Timestamp / 60), so the
+        bands align with the new minute-based x-axis."""
+        df = _synthetic_raw_log()
+        curves = _synthetic_curves()
+        fig = plot_raw_log_with_curves(df, curves)
+        rects = [s for s in fig.layout.shapes if s.type == "rect"]
+        # Bake-1 is at idx 50..199; timestamps 250..995 s → 4.17..16.58 min
+        assert rects[0].x0 == pytest.approx(50 * 5 / 60.0, abs=0.1)
+        assert rects[0].x1 == pytest.approx(199 * 5 / 60.0, abs=0.1)
+
 
 # ---------------------------------------------------------------------------
 # Tests: plot_curve_detail
@@ -234,10 +249,16 @@ class TestPlotCurveDetail:
         df = _synthetic_raw_log()
         curve = _synthetic_curves()[0]
         fig = plot_curve_detail(df, curve)
-        # x-axis range must cover the curve.  We allow ± padding.
+        # x-axis is in MINUTES (M6 HMS Refit); range must cover the curve.
         x0, x1 = fig.layout.xaxis.range
-        assert x0 <= curve["start_time"]
-        assert x1 >= curve["end_time"]
+        assert x0 <= curve["start_time"] / 60.0
+        assert x1 >= curve["end_time"] / 60.0
+
+    def test_x_axis_title_in_minutes(self):
+        df = _synthetic_raw_log()
+        curve = _synthetic_curves()[0]
+        fig = plot_curve_detail(df, curve)
+        assert "min" in (fig.layout.xaxis.title.text or "").lower()
 
     def test_no_downsample_artefact_in_detail(self):
         """Detail plot should not aggressively downsample the curve

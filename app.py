@@ -60,8 +60,8 @@ sidebar.render()
 # Tab dispatch — single parameterised builder collapsing the old 7-/8-tab
 # duplication at app.py:573-592. Curve-comparison is appended conditionally.
 TAB_SPECS = [
-    ("📈 Temperature Profile", temperature_profile.render),
     ("🔬 Curve Boundaries", boundary_review.render),
+    ("📈 Temperature Profile", temperature_profile.render),
     ("📉 S-Curve Analysis", s_curve_analysis.render),
     ("🎯 Zone Analysis", zone_analysis.render),
     ("📊 Quality Metrics", quality_metrics.render),
