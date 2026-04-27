@@ -212,15 +212,11 @@ PRODUCT_MOISTURE = {
     }
 }
 
-# Physics-based surface detection configuration
-SURFACE_DETECTION_CONFIG = {
-    "USE_PHYSICS_BASED_DETECTION": True,  # Enable physics-based surface sensor detection
-    "CONFIDENCE_THRESHOLD": 60,  # Minimum confidence % to apply correction
-    "LOG_CORRECTIONS": True,  # Log when corrections are applied
-    "SHOW_IN_UI": True  # Show detection status in UI
-}
-
-# Internal sensor detection configuration
+# Internal sensor detection configuration.
+# Legacy temperature-threshold filter retained only for ``loader.get_internal_sensors``;
+# a position-based replacement using ``SpatialAssignment.<role>.position_normalised``
+# is a future follow-up. The new spatial-reconstruction classifier (M2a-M3a) does
+# not consume any of these keys — see ``ROLE_CLASSIFIER_CONFIG`` below.
 INTERNAL_SENSOR_CONFIG = {
     "TEMP_THRESHOLD": 103.0,  # Max temperature for internal crumb (100°C + 3°C margin)
     "TIME_THRESHOLD": 0.1,  # Max fraction of time above 100°C (10%)
@@ -316,53 +312,27 @@ CURVE_DETECTION_CONFIG = {
     "EXPECTED_DURATION_MAX_START_SHIFT_SECONDS": 30.0,
 }
 
-# Physics-based core-sensor classifier configuration.
-# Combined-rank detector: the true core sensor should be slowest BOTH to heat
-# and to cool. Single-metric heuristics fail when the two signals disagree
-# (e.g. wonder-white lidded bake: slowest heat = T5/T6, slowest cool = T8).
-# Combined rank requires consistency across both signals before overriding the
-# firmware VirtualCoreSensor pick. Anchor case: wonder white 10k 13.01.2026.csv
-# (firmware returns T1; true core is T5/T6). Mission 2026-04-23_231637_4ed7fcd1.
+# Combined-rank core helper still used by curve-boundary detection's
+# probe-removal-contamination path (``identify_core_sensor_combined_rank``
+# in ``src/data/thermodynamic_sensor_classifier.py``) and by the shared
+# ``_drop_rate_detection`` helper. The class-level ``ThermodynamicSensorClassifier``
+# was deleted in M3b HMS Bellerophon — ``spatial_reconstruction.classify`` is the
+# canonical role classifier — but the combined-rank function and its tunables
+# below remain part of the curve-boundary contamination detector.
+#
+# CONFIDENCE_GAP_MIN / ENABLED / COOL_REFERENCE_MODE entries were dropped in the
+# M5 finale (mission 2026-04-27_123109_e0029555) — they belonged to the deleted
+# class and had no readers in src/. The probe-noise calibration story for the
+# old gap-of-4 threshold lives in mission 2026-04-23_231637_4ed7fcd1.
 CORE_DETECTION_CONFIG = {
     # Heating-side anchor. All sensors spend less time below 80 °C than above
     # under a typical oven profile, so time-to-reach-80 °C is the most reliable
     # "slower = deeper" signal during active heating.
     "HEAT_THRESHOLD_C": 80.0,
-    # Documentation value: cooling is measured from a SHARED reference point
-    # (the latest peak across T1..T8) rather than each sensor's own peak.
-    # Per-sensor peaks bias the rank toward early-peaking (surface-like)
-    # sensors because their cooling has a head start.
-    "COOL_REFERENCE_MODE": "common_post_oven_exit",
+    # Cool window: cooling is measured from a SHARED reference point (the
+    # latest peak across T1..T8) over this many seconds. Used by
+    # identify_core_sensor_combined_rank.
     "COOL_WINDOW_SECONDS": 60,
-    # With 8 sensors ranked 1..8 on two metrics, combined score ranges 2..16.
-    # A gap of 4 is calibrated as 1 point above the empirical noise floor
-    # observed on identical-physics synthetic fixtures.
-    #
-    # Empirical noise-floor calibration: Monte-Carlo 200 seeds, identical-
-    # physics-with-noise at σ=0.5 °C.
-    #   4-sensor path:  gap-to-runner-up p95 = 3, max = 4
-    #   8-sensor production path: gap-to-runner-up p95 = 4, max = 5
-    # The 8-sensor production path has a THINNER margin than the 4-sensor
-    # calibration implies: the margin-of-1 reasoning does not straightforwardly
-    # extend — at p95 the noise floor already reaches the threshold.
-    #
-    # Mitigation: real-CSV perturbation (probe_noise_real.py, mission
-    # 2026-04-23_231637_4ed7fcd1) at σ=1.0 °C shows 0/100 flips on all 3
-    # real CSVs; at σ=2.0 °C only 5/100 flips on real_100098DE_1351 (a
-    # near-coin-flip between T3/T4 at that noise level). Threshold 4 is safe
-    # in practice on the known real CSVs but optimistic in theory for the
-    # production 8-sensor path. For replay see probe_monte_carlo.py and
-    # probe_noise_real.py in the mission directory.
-    #
-    # Threshold still fires correctly on target cases:
-    #   - wonder-white lidded (gap 7, target flip)
-    #   - synthetic unambiguous (gap 12, target flip)
-    #   - synthetic disagreeing metrics (gap 10, target flip)
-    # Real unlidded CSVs have firmware gaps 0, 0, 1 and do NOT flip.
-    # Smaller gap = firmware stays (conservative): only override when physics
-    # is unambiguously louder than noise.
-    "CONFIDENCE_GAP_MIN": 4,
-    "ENABLED": True,
     # Probe-removal contamination detection in the cool-rank window
     # (mission 2026-04-24_015052_25705c7a, HMS Vanguard).
     # Physics: when the operator pulls the probe out of the loaf shortly after

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Foudroyant (M5, flotilla finale): update CLAUDE.md to reflect spatial reconstruction architecture; consolidate or remove legacy SURFACE_DETECTION_CONFIG and CORE_DETECTION_CONFIG blocks; remove root-level historical artefacts that explicitly discuss surface/core detection; add permanent flotilla-finale regression test; record M4 follow-ups (#1-#5) for post-flotilla missions.",
+    "status": "underway",
+    "phase": "UNDERWAY",
+    "started_at": "2026-04-27T12:31:09Z",
+    "checkpoint_number": 0
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Foudroyant",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-27T12:31:34Z"
+}

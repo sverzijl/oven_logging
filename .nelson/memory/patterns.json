@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T12:30:13Z",
-  "pattern_count": 40,
+  "updated_at": "2026-04-27T12:49:34Z",
+  "pattern_count": 41,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -790,6 +790,27 @@
       ],
       "avoid": [
         "Treating noise robustness as a binary gate \u2014 partial passes with documented physical exceptions are honest"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_123109_e0029555",
+      "completed_at": "2026-04-27T12:49:34Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Foudroyant (M5, flotilla finale): update CLAUDE.md to reflect spatial reconstruction architecture; consolidate or remove legacy SURFACE_DETECTION_CONFIG and CORE_DETECTION_CONFIG blocks; remove root-level historical artefacts that explicitly discuss surface/core detection; add permanent flotilla-finale regression test; record M4 follow-ups (#1-#5) for post-flotilla missions.",
+      "adopt": [
+        "Flotilla-finale regression test as permanent guard rail \u2014 pins legacy-deletion smoke + per-fixture role contracts + override topology",
+        "config/constants.py audit before block removal: grep usage to distinguish dead from live constants"
+      ],
+      "avoid": [
+        "Reading docstrings/first-paragraphs at root rather than running the full file \u2014 surface/core mention is enough to disqualify a historical doc"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,
