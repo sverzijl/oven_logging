@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T01:32:27Z",
-  "pattern_count": 30,
+  "updated_at": "2026-04-27T02:01:01Z",
+  "pattern_count": 31,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -583,6 +583,26 @@
       ],
       "avoid": [
         "Surface override targeting a sensor already classified as core silently no-ops because core priority dominates in get_sensor_assignments_with_overrides \u2014 M3 must validate that role-priority interactions don't hide expected behaviour."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_013330_bbdd0d4d",
+      "completed_at": "2026-04-27T02:01:01Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M3 fixes B2 (index drift) and collapses S1/S2/S6 in tabs/temperature_profile.py: hoist single assignments fetch, use build_sensor_label_map and build_sensor_role_map from M1, fix line-53 explicit index. S4 render(state) deferred.",
+      "adopt": [
+        "ast/regex structural tests for absence (Pattern A/B removal asserted by source-grep) \u2014 pin migration completeness rather than just functional equivalence."
+      ],
+      "avoid": [
+        "Widget keys become *_None if curve_index is None at render time \u2014 M5 should add defensive guard or test for this edge case."
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,
