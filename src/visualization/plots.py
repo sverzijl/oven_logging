@@ -88,7 +88,7 @@ class ThermalPlotter:
             sensor_roles: Dict mapping sensor names to roles (core, surface, internal, ambient)
         """
         if sensors is None:
-            sensors = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
+            sensors = list(SENSOR_LIST)
         
         fig = go.Figure()
         

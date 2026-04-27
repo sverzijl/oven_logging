@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Tuple
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.analysis.zone_analysis import ZoneAnalyzer
 from src.analysis.s_curve_analysis import SCurveAnalyzer
-from config.constants import TEMPERATURE_ZONES
+from config.constants import TEMPERATURE_ZONES, SENSOR_LIST
 
 
 def transform_sensor_assignments_to_roles(sensor_assignments: Dict[str, List[str]]) -> Dict[str, str]:
@@ -28,7 +28,7 @@ def transform_sensor_assignments_to_roles(sensor_assignments: Dict[str, List[str
                 sensor_roles[sensor] = role
     
     # Add internal sensors (T1-T8 not assigned to other roles)
-    all_sensors = [f'T{i}' for i in range(1, 9)]
+    all_sensors = list(SENSOR_LIST)
     for sensor in all_sensors:
         if sensor not in sensor_roles:
             sensor_roles[sensor] = 'internal'

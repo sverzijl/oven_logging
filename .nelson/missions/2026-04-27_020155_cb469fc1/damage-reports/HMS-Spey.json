@@ -1,0 +1,73 @@
+{
+  "ship": "HMS Spey",
+  "mission": "M4 — SENSOR_LIST sweep migration",
+  "role": "Captain 1 — Sweep captain",
+  "date": "2026-04-27",
+  "status": "COMPLETE",
+
+  "audit_findings": [
+    {"file": "src/analysis/curve_comparison.py", "line": 31, "form": "generator [f'T{i}' for i in range(1, 9)]", "action": "migrated"},
+    {"file": "src/data/curve_boundary_detector.py", "line": 36, "form": "tuple (\"T1\", ..., \"T8\")", "action": "migrated (Option A — _SENSOR_COLUMNS deleted, SENSOR_LIST imported)"},
+    {"file": "src/data/loader.py", "line": 485, "form": "filtered generator [f\"T{i}\" for i in range(1, 9) if ...]", "action": "migrated — rewritten as [s for s in SENSOR_LIST if s in df.columns]"},
+    {"file": "src/data/loader.py", "line": 865, "form": "list ['T1', ..., 'T8']", "action": "migrated"},
+    {"file": "src/data/loader.py", "line": 1392, "form": "list ['Timestamp', 'T1', ..., 'T8'] (mixed)", "action": "migrated — ['Timestamp'] + list(SENSOR_LIST)"},
+    {"file": "src/data/loader.py", "line": 1404, "form": "list ['T1', ..., 'T8']", "action": "migrated"},
+    {"file": "src/visualization/plots.py", "line": 91, "form": "list ['T1', ..., 'T8']", "action": "migrated"},
+    {"file": "sidebar.py", "line": 239, "form": "list ['T1', ..., 'T8'] in selectbox options", "action": "migrated"},
+    {"file": "sidebar.py", "line": 240, "form": "list ['T1', ..., 'T8'] for .index() call", "action": "migrated"},
+    {"file": "sidebar.py", "line": 249, "form": "list ['T1', ..., 'T8'] in selectbox options", "action": "migrated"},
+    {"file": "sidebar.py", "line": 250, "form": "list ['T1', ..., 'T8'] for .index() call", "action": "migrated"},
+    {"file": "sensor_naming.py", "line": 74, "form": "partial list ['T1', 'T4', 'T6', 'T8'] (4-element fallback)", "action": "left as-is — not canonical 8-element list"},
+    {"file": "sensor_naming.py", "line": 107, "form": "partial list ['T1', 'T4', 'T7'] (3-element fallback)", "action": "left as-is — not canonical 8-element list"},
+    {"file": "src/data/loader.py", "line": 252, "form": "mixed list ['Timestamp', 'T1', ..., 'T8', 'VirtualCore...']", "action": "left as-is — not a standalone canonical list, regex does not match"},
+    {"file": "archive/scripts/test_full_implementation.py", "line": 71, "form": "loop over T1..T8", "action": "out of scope (archive)"}
+  ],
+
+  "curve_boundary_detector_choice": "Option A — deleted _SENSOR_COLUMNS private tuple; imported SENSOR_LIST from config.constants; replaced internal references (_SENSOR_COLUMNS) with SENSOR_LIST. Rationale: only 2 references, both local to _resolve_max_sensor_series(). No scope balloon.",
+
+  "tdd_sequence": {
+    "red": "tests/test_sensor_list_migration.py written before sweep — all 3 tests FAILED",
+    "green": "After sweep — all 3 tests PASSED; full suite 377 passed / 7-8 failed / 1 skipped"
+  },
+
+  "pytest_delta": {
+    "baseline": "373 passed / 8 failed / 1 skipped",
+    "post_migration": "377 passed / 7-8 failed (flapper) / 1 skipped",
+    "new_tests_added": 3,
+    "regressions_introduced": 0,
+    "pre_existing_failures_confirmed": [
+      "test_curve_comparison_integration.py::TestDataFlowIntegration::test_zone_color_consistency",
+      "test_internal_sensor_filtering.py::TestInternalSensorFiltering::test_realistic_baking_profile",
+      "test_surface_sensor_detection.py::TestSurfaceSensorDetection::test_shallow_insertion",
+      "test_surface_sensor_detection.py::TestSurfaceSensorDetection::test_deep_insertion (flapper)",
+      "test_visualization.py::TestThermalPlotter::test_plot_zone_duration_comparison",
+      "test_visualization.py::TestEdgeCases::test_single_curve_comparison",
+      "test_visualization.py::TestEdgeCases::test_many_curves_comparison",
+      "test_visualization.py::TestEdgeCases::test_unknown_zone_handling"
+    ]
+  },
+
+  "files_owned_and_touched": [
+    "sidebar.py",
+    "src/visualization/plots.py",
+    "src/data/loader.py",
+    "src/analysis/curve_comparison.py",
+    "src/data/curve_boundary_detector.py",
+    "tests/test_sensor_list_migration.py"
+  ],
+
+  "files_owned_but_not_migrated": [
+    "sensor_naming.py — contains only partial fallback lists (3-element, 4-element), not canonical T1..T8"
+  ],
+
+  "out_of_scope_files_not_touched": [
+    "tabs/ (all files)",
+    "app.py",
+    "session_state.py",
+    "config/constants.py",
+    "tests/ (existing test files)",
+    "src/visualization/plots.py line 214 area (M2 territory, already migrated)"
+  ],
+
+  "rollback": "git reset --hard HEAD~1"
+}

@@ -18,6 +18,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from config.constants import SENSOR_LIST
 from src.data._drop_rate_detection import find_confirmed_drop_start
 from src.data.column_helpers import resolve_core_temperature_series
 from src.data.sigmoid_refinement import fit_logistic, score_end_candidate
@@ -27,23 +28,21 @@ logger = logging.getLogger(__name__)
 # PredictionState value the firmware reports while the probe is out of the loaf.
 PROBE_NOT_INSERTED_STATE = 'Probe Not Inserted'
 
-# Physical sensors on a Combustion Inc. probe.  When all 8 are present we use
-# max(T1..T8) as the "is probe in a hot environment" signal (see mission
-# 2026-04-24_105032_1b3801f8): the ambient-end sensor (typically T8) reacts to
-# oven entry/exit far faster than the core, so a max-over-sensors series
-# captures the true oven-entry moment and keeps the post-cliff cooldown skip
-# waiting until ALL sensors have actually cooled.
-_SENSOR_COLUMNS = ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8")
-
 
 def _resolve_max_sensor_series(df: pd.DataFrame, fallback: np.ndarray) -> np.ndarray:
     """Return max(T1..T8) across sensors when all 8 are present, else ``fallback``.
 
     Synthetic fixtures that only carry VirtualCoreTemperature/CoreTemperature
     drop back to the core series so their semantics are unchanged.
+    Physical sensors on a Combustion Inc. probe.  When all 8 are present we use
+    max(T1..T8) as the "is probe in a hot environment" signal (see mission
+    2026-04-24_105032_1b3801f8): the ambient-end sensor (typically T8) reacts to
+    oven entry/exit far faster than the core, so a max-over-sensors series
+    captures the true oven-entry moment and keeps the post-cliff cooldown skip
+    waiting until ALL sensors have actually cooled.
     """
-    if all(col in df.columns for col in _SENSOR_COLUMNS):
-        return df.loc[:, list(_SENSOR_COLUMNS)].to_numpy(dtype=float, copy=True).max(axis=1)
+    if all(col in df.columns for col in SENSOR_LIST):
+        return df.loc[:, list(SENSOR_LIST)].to_numpy(dtype=float, copy=True).max(axis=1)
     return fallback
 
 
