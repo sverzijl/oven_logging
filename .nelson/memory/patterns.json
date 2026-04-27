@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-26T23:59:58Z",
-  "pattern_count": 28,
+  "updated_at": "2026-04-27T00:55:46Z",
+  "pattern_count": 29,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -542,6 +542,27 @@
       ],
       "avoid": [
         "Quarterdeck-report rotation: I overwrote checkpoint 1's report before archiving it as quarterdeck-report-0.md and had to reconstruct from memory. Always rotate FIRST, then write."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_001526_acde7444",
+      "completed_at": "2026-04-27T00:55:46Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M1 Foundation: introduce canonical SENSOR_LIST constant + new src/ui/sensor_role_helpers.py module with two pure helpers (build_sensor_role_map, build_sensor_label_map). TDD failing-first. No call-site migrations.",
+      "adopt": [
+        "Iron Duke's golden test (h) approach with parametrize across 4 representative scenarios \u2014 pins the M3 contract empirically rather than just documenting it.",
+        "Astute's empirical override-format spot-check caught a briefing error (override key is 'surface' not 'surface_sensor') that would have wasted M3's time."
+      ],
+      "avoid": [
+        "Iron Duke's pytest count claim of 355 was off by 1 (actual 354) \u2014 admiral should always re-run pytest in the red-cell verification rather than trusting captain self-reports."
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

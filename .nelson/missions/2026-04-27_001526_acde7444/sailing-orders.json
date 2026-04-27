@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "M1 Foundation: introduce canonical SENSOR_LIST constant + new src/ui/sensor_role_helpers.py module with two pure helpers (build_sensor_role_map, build_sensor_label_map). TDD failing-first. No call-site migrations.",
+  "success_metric": "\u22658 new helper tests pass; pre-existing 338 pytest passes preserved; Astute red-cell go-verdict; one commit on refactor/temperature-profile-canonical-roles.",
+  "deadline": "This session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-27T00:15:26Z"
+}

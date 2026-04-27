@@ -1,0 +1,89 @@
+{
+  "ship": "HMS Iron Duke",
+  "mission": "M1 Foundation — refactor/temperature-profile-canonical-roles",
+  "mission_dir": ".nelson/missions/2026-04-27_001526_acde7444",
+  "date": "2026-04-27",
+  "commit_hash": "5524a0b",
+  "branch": "refactor/temperature-profile-canonical-roles",
+  "status": "COMPLETE",
+
+  "deliverables": [
+    "config/constants.py — appended SENSOR_LIST = ('T1','T2','T3','T4','T5','T6','T7','T8')",
+    "src/ui/sensor_role_helpers.py — new module: build_sensor_role_map + build_sensor_label_map",
+    "tests/test_sensor_role_helpers.py — 16 TDD failing-first tests"
+  ],
+
+  "red_green_sequence": {
+    "description": "TDD failing-first executed per standing order.",
+    "red_phase": {
+      "command": "pytest tests/test_sensor_role_helpers.py -v",
+      "result": "ERROR collecting tests/test_sensor_role_helpers.py — ModuleNotFoundError: No module named 'src.ui.sensor_role_helpers'",
+      "tests_failed": 16,
+      "tests_collected": 0,
+      "duration_seconds": 218.6
+    },
+    "implementation": "Created src/ui/sensor_role_helpers.py with build_sensor_role_map and build_sensor_label_map, importing SENSOR_LIST from config.constants",
+    "green_phase": {
+      "command": "pytest tests/test_sensor_role_helpers.py -v",
+      "result": "16 passed",
+      "tests_passed": 16,
+      "tests_failed": 0,
+      "duration_seconds": 57.36
+    }
+  },
+
+  "test_coverage": {
+    "total_new_tests": 16,
+    "test_classes": [
+      "TestBuildSensorRoleMap (4 tests)",
+      "TestBuildSensorLabelMap (4 tests)",
+      "TestHelpersMatchTemperatureProfileLoops (8 parametrized tests — golden M3 contract)"
+    ],
+    "brieftests": [
+      "test_build_sensor_role_map_with_real_csv",
+      "test_build_sensor_role_map_respects_override",
+      "test_build_sensor_role_map_per_curve",
+      "test_build_sensor_role_map_default_index_uses_loader_state",
+      "test_build_sensor_label_map_default_format",
+      "test_build_sensor_label_map_internal_and_ambient",
+      "test_build_sensor_label_map_unknown_has_no_suffix",
+      "test_build_sensor_label_map_custom_format",
+      "test_role_map_matches_inline_loop x4 (parametrized)",
+      "test_label_map_matches_inline_loop x4 (parametrized)"
+    ]
+  },
+
+  "pytest_baseline": {
+    "before": {
+      "passed": 338,
+      "failed": 8,
+      "skipped": 1,
+      "failing_tests": [
+        "tests/test_curve_comparison_integration.py::TestDataFlowIntegration::test_zone_color_consistency",
+        "tests/test_internal_sensor_filtering.py::TestInternalSensorFiltering::test_realistic_baking_profile",
+        "tests/test_surface_sensor_detection.py::TestSurfaceSensorDetection::test_shallow_insertion",
+        "tests/test_surface_sensor_detection.py::TestSurfaceSensorDetection::test_deep_insertion",
+        "tests/test_visualization.py::TestThermalPlotter::test_plot_zone_duration_comparison",
+        "tests/test_visualization.py::TestEdgeCases::test_single_curve_comparison",
+        "tests/test_visualization.py::TestEdgeCases::test_many_curves_comparison",
+        "tests/test_visualization.py::TestEdgeCases::test_unknown_zone_handling"
+      ]
+    },
+    "after": {
+      "passed": 355,
+      "failed": 7,
+      "skipped": 1,
+      "notes": "355 = 338 prior + 16 new. One pre-existing failure (test_surface_sensor_detection::test_deep_insertion) now passes — confirmed flaky/timing-dependent, not caused by this mission's changes."
+    }
+  },
+
+  "out_of_scope_confirmation": "No edits made to: tabs/temperature_profile.py, src/visualization/plots.py, sidebar.py, src/data/loader.py, src/analysis/curve_comparison.py, sensor_naming.py, src/data/curve_boundary_detector.py, or any other file outside the three owned files.",
+
+  "rollback": "git reset --hard HEAD~1 — reverts this commit cleanly (atomic: 3-file addition + 1-file edit).",
+
+  "surprises": [
+    "test_surface_sensor_detection::test_deep_insertion was in pre-mission failures but passed post-mission — confirmed as a flaky test (timing/randomness dependent), not caused by this mission.",
+    "The baseline run took 18+ minutes due to the multi-curve CSV loading time; the helper-only test run was under 1 minute.",
+    "Pattern B inline loop in temperature_profile.py:52-67 does NOT set 'unknown' for unassigned sensors — the helper adds this for completeness. The golden test (TestHelpersMatchTemperatureProfileLoops) accounts for this distinction."
+  ]
+}

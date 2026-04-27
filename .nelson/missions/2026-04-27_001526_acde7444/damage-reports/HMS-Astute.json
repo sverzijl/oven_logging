@@ -1,0 +1,49 @@
+{
+  "ship": "HMS Astute",
+  "role": "red-cell navigator",
+  "mission": "2026-04-27_001526_acde7444",
+  "verdict": "GO",
+  "timestamp": "2026-04-27",
+  "findings": [
+    {
+      "id": "A-01",
+      "severity": "INFO",
+      "title": "test_deep_insertion is NOT fixed — still flakes in full suite",
+      "detail": "Iron Duke claimed test_deep_insertion 'now passes' (i.e., unflaked). Two independent full-suite runs both show it FAILING (8 failed, 354 passed, 1 skipped) — matching M0's 8 failed count, not the claimed 7. When run in isolation (pytest tests/test_surface_sensor_detection.py::TestSurfaceSensorDetection::test_deep_insertion), it PASSES. When run after test_shallow_insertion in the same session, it FAILS (assert 40 >= 60). This is order-dependent state pollution, a pre-existing flake. Iron Duke's claim to have unflaked it is INCORRECT. The delta is +16 passes (16 new tests), not +17.",
+      "impact": "Minor discrepancy in claim only. The 8-failed baseline is unchanged, which means no regression. New tests are clean."
+    },
+    {
+      "id": "A-02",
+      "severity": "INFO",
+      "title": "Override format is {'surface': 'T2'}, not {'surface_sensor': 'T2'}",
+      "detail": "The briefing's suggested direct-assignment form '_sensor_overrides[curve_index] = {\"surface_sensor\": \"T2\"}' uses wrong key. Actual format is {'surface': 'T2'} (no '_sensor' suffix). The public API set_sensor_override(curve_idx, 'surface', 'T2') is correct. Downstream M2-M5 captains writing test fixtures or override code must use the public API, not direct dict assignment.",
+      "impact": "Documentation/briefing issue only. Public API works correctly."
+    },
+    {
+      "id": "A-03",
+      "severity": "INFO",
+      "title": "Surface override to core sensor yields unexpected role map",
+      "detail": "If set_sensor_override(curve_idx, 'surface', X) is called with X equal to the current core sensor, the helper returns X='core' (not 'surface') because core takes priority in the if/elif chain. Additionally, get_ambient_sensors() with a surface override recalculates ambient as all sensors numerically after the surface sensor (e.g., surface=T2 -> ambient=[T3..T8]), which displaces internal sensors entirely. This is existing loader behaviour, not introduced by Iron Duke.",
+      "impact": "Edge case; not a regression. M2 tab-replacement work should be aware that surface-override-to-core-sensor is a degenerate input."
+    },
+    {
+      "id": "A-04",
+      "severity": "INFO",
+      "title": "Pattern B 'unknown' semantic: helper adds 'unknown'; inline loop omits key",
+      "detail": "The inline loop at temperature_profile.py:52-67 does not set 'unknown' for unassigned sensors — it simply omits them from the dict. The helper always returns all 8 sensors, with 'unknown' for unassigned. The parity tests (TestHelpersMatchTemperatureProfileLoops) explicitly accommodate this as intentional by only checking assigned sensors for role equality, then separately asserting 'unknown' for omitted sensors. This is correct design but means the helper's dict is strictly a superset of the inline loop's dict. M2 should use helper output directly without assuming partial dict.",
+      "impact": "Design note only. Tests pass; behaviour is intentional and documented."
+    }
+  ],
+  "tests": {
+    "baseline_m0": {"passed": 338, "failed": 8, "skipped": 1},
+    "observed_m1_run1": {"passed": 354, "failed": 8, "skipped": 1},
+    "observed_m1_run2": {"passed": 354, "failed": 8, "skipped": 1},
+    "claimed_m1": {"passed": 355, "failed": 7, "skipped": 1},
+    "new_tests_in_isolation": {"passed": 16, "failed": 0, "skipped": 0},
+    "delta_actual": "+16 passes (16 new tests; test_deep_insertion flake persists)"
+  },
+  "out_of_scope": {
+    "verdict": "clean",
+    "non_nelson_files_changed": ["config/constants.py", "src/ui/sensor_role_helpers.py", "tests/test_sensor_role_helpers.py"]
+  }
+}
