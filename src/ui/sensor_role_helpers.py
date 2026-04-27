@@ -34,6 +34,31 @@ def build_sensor_role_map(loader, curve_index: Optional[int] = None) -> dict:
     return role_map
 
 
+def format_sensor_label(
+    sensor: str,
+    role: str,
+    *,
+    fallback: Optional[str] = None,
+    role_format: str = "({role})",
+) -> str:
+    """Format a single sensor's display label given its inferred role.
+
+    When ``role`` is one of {'core','surface','internal','ambient'}, returns
+    ``"{sensor} {role_format.format(role=Capitalised)}"``, e.g. ``"T5 (Core)"``
+    by default. The sensor ID (T1..T8) is always the visible identifier so the
+    multiselect, line-plot legend, and heatmap y-axis stay in lock-step.
+
+    When ``role`` is ``'unknown'``, returns ``fallback`` if provided, else
+    ``sensor``. Plot-side callers pass ``fallback=SENSOR_NAMES.get(sensor)`` to
+    keep the firmware-default position label ("Middle 1", "Near Surface", ...)
+    visible for sensors with no inferred role; the multiselect omits the
+    fallback so unknown-role sensors stay as bare hardware IDs.
+    """
+    if role != 'unknown':
+        return f"{sensor} {role_format.format(role=role.capitalize())}"
+    return fallback if fallback is not None else sensor
+
+
 def build_sensor_label_map(loader, curve_index: Optional[int] = None, *, role_format: str = "({role})") -> dict:
     """Returns {'T1': 'T1 (Core)', ...} for multiselect format_func / display.
 
@@ -43,10 +68,7 @@ def build_sensor_label_map(loader, curve_index: Optional[int] = None, *, role_fo
     Respects loader overrides identically to build_sensor_role_map.
     """
     role_map = build_sensor_role_map(loader, curve_index)
-    label_map = {}
-    for sensor, role in role_map.items():
-        if role == 'unknown':
-            label_map[sensor] = sensor
-        else:
-            label_map[sensor] = f"{sensor} {role_format.format(role=role.capitalize())}"
-    return label_map
+    return {
+        sensor: format_sensor_label(sensor, role, role_format=role_format)
+        for sensor, role in role_map.items()
+    }

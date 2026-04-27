@@ -97,34 +97,30 @@ class TestHeatmapRoleAware:
 
         y_labels = list(fig.data[0].y)
 
-        # override_target must have a y-axis label containing '(Surface)'
-        ot_base = SENSOR_NAMES.get(override_target, override_target)
+        # override_target's y-axis label must be the role-known form "T# (Surface)".
+        # When a role is known, the shared formatter prefixes with the sensor ID,
+        # not the firmware-default SENSOR_NAMES position label, so the heatmap and
+        # the multiselect read identically.
         ot_label = next(
-            (lbl for lbl in y_labels if lbl.startswith(ot_base)),
-            None
+            (lbl for lbl in y_labels if lbl.startswith(f"{override_target} ")),
+            None,
         )
         assert ot_label is not None, (
-            f"No y-axis label starting with '{ot_base}' found. y={y_labels}"
+            f"No y-axis label starting with '{override_target} ' found. y={y_labels}"
         )
         assert '(Surface)' in ot_label, (
             f"Expected {override_target}'s y-axis label to contain '(Surface)', "
             f"got {ot_label!r}. y={y_labels}"
         )
 
-        # The previously-assigned surface sensor must NOT have '(Surface)' in its
-        # label any more (its role changed when the override was applied).
-        if current_surface and current_surface != override_target:
-            if sensor_roles.get(current_surface, 'unknown') != 'surface':
-                cs_base = SENSOR_NAMES.get(current_surface, current_surface)
-                cs_label = next(
-                    (lbl for lbl in y_labels if lbl.startswith(cs_base)),
-                    None
-                )
-                if cs_label is not None:
-                    assert '(Surface)' not in cs_label, (
-                        f"Old surface sensor {current_surface} y-axis label must NOT "
-                        f"include '(Surface)' after override. Got {cs_label!r}"
-                    )
+        # After override, exactly one label should mention '(Surface)' — the
+        # override target's. Any prior surface sensor must no longer carry the
+        # surface suffix (its role moved or became 'unknown').
+        surface_labels = [lbl for lbl in y_labels if '(Surface)' in lbl]
+        assert surface_labels == [ot_label], (
+            f"Expected exactly one '(Surface)' label after override "
+            f"({ot_label!r}); got {surface_labels!r}. y={y_labels}"
+        )
 
         # Cleanup
         loader.clear_sensor_overrides(curve_idx)
@@ -204,29 +200,30 @@ class TestHeatmapRoleAware:
             f"Expected 6 y-axis labels (present sensors only), got {len(y_labels)}: {y_labels}"
         )
 
-        # T1 is core -> label must include '(Core)'
-        t1_base = SENSOR_NAMES.get('T1', 'T1')
-        t1_label = next((lbl for lbl in y_labels if lbl.startswith(t1_base)), None)
-        assert t1_label is not None, f"No label starting with '{t1_base}' in {y_labels}"
-        assert '(Core)' in t1_label, (
-            f"Expected T1 label to contain '(Core)', got {t1_label!r}"
+        # T1 is core -> label is the role-known form "T1 (Core)"
+        assert 'T1 (Core)' in y_labels, (
+            f"Expected 'T1 (Core)' in y-axis labels, got {y_labels}"
         )
 
-        # T7 is surface -> label must include '(Surface)'
-        t7_base = SENSOR_NAMES.get('T7', 'T7')
-        t7_label = next((lbl for lbl in y_labels if lbl.startswith(t7_base)), None)
-        assert t7_label is not None, f"No label starting with '{t7_base}' in {y_labels}"
-        assert '(Surface)' in t7_label, (
-            f"Expected T7 label to contain '(Surface)', got {t7_label!r}"
+        # T7 is surface -> label is "T7 (Surface)"
+        assert 'T7 (Surface)' in y_labels, (
+            f"Expected 'T7 (Surface)' in y-axis labels, got {y_labels}"
         )
 
-        # T5 and T6 are absent from data — no label for their SENSOR_NAMES entries
-        t5_base = SENSOR_NAMES.get('T5', 'T5')
-        t6_base = SENSOR_NAMES.get('T6', 'T6')
-        for absent_base in [t5_base, t6_base]:
-            assert not any(lbl.startswith(absent_base) for lbl in y_labels), (
-                f"Label for absent sensor '{absent_base}' must not appear in y-axis: {y_labels}"
-            )
+        # T8 is 'unknown' -> falls back to SENSOR_NAMES (firmware-default position)
+        t8_fallback = SENSOR_NAMES.get('T8', 'T8')
+        assert t8_fallback in y_labels, (
+            f"Expected unknown-role T8 to fall back to {t8_fallback!r}, got {y_labels}"
+        )
+
+        # T5 and T6 are absent from data — neither sensor ID nor SENSOR_NAMES
+        # fallback should appear in any label.
+        for absent_sensor in ['T5', 'T6']:
+            for marker in (absent_sensor, SENSOR_NAMES.get(absent_sensor, absent_sensor)):
+                assert not any(lbl.startswith(marker) for lbl in y_labels), (
+                    f"Label for absent sensor {absent_sensor} (marker {marker!r}) "
+                    f"must not appear in y-axis: {y_labels}"
+                )
 
     def test_heatmap_call_site_uses_helper(self):
         """tabs/temperature_profile.py heatmap call passes sensor_roles= and uses build_sensor_role_map.

@@ -259,6 +259,47 @@ class TestSensorListNoHardcodedAlternativesInProduction:
 
 
 # ---------------------------------------------------------------------------
+# h-pre. Line-plot legend matches multiselect (post-fix DRY consistency)
+# ---------------------------------------------------------------------------
+
+class TestLinePlotLegendMatchesMultiselect:
+    """Line-plot trace names use the same '{sensor} ({Role})' format as the
+    multiselect.
+
+    Regression guard for the post-flotilla fix that routed both the line-plot
+    legend and the heatmap y-axis through the shared `format_sensor_label`
+    helper. Pre-fix the legend used SENSOR_NAMES position labels (e.g.
+    "Middle 1 (Core)") while the multiselect used sensor IDs ("T5 (Core)"),
+    producing visible inconsistency.
+    """
+
+    def test_line_plot_trace_names_use_sensor_id_when_role_known(self):
+        from src.visualization.plots import ThermalPlotter
+        loader = ThermalProfileLoader()
+        loader.load_csv(str(SINGLE_CURVE_CSV))
+        curve_idx = loader.current_curve_index
+
+        from src.ui.sensor_role_helpers import build_sensor_role_map
+        sensor_roles = build_sensor_role_map(loader, curve_idx)
+        data = loader.all_curves[curve_idx]['data']
+
+        fig = ThermalPlotter().plot_temperature_profile(
+            data, sensors=None, sensor_roles=sensor_roles
+        )
+        trace_names = [trace.name for trace in fig.data]
+
+        # For every sensor with a known role, the trace name is "T# (Role)".
+        for sensor, role in sensor_roles.items():
+            if role == 'unknown' or sensor not in data.columns:
+                continue
+            expected = f"{sensor} ({role.capitalize()})"
+            assert expected in trace_names, (
+                f"Line-plot trace name mismatch: expected {expected!r} for "
+                f"sensor {sensor} (role {role!r}); trace_names={trace_names}"
+            )
+
+
+# ---------------------------------------------------------------------------
 # h. B1 heatmap role-aware post-flotilla (unit-level, no AppTest dependency)
 # ---------------------------------------------------------------------------
 
@@ -297,15 +338,12 @@ class TestB1HeatmapRoleAwarePostFlotilla:
         fig = plotter.plot_temperature_gradient_heatmap(data, sensor_roles=sensor_roles)
         y_labels = list(fig.data[0].y)
 
-        ot_base = SENSOR_NAMES.get(override_target, override_target)
-        ot_label = next((lbl for lbl in y_labels if lbl.startswith(ot_base)), None)
-        assert ot_label is not None, (
-            f"B1 regression: no y-axis label starting with '{ot_base}'. "
-            f"y={y_labels}"
-        )
-        assert "(Surface)" in ot_label, (
-            f"B1 regression: expected '(Surface)' in {override_target}'s y-axis label, "
-            f"got {ot_label!r}. Override not reflected. y={y_labels}"
+        # B1 closure: post-flotilla, role-known labels use the sensor ID prefix
+        # (matches the multiselect via the shared format_sensor_label helper).
+        expected_label = f"{override_target} (Surface)"
+        assert expected_label in y_labels, (
+            f"B1 regression: expected {expected_label!r} in heatmap y-axis after "
+            f"override; override not reflected. y={y_labels}"
         )
 
         loader.clear_sensor_overrides(curve_idx)

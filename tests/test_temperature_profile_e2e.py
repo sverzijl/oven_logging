@@ -356,14 +356,12 @@ class TestE2EHeatmapReflectsOverride:
         fig = plotter.plot_temperature_gradient_heatmap(data, sensor_roles=sensor_roles)
         y_labels = list(fig.data[0].y)
 
-        ot_base = SENSOR_NAMES.get(override_target, override_target)
-        ot_label = next((lbl for lbl in y_labels if lbl.startswith(ot_base)), None)
-        assert ot_label is not None, (
-            f"No y-axis label starting with '{ot_base}'. y={y_labels}"
-        )
-        assert "(Surface)" in ot_label, (
-            f"Expected label for {override_target} to contain '(Surface)', "
-            f"got {ot_label!r}. Override not reflected in heatmap. y={y_labels}"
+        # When role is known, the heatmap y-axis label uses the sensor ID
+        # (not SENSOR_NAMES) so it matches the multiselect's "T# (Role)" format.
+        expected_label = f"{override_target} (Surface)"
+        assert expected_label in y_labels, (
+            f"Expected {expected_label!r} in heatmap y-axis after override; "
+            f"override not reflected. y={y_labels}"
         )
 
         loader.clear_sensor_overrides(curve_idx)

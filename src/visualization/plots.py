@@ -10,6 +10,7 @@ from config.constants import TEMPERATURE_ZONES, SENSOR_NAMES, SENSOR_LIST, S_CUR
 from src.analysis.s_curve_analysis import SCurveLandmark, BakeOutAnalysis
 from .visualization_config import VisualizationConfig
 from src.data.column_helpers import get_core_temperature_column
+from src.ui.sensor_role_helpers import format_sensor_label
 
 
 class ThermalPlotter:
@@ -107,10 +108,14 @@ class ThermalPlotter:
                 role = sensor_roles.get(sensor, 'unknown') if sensor_roles else 'unknown'
                 style = role_styles.get(role, {'color': None, 'width': 2, 'dash': 'solid'})
                 
-                # Build sensor label
-                label = SENSOR_NAMES.get(sensor, sensor)
-                if role != 'unknown':
-                    label = f"{label} ({role.capitalize()})"
+                # Build sensor label via the shared formatter so the multiselect,
+                # line-plot legend, and heatmap y-axis all read "T5 (Core)" when a
+                # role is known and fall back to firmware-default SENSOR_NAMES for
+                # sensors with no inferred role.
+                label = format_sensor_label(
+                    sensor, role,
+                    fallback=SENSOR_NAMES.get(sensor, sensor),
+                )
                 
                 fig.add_trace(go.Scatter(
                     x=data['TimeMinutes'],
@@ -220,8 +225,11 @@ class ThermalPlotter:
             data: Temperature data with TimeMinutes and T1..T8 columns.
             sensors: Explicit list of sensors to include (default: all in SENSOR_LIST).
             sensor_roles: Dict mapping sensor names to roles (core, surface, internal, ambient).
-                          When provided, y-axis labels include the role suffix, e.g.
-                          "Core 2 (Surface)". When None, firmware-default SENSOR_NAMES are used.
+                          When a sensor's role is known, its y-axis label uses the sensor ID
+                          plus role suffix, e.g. "T2 (Surface)" — matching the multiselect's
+                          format. Sensors with role 'unknown' (or absent from the dict) fall
+                          back to firmware-default SENSOR_NAMES. When `sensor_roles` is None,
+                          all labels use SENSOR_NAMES (backwards-compat).
         """
         if sensors is None:
             sensors = list(SENSOR_LIST)
@@ -234,16 +242,18 @@ class ThermalPlotter:
                 "No sensor columns in data; expected at least one of T1..T8."
             )
 
-        # Build heatmap array and y-axis labels for present sensors only
+        # Build heatmap array and y-axis labels for present sensors only.
+        # Uses the same shared formatter as the line-plot legend so the two
+        # visualisations describe sensors identically.
         heatmap_data = []
         y_labels = []
         for sensor in present_sensors:
             heatmap_data.append(data[sensor].values)
-            label = SENSOR_NAMES.get(sensor, sensor)
             role = sensor_roles.get(sensor, 'unknown') if sensor_roles else 'unknown'
-            if role != 'unknown':
-                label = f"{label} ({role.capitalize()})"
-            y_labels.append(label)
+            y_labels.append(format_sensor_label(
+                sensor, role,
+                fallback=SENSOR_NAMES.get(sensor, sensor),
+            ))
 
         heatmap_array = np.array(heatmap_data)
 

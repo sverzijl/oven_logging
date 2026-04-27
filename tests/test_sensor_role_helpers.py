@@ -15,7 +15,11 @@ import pytest
 import pathlib
 
 from src.data.loader import ThermalProfileLoader
-from src.ui.sensor_role_helpers import build_sensor_role_map, build_sensor_label_map
+from src.ui.sensor_role_helpers import (
+    build_sensor_role_map,
+    build_sensor_label_map,
+    format_sensor_label,
+)
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 SINGLE_CURVE_CSV = REPO / 'ProbeData_1000F3C1_2025-05-23 09_11_59.csv'
@@ -98,6 +102,63 @@ class TestBuildSensorRoleMap:
         assert result_default == result_explicit, (
             f"Default index call differs from explicit(1):\n  default={result_default}\n  explicit={result_explicit}"
         )
+
+
+class TestFormatSensorLabel:
+    """Tests for format_sensor_label() — the shared single-sensor formatter.
+
+    This is the canonical "T5 (Core)" string builder used by the multiselect,
+    line-plot legend, and heatmap y-axis. Centralising the format pins behaviour
+    so all three surfaces stay in lock-step.
+    """
+
+    @pytest.mark.parametrize(
+        "sensor,role,expected",
+        [
+            ('T1', 'core', 'T1 (Core)'),
+            ('T5', 'core', 'T5 (Core)'),
+            ('T7', 'surface', 'T7 (Surface)'),
+            ('T2', 'internal', 'T2 (Internal)'),
+            ('T8', 'ambient', 'T8 (Ambient)'),
+        ],
+    )
+    def test_known_role_uses_sensor_id_prefix(self, sensor, role, expected):
+        """When role is known, label is '{sensor_id} ({Role})' regardless of SENSOR_NAMES."""
+        assert format_sensor_label(sensor, role) == expected
+
+    def test_unknown_role_with_no_fallback_returns_sensor_id(self):
+        """Unknown role + no fallback → bare sensor ID (multiselect convention)."""
+        assert format_sensor_label('T5', 'unknown') == 'T5'
+
+    def test_unknown_role_with_fallback_returns_fallback(self):
+        """Unknown role + fallback → fallback (plot-legend convention with SENSOR_NAMES)."""
+        assert format_sensor_label('T5', 'unknown', fallback='Middle 1') == 'Middle 1'
+
+    def test_known_role_ignores_fallback(self):
+        """A provided fallback never overrides a known role's '{sensor} (Role)' form."""
+        assert format_sensor_label('T5', 'core', fallback='Middle 1') == 'T5 (Core)'
+
+    def test_custom_role_format_token(self):
+        """role_format placeholder substitutes the capitalised role token."""
+        assert format_sensor_label('T1', 'core', role_format='[{role}]') == 'T1 [Core]'
+        assert format_sensor_label('T7', 'surface', role_format='- {role}') == 'T7 - Surface'
+
+    def test_label_map_uses_format_sensor_label(self):
+        """build_sensor_label_map delegates per-sensor formatting to format_sensor_label.
+
+        Pinning this guards the DRY refactor — any future divergence between the
+        two helpers is caught here.
+        """
+        loader = make_loader(SINGLE_CURVE_CSV)
+        curve_idx = loader.current_curve_index
+        role_map = build_sensor_role_map(loader, curve_idx)
+        label_map = build_sensor_label_map(loader, curve_idx)
+        for sensor, role in role_map.items():
+            expected = format_sensor_label(sensor, role)
+            assert label_map[sensor] == expected, (
+                f"build_sensor_label_map[{sensor!r}] == {label_map[sensor]!r} "
+                f"diverges from format_sensor_label({sensor!r}, {role!r}) == {expected!r}"
+            )
 
 
 class TestBuildSensorLabelMap:
