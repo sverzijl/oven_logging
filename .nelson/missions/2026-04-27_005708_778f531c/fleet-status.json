@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "M2 fixes B1 (heatmap role-blindness): extend plot_temperature_gradient_heatmap to accept sensor_roles param, add empty-input guard (S3), migrate the heatmap call site at tabs/temperature_profile.py:81 to use build_sensor_role_map from M1.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-27T00:57:08Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 2,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 2
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Diamond",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Astute",
+      "ship_class": "submarine",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 2 captains"
+  ],
+  "last_updated": "2026-04-27T01:32:27Z"
+}

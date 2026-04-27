@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T00:55:46Z",
-  "pattern_count": 29,
+  "updated_at": "2026-04-27T01:32:27Z",
+  "pattern_count": 30,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -563,6 +563,26 @@
       ],
       "avoid": [
         "Iron Duke's pytest count claim of 355 was off by 1 (actual 354) \u2014 admiral should always re-run pytest in the red-cell verification rather than trusting captain self-reports."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_005708_778f531c",
+      "completed_at": "2026-04-27T01:32:27Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M2 fixes B1 (heatmap role-blindness): extend plot_temperature_gradient_heatmap to accept sensor_roles param, add empty-input guard (S3), migrate the heatmap call site at tabs/temperature_profile.py:81 to use build_sensor_role_map from M1.",
+      "adopt": [
+        "ValueError contract for empty-input rather than silent empty-figure \u2014 surfaces programming errors immediately."
+      ],
+      "avoid": [
+        "Surface override targeting a sensor already classified as core silently no-ops because core priority dominates in get_sensor_assignments_with_overrides \u2014 M3 must validate that role-priority interactions don't hide expected behaviour."
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,
