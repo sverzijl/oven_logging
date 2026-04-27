@@ -1,0 +1,58 @@
+{
+  "100098DE_1351#1": {
+    "curve_index": 1,
+    "expected_core_sensor": "T4",
+    "expected_lid_sensor": null,
+    "expected_surface_sensor": "T7",
+    "fixture_key": "100098DE_1351",
+    "reasoning": "T1-T6 all plateau between ~98-100 deg C (in dough). T7 (pink) shows the classic surface signature: rises faster than T1-T6, kinks at ~100 deg C around min 18, then continues to ~112 deg C terminal \u2014 clear free rise above 100 deg C. T8 (max overlay) reaches ~140 deg C \u2014 clearly ambient/air. Largest adjacent terminal jump T7->T8 ~28 deg C; T6->T7 ~12 deg C. Core anchor T4. Surface index > core index satisfied (7 > 4)."
+  },
+  "1000BA3C_0946#1": {
+    "curve_index": 1,
+    "expected_core_sensor": "T1",
+    "expected_lid_sensor": null,
+    "expected_surface_sensor": "T6",
+    "fixture_key": "1000BA3C_0946",
+    "reasoning": "T1-T5 plateau at ~95-99 deg C (clearly in dough). T6 (brown) shows the classic surface signature: plateau near 100 deg C from approximately min 13-15 then a kink and free rise to ~107 deg C terminal. T7 (pink) heats faster, reaches ~133 deg C \u2014 air side, further out. T8 (max) ~170 deg C \u2014 ambient. Largest adjacent terminal jump T6->T7 ~26 deg C is the strongest cue. Core anchor T1. Surface index > core (6 > 1)."
+  },
+  "1000BA3C_1759#1": {
+    "curve_index": 1,
+    "expected_core_sensor": "T1",
+    "expected_lid_sensor": null,
+    "expected_surface_sensor": "T6",
+    "fixture_key": "1000BA3C_1759",
+    "reasoning": "Same probe and probe-insertion as 1000BA3C_0946 \u2014 first bake of three. T1-T5 plateau at ~95-99 deg C (in dough). T6 plateaus near 100 deg C around min 12-14 with kink and free rise to ~107 deg C. T7 ~133 deg C (air), T8 ~170 deg C (ambient). T6->T7 ~26 deg C jump is largest adjacent. Surface = T6, core anchor = T1."
+  },
+  "1000BA3C_1759#2": {
+    "curve_index": 2,
+    "expected_core_sensor": "T1",
+    "expected_lid_sensor": null,
+    "expected_surface_sensor": "T6",
+    "fixture_key": "1000BA3C_1759",
+    "reasoning": "Second bake. Same insertion depth as bake 1. T1-T5 plateau at ~98-99 deg C; T6 plateau near 100 with kink and rise to ~105 deg C terminal. T7 ~125 deg C, T8 (max) ~163 deg C. Adjacent terminal jump T6->T7 ~20 deg C. Surface = T6 again \u2014 consistent with bake 1 since the probe is in the same loaf at the same depth."
+  },
+  "1000BA3C_1759#3": {
+    "curve_index": 3,
+    "expected_core_sensor": "T1",
+    "expected_lid_sensor": null,
+    "expected_surface_sensor": "T6",
+    "fixture_key": "1000BA3C_1759",
+    "reasoning": "Third bake. Fixture annotation expected_core_sensor=T1 still applies at the case level (taken across all three bakes), but for this individual curve T6 has a slightly different role. T1-T5 plateau ~95-99 deg C; T6 reaches ~111 deg C with a clear plateau-and-rise (could be surface if T7 sits in air); T7 ~138 deg C; T8 (max) ~176 deg C. The kink-at-100 and free-rise pattern is most pronounced on T6 (plateau around min 16-18 then rise) \u2014 strongest surface signature here. Adjacent terminal jump T6->T7 ~27 deg C is largest. Surface = T6 in this curve too. Note: fixture-level expected_core_sensor=T1 spans all three curves so I keep T1 as core anchor for this curve in the manifest reasoning even though T1 is genuinely slower-rising than T6 across this particular bake too."
+  },
+  "post_wonder_meal_20251017#1": {
+    "curve_index": 1,
+    "expected_core_sensor": "T5",
+    "expected_lid_sensor": null,
+    "expected_surface_sensor": "T8",
+    "fixture_key": "post_wonder_meal_20251017",
+    "reasoning": "LIDDED bake. All sensors plateau at ~97-99 deg C; cavity proxy ~99 deg C. Heat-up ordering at min 15: T5 (~42, slowest=core) <= T6 (~42) < T7 (~46) < T4 (~48) < T3 (~57) < T2 (~70) < T8 (~76) < T1 (~85, fastest=ambient). Topology: T5,T6 deepest in dough; T7,T4 mid; T3,T2 shallower; T8,T1 in air. Surface index > core (T5). Candidates T6, T7, T8. T6 and T7 stay slow (in dough). The largest adjacent-sensor jump in heat-up is T7->T8 at min 15 (46 -> 76 = 30 deg C), which puts T8 on the air side as the first surface sensor past dough. Surface = T8. LID = None: T1 reaches ~99 deg C (cavity proxy), T8 reaches ~98 \u2014 no sensor reads 20-60 deg C below cavity, so no lid contact."
+  },
+  "wonder_white_10k#1": {
+    "curve_index": 1,
+    "expected_core_sensor": "T6",
+    "expected_lid_sensor": null,
+    "expected_surface_sensor": "T7",
+    "fixture_key": "wonder_white_10k",
+    "reasoning": "LIDDED bake. All sensors plateau at ~98-100 deg C; cavity proxy max(T1..T8) plateaus ~100 deg C \u2014 no sensor rises above 100 deg C. Standard surface signature (free rise above 100) is suppressed by the lid. Heat-up ordering (slow->fast): T5,T6 (core, deepest), T4,T7 mid, T3,T2 shallower, T8,T1 in air. Surface index must be > core (T6) \u2014 candidates T7, T8. T7 sits between dough cluster and air cluster during heat-up (plateaus ~98); T8 heats fast like T1 (true ambient). T7 is the first sensor on the air side past core, plateauing at ~98 deg C just below cavity proxy. Adjacent terminal jump T7->T8 is small (~1 deg C) due to lid-suppressed free rise. Surface = T7. LID = None: probe high-end sensors (T1, T8) reach within 1-2 deg C of cavity proxy \u2014 no sensor sits 20-60 deg C below cavity, so no lid contact."
+  }
+}

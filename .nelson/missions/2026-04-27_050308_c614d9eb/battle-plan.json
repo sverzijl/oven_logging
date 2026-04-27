@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Annotation tooling + ground-truth pass + failing tests",
+      "owner": "HMS Truculent",
+      "deliverable": "tests/fixtures/_role_annotator.py (NEW), {mission-dir}/annotations/*.png + manifest.json (Truculent's picks + reasoning), tests/fixtures/curve_boundary_cases.py (add expected_surface_sensor for 6 real entries; add expected_lid_sensor for the 2 lidded entries), tests/test_role_classifier_unified.py (NEW \u2014 parametrized test_surface_annotation_present + test_lid_annotation_present that pass after the fixture edits).",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/tests/fixtures/_role_annotator.py",
+        "oven_logging/tests/fixtures/curve_boundary_cases.py",
+        "oven_logging/tests/test_role_classifier_unified.py",
+        ".nelson/missions/2026-04-27_050308_c614d9eb/annotations/"
+      ],
+      "validation_required": "New tests pass; existing pytest tests/ stays green; plot artefacts produced for each of the 6 real fixtures (7 plots since 1000BA3C_1759 has 2 curves).",
+      "rollback_note_required": true,
+      "admiralty_action_required": true
+    },
+    {
+      "id": 2,
+      "name": "Independent red-cell annotation verification",
+      "owner": "HMS Astute",
+      "deliverable": "{mission-dir}/damage-reports/HMS-Astute.json with: independent annotation pass per fixture (Astute reads the same plots cold), per-fixture verdict (CONFIRM | DISPUTE | AMBIGUOUS), reasoning, and alternative picks for any DISPUTE.",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-27_050308_c614d9eb/damage-reports/HMS-Astute.json"
+      ],
+      "validation_required": "Report covers all 6 real fixtures (7 curves total); each entry has an explicit verdict; any DISPUTE includes both Astute's pick and Truculent's pick.",
+      "rollback_note_required": true,
+      "admiralty_action_required": true
+    },
+    {
+      "id": 1,
+      "name": "Annotation tooling + ground-truth pass + failing tests",
+      "owner": "HMS Truculent",
+      "deliverable": "tests/fixtures/_role_annotator.py (NEW); {mission-dir}/annotations/*.png + manifest.json (Truculent's picks + reasoning); tests/fixtures/curve_boundary_cases.py (add expected_surface_sensor for 6 real entries; add expected_lid_sensor for the 2 lidded entries); tests/test_role_classifier_unified.py (NEW \u2014 parametrized test_surface_annotation_present + test_lid_annotation_present that pass after the fixture edits).",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/tests/fixtures/_role_annotator.py",
+        "oven_logging/tests/fixtures/curve_boundary_cases.py",
+        "oven_logging/tests/test_role_classifier_unified.py",
+        ".nelson/missions/2026-04-27_050308_c614d9eb/annotations/"
+      ],
+      "validation_required": "New tests pass; existing pytest tests/ stays green; plot artefacts produced for each of the 6 real fixtures (7 plots since 1000BA3C_1759 has 2 curves).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Independent red-cell annotation verification",
+      "owner": "HMS Astute",
+      "deliverable": "{mission-dir}/damage-reports/HMS-Astute.json with: independent annotation pass per fixture (Astute reads the same plots cold), per-fixture verdict (CONFIRM | DISPUTE | AMBIGUOUS), reasoning, and alternative picks for any DISPUTE.",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-27_050308_c614d9eb/damage-reports/HMS-Astute.json"
+      ],
+      "validation_required": "Report covers all 6 real fixtures (7 curves total); each entry has an explicit verdict; any DISPUTE includes both Astute's pick and Truculent's pick.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Truculent",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Astute",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 2
+      }
+    ]
+  },
+  "created_at": "2026-04-27T05:05:45Z",
+  "amended_at": null
+}

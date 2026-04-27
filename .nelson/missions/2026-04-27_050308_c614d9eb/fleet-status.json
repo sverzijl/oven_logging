@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Truculent (M1a of refactor/role-classification-unified flotilla): annotation tooling + ground-truth surface and lid sensor annotations across 6 real CSVs, with a failing parametrized presence test going in first.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-27T05:03:08Z",
+    "checkpoint_number": 2
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 1,
+    "blocked": 0,
+    "total": 2
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": 200000,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0,
+    "burn_rate_per_task": null,
+    "projected_budget_at_completion": null
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Truculent",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": null
+    },
+    {
+      "ship_name": "HMS Astute",
+      "ship_class": "submarine",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": null
+    }
+  ],
+  "blockers": [],
+  "recent_events": [],
+  "last_updated": "2026-04-27T06:50:29Z"
+}

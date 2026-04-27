@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Truculent (M1a of refactor/role-classification-unified flotilla): annotation tooling + ground-truth surface and lid sensor annotations across 6 real CSVs, with a failing parametrized presence test going in first.",
+  "success_metric": "tests/test_role_classifier_unified.py::test_surface_annotation_present and ::test_lid_annotation_present (parametrized over 6 real fixtures) both pass; tests/fixtures/curve_boundary_cases.py carries expected_surface_sensor for all real entries and expected_lid_sensor for the two lidded entries; an annotation helper (tests/fixtures/_role_annotator.py) generates plot artefacts saved into the mission directory.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-27T05:03:08Z"
+}

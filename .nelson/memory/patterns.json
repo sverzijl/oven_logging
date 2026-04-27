@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T03:32:52Z",
-  "pattern_count": 33,
+  "updated_at": "2026-04-27T06:50:29Z",
+  "pattern_count": 34,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -651,6 +651,27 @@
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_050308_c614d9eb",
+      "completed_at": "2026-04-27T06:50:29Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Truculent (M1a of refactor/role-classification-unified flotilla): annotation tooling + ground-truth surface and lid sensor annotations across 6 real CSVs, with a failing parametrized presence test going in first.",
+      "adopt": [
+        "Annotator-as-pure-helper module separated from test assertions",
+        "Manifest JSON next to plot PNGs as provenance"
+      ],
+      "avoid": [
+        "Hand-typing role picks into manifest after writing reasoning text introduced typo missed without red-cell"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 0.5
       }
     }
   ]

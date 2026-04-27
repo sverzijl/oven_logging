@@ -805,6 +805,13 @@ CASES = [
         "raises": None,
         "source": "real",
         "expected_core_sensor": "T4",
+        # SURFACE SENSOR ground truth (M1a HMS Truculent annotation, mission
+        # 2026-04-27_050308_c614d9eb). Visual inspection of curve plot:
+        # T1-T6 plateau between ~98-100 °C (in dough). T7 shows the classic
+        # surface signature — kinks at ~100 °C around min 18 then free-rises
+        # to ~112 °C terminal. T8 reads ~140 °C (ambient/air). Largest adjacent
+        # terminal jump T7→T8 ≈ 28 °C. Surface index > core (7 > 4).
+        "expected_surface_sensor": "T7",
         "description": (
             "Single bake in a 2239-row log (~3.1 h). "
             "START annotated via PredictionState ('Probe Not Inserted' → 'Probe Inserted' at idx 3). "
@@ -839,6 +846,13 @@ CASES = [
         "source": "real",
         "truncated": True,
         "expected_core_sensor": "T1",
+        # SURFACE SENSOR ground truth (M1a HMS Truculent). Visual inspection:
+        # T1-T5 plateau at ~95-99 °C (in dough). T6 shows the classic surface
+        # signature — plateau near 100 °C around min 13-15, kink, then free
+        # rise to ~107 °C terminal. T7 reaches ~133 °C (air-side, further out);
+        # T8 ~170 °C (ambient). Largest adjacent terminal jump T6→T7 ≈ 26 °C.
+        # Surface index > core (6 > 1).
+        "expected_surface_sensor": "T6",
         "description": (
             "Single bake in a 300-row truncated log (~25 min). "
             "START annotated via PredictionState ('Probe Not Inserted' → 'Probe Inserted' at idx 13). "
@@ -893,6 +907,16 @@ CASES = [
         "tolerance": 8,
         "ambiguous": True,
         "expected_core_sensor": "T1",
+        # SURFACE SENSOR ground truth (M1a HMS Truculent). Per-curve list since
+        # this case spans 3 bakes. Same probe insertion across all three —
+        # T6 shows the surface signature consistently:
+        #   bake 1: T6 plateaus at ~100 °C around min 12-14 with kink and rise
+        #           to ~107 °C; T7 ~133 °C; T8 ~170 °C. T6→T7 jump ≈ 26 °C.
+        #   bake 2: T6 plateau at ~100 with kink, rises to ~105 °C; T7 ~125 °C;
+        #           T8 ~163 °C. T6→T7 jump ≈ 20 °C.
+        #   bake 3: T6 reaches ~111 °C with strongest plateau-and-rise around
+        #           min 16-18; T7 ~138 °C; T8 ~176 °C. T6→T7 jump ≈ 27 °C.
+        "expected_surface_sensor": ["T6", "T6", "T6"],
         "description": (
             "THREE bakes in a 6214-row log (~8.6 h). "
             "CORRECTION (mission 2026-04-24_090858_d46e235e): prior 2-bake annotation treated "
@@ -1105,6 +1129,16 @@ CASES = [
         "source": "real",
         "tolerance": 5,
         "expected_core_sensor": "T6",
+        # SURFACE & LID ground truth (M1a HMS Truculent). LIDDED bake — all
+        # sensors plateau at ~98-100 °C; cavity proxy max(T1..T8) ~100 °C; no
+        # sensor rises above 100 °C (lid suppresses free-rise above plateau).
+        # Heat-up ordering (slow→fast): T5,T6 (core) < T4,T7 < T3,T2 < T8,T1.
+        # T7 sits between dough cluster and air cluster, plateauing at ~98 °C
+        # — first sensor on the air side past core T6. Lid: T1 and T8 reach
+        # within 1-2 °C of the cavity proxy, so no sensor sits 20-60 °C below
+        # cavity → no lid contact → expected_lid_sensor = None.
+        "expected_surface_sensor": "T7",
+        "expected_lid_sensor": None,
         "description": (
             "Lidded bake. Oven-exit defined as first sample of the ambient-temperature "
             "decline following the ambient peak — the physical signal that the loaf left "
@@ -1239,6 +1273,17 @@ CASES = [
         "source": "real",
         "tolerance": 5,
         "expected_core_sensor": "T5",
+        # SURFACE & LID ground truth (M1a HMS Truculent). LIDDED bake — all
+        # sensors plateau at ~97-99 °C; cavity proxy ~99 °C. Heat-up ordering
+        # at min 15: T5 (~42, slowest=core) ≈ T6 (~42) < T7 (~46) < T4 (~48)
+        # < T3 (~57) < T2 (~70) < T8 (~76) < T1 (~85, fastest=ambient).
+        # Topology: T5,T6 deepest in dough; T7,T4 mid; T3,T2 shallower;
+        # T8,T1 in air. Largest adjacent heat-up jump T7→T8 ≈ 30 °C confirms
+        # T8 is first sensor on air side past dough → surface = T8.
+        # Lid: T1 reads ~99 °C (cavity proxy), T8 ~98 °C — neither sits
+        # 20-60 °C below cavity → no lid contact → expected_lid_sensor = None.
+        "expected_surface_sensor": "T8",
+        "expected_lid_sensor": None,
         "description": (
             "Lidded bake — Wilmar Post Wonder Meal 20251017. "
             "376 rows (all valid; no trailing NaN). Single-comma CSV header (no double-comma artefact). "

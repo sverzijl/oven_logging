@@ -1,0 +1,90 @@
+{
+  "ship": "HMS Astute",
+  "task": "M1a red-cell annotation verification",
+  "verdicts": [
+    {
+      "fixture": "100098DE_1351",
+      "curve": 1,
+      "truculent_surface": "T7",
+      "astute_surface": "T7",
+      "surface_verdict": "CONFIRM",
+      "truculent_lid": null,
+      "astute_lid": null,
+      "lid_verdict": "CONFIRM",
+      "reasoning": "T7 shows classic plateau at ~100 °C (min 18) then kink and free rise to ~111 °C. T1-T6 plateau at ~98-100 °C (in dough). T8 reaches ~139 °C (ambient). Largest adjacent jump T7->T8 ~28 °C. Surface index 7 > core 4 satisfied."
+    },
+    {
+      "fixture": "1000BA3C_0946",
+      "curve": 1,
+      "truculent_surface": "T6",
+      "astute_surface": "T6",
+      "surface_verdict": "CONFIRM",
+      "truculent_lid": null,
+      "astute_lid": null,
+      "lid_verdict": "CONFIRM",
+      "reasoning": "T1-T5 plateau at ~98-100 °C (dough). T6 plateaus ~100 °C (min 13-15) with kink and rise to ~107 °C. T7 reaches ~133 °C; T8 ~173 °C (air). Largest adjacent jump T6->T7 ~26 °C. Surface index 6 > core 1 satisfied."
+    },
+    {
+      "fixture": "1000BA3C_1759",
+      "curve": 1,
+      "truculent_surface": "T6",
+      "astute_surface": "T6",
+      "surface_verdict": "CONFIRM",
+      "truculent_lid": null,
+      "astute_lid": null,
+      "lid_verdict": "CONFIRM",
+      "reasoning": "Identical probe insertion as 0946. T1-T5 plateau at ~98-100 °C. T6 plateaus ~100 °C (min 12-14) with kink and rise to ~107 °C. T7 ~133 °C, T8 ~173 °C. Adjacent jump T6->T7 ~26 °C. Surface = T6, core = T1."
+    },
+    {
+      "fixture": "1000BA3C_1759",
+      "curve": 2,
+      "truculent_surface": "T6",
+      "astute_surface": "T6",
+      "surface_verdict": "CONFIRM",
+      "truculent_lid": null,
+      "astute_lid": null,
+      "lid_verdict": "CONFIRM",
+      "reasoning": "Second bake, same insertion depth. T1-T5 plateau at ~98-99 °C. T6 plateaus ~100 °C with kink, rise to ~105 °C. T7 ~125 °C, T8 ~163 °C. Adjacent jump T6->T7 ~20 °C. Surface = T6 consistent with curve 1."
+    },
+    {
+      "fixture": "1000BA3C_1759",
+      "curve": 3,
+      "truculent_surface": "T7",
+      "astute_surface": "T6",
+      "surface_verdict": "AMBIGUOUS",
+      "truculent_lid": null,
+      "astute_lid": null,
+      "lid_verdict": "CONFIRM",
+      "reasoning": "T6 shows clearest plateau-kink signature at ~100 °C (min 16-18) with rise to ~111 °C. T7 reaches ~138 °C more smoothly. T8 ~176 °C ambient. If T6 is core, T7 (surface index > T6) is valid by topology. If T6 is surface, it exhibits stronger physics signature. Largest adjacent jump T6->T7 ~27 °C supports both readings. This curve's role assignment is genuinely ambiguous without additional context."
+    },
+    {
+      "fixture": "wonder_white_10k_lidded",
+      "curve": 1,
+      "truculent_surface": "T7",
+      "astute_surface": "T7",
+      "surface_verdict": "CONFIRM",
+      "truculent_lid": null,
+      "astute_lid": null,
+      "lid_verdict": "CONFIRM",
+      "reasoning": "Lidded bake, all sensors plateau at ~98-100 °C (cavity suppressed). No sensor exhibits free rise above 100 °C or sub-cavity plateau pattern. T1 (fastest) reaches ~100 °C, T7 near-ambient. Surface assignment T7 is arbitrarily defensible as furthest air-side sensor > core T6. Lid = None: no sensor 20-60 °C below cavity proxy."
+    },
+    {
+      "fixture": "post_wonder_meal_lidded",
+      "curve": 1,
+      "truculent_surface": "T8",
+      "astute_surface": "T8",
+      "surface_verdict": "CONFIRM",
+      "truculent_lid": null,
+      "astute_lid": null,
+      "lid_verdict": "CONFIRM",
+      "reasoning": "Lidded bake, all sensors plateau at ~97-99 °C. T1 (fastest heating) reaches ~98 °C; T8 reaches ~98 °C (minimal free rise). Heat-up ordering places T5 (slowest) as core, T8 as furthest air-side. Surface index 8 > core 5 satisfied. Lid = None: no sensor reads 20-60 °C below cavity proxy ~98 °C."
+    }
+  ],
+  "summary": {
+    "total_curves": 7,
+    "confirms": 6,
+    "disputes": 0,
+    "ambiguous": 1,
+    "overall_verdict": "REVISE"
+  }
+}
