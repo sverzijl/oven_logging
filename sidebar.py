@@ -233,6 +233,14 @@ def render():
                 st.markdown("*Topology rule: core < surface ≤ ambient ≤ lid. Through-loaf insertions (ambient on both sides) are accepted.*")
 
                 curve_idx = st.session_state.current_curve_index
+                # Widget keys must be unique per (filename, curve_idx) so a
+                # selection on one CSV doesn't carry over when the user
+                # switches to another file. Streamlit persists widget state
+                # under the `key=` argument; without the filename component,
+                # a previously-touched ambient multiselect on one CSV ghosts
+                # into the same widget on the next CSV. Same fix pattern as
+                # mission 2026-04-24_102020 for the temperature_profile tab.
+                file_key = (st.session_state.get('current_file') or 'nofile').replace(' ', '_')
 
                 # Core sensor (single selection)
                 current_core = st.session_state.loader.get_core_sensor(curve_idx)
@@ -240,7 +248,7 @@ def render():
                     "Core Sensor (single sensor for core temperature)",
                     options=list(SENSOR_LIST),
                     index=list(SENSOR_LIST).index(current_core) if current_core else 0,
-                    key=f"core_override_{curve_idx}",
+                    key=f"core_override_{file_key}_{curve_idx}",
                     help="Select the sensor that best represents the core temperature"
                 )
 
@@ -250,7 +258,7 @@ def render():
                     "Surface/Crust Sensor (interface between core and ambient)",
                     options=list(SENSOR_LIST),
                     index=list(SENSOR_LIST).index(current_surface) if current_surface else 6,
-                    key=f"surface_override_{curve_idx}",
+                    key=f"surface_override_{file_key}_{curve_idx}",
                     help="Select the sensor at the bread surface."
                 )
 
@@ -260,7 +268,7 @@ def render():
                     "Ambient Sensors (one or more sensors in the oven air)",
                     options=list(SENSOR_LIST),
                     default=[s for s in current_ambient if s in SENSOR_LIST],
-                    key=f"ambient_override_{curve_idx}",
+                    key=f"ambient_override_{file_key}_{curve_idx}",
                     help=(
                         "Select sensors that read oven-air temperature. Through-loaf "
                         "exception: if the probe pierces the loaf, you may pick sensors "
@@ -278,7 +286,7 @@ def render():
                     "Lid Sensor (optional; the sensor pressed against an oven lid)",
                     options=lid_options,
                     index=lid_default_idx,
-                    key=f"lid_override_{curve_idx}",
+                    key=f"lid_override_{file_key}_{curve_idx}",
                     help=(
                         "Select 'None' for non-lidded bakes. When set, the chosen sensor "
                         "writes a LidTemperature column."
