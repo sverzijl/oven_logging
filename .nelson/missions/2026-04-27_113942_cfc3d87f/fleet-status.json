@@ -2,10 +2,10 @@
   "version": 1,
   "mission": {
     "outcome": "Land HMS Bellerophon (M3b): extend sidebar override UI to support ambient + lid roles with topology validation; delete surface_sensor_detector.py and ThermodynamicSensorClassifier class; audit tests for standardized-column-set equality assumptions.",
-    "status": "underway",
-    "phase": "UNDERWAY",
+    "status": "complete",
+    "phase": "STAND_DOWN",
     "started_at": "2026-04-27T11:39:42Z",
-    "checkpoint_number": 0
+    "checkpoint_number": 1
   },
   "progress": {
     "pending": 1,
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-27T11:40:04Z"
+  "last_updated": "2026-04-27T11:57:08Z"
 }
