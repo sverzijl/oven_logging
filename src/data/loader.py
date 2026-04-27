@@ -10,7 +10,6 @@ import io
 
 _log = logging.getLogger(__name__)
 from config.constants import (
-    CORE_DETECTION_CONFIG,
     CURVE_DETECTION_CONFIG,
     INTERNAL_SENSOR_CONFIG,
     SENSOR_LIST,
@@ -21,6 +20,7 @@ from src.data.column_helpers import (
     resolve_core_temperature_series,
 )
 from src.data.curve_boundary_detector import CurveBoundaryDetector
+from src.data.spatial_reconstruction import classify, lookup_geometry
 
 
 class ThermalProfileLoader:
@@ -328,207 +328,102 @@ class ThermalProfileLoader:
                 to_sensors(ambient_nums))
     
     def _identify_sensor_roles_for_curve(self, df: pd.DataFrame, curve_index: int) -> pd.DataFrame:
-        """
-        Identify which sensors represent core, surface, and ambient temperatures.
-        
-        Uses the probe's built-in virtual sensor assignments when available,
-        or falls back to dynamic classification based on temperature patterns.
-        """
-        # Method 1: Use virtual sensor assignments from CSV (preferred)
-        virtual_cols = ['VirtualCoreTemperature', 'VirtualSurfaceTemperature', 
-                       'VirtualAmbientTemperature']
-        assignment_cols = ['VirtualCoreSensor', 'VirtualSurfaceSensor', 
-                          'VirtualAmbientSensor']
-        
-        used_virtual_path = all(col in df.columns for col in virtual_cols + assignment_cols)
-        if used_virtual_path:
-            # Track most common sensor assignments for each role
-            if len(df) > 0:
-                curve_assignments = {
-                    'core': df['VirtualCoreSensor'].mode().iloc[0] if not df['VirtualCoreSensor'].mode().empty else 'Unknown',
-                    'surface': df['VirtualSurfaceSensor'].mode().iloc[0] if not df['VirtualSurfaceSensor'].mode().empty else 'Unknown',
-                    'ambient': df['VirtualAmbientSensor'].mode().iloc[0] if not df['VirtualAmbientSensor'].mode().empty else 'Unknown'
-                }
-                
-                # Add assignment frequency info
-                for role, col in zip(['core', 'surface', 'ambient'], assignment_cols):
-                    if col in df.columns:
-                        counts = df[col].value_counts()
-                        if len(counts) > 0:
-                            primary = counts.index[0]
-                            percentage = (counts.iloc[0] / len(df)) * 100
-                            curve_assignments[f'{role}_info'] = {
-                                'primary': primary,
-                                'percentage': percentage,
-                                'all_sensors': counts.to_dict()
-                            }
-                
-                # Store per-curve
-                self.curve_sensor_assignments[curve_index] = curve_assignments
-                
-                # Also update deprecated sensor_assignments for backward compatibility
-                self.sensor_assignments = curve_assignments
-            
-            print(f"Curve {curve_index + 1}: Using virtual sensor assignments from CSV:")
-            print(f"  Core: {curve_assignments.get('core', 'Unknown')} ({curve_assignments.get('core_info', {}).get('percentage', 0):.1f}% of readings)")
-            print(f"  Surface: {curve_assignments.get('surface', 'Unknown')} ({curve_assignments.get('surface_info', {}).get('percentage', 0):.1f}% of readings)")
-            print(f"  Ambient: {curve_assignments.get('ambient', 'Unknown')} ({curve_assignments.get('ambient_info', {}).get('percentage', 0):.1f}% of readings)")
-            
-            # Validate assignments using thermodynamic principles
-            self._validate_sensor_assignments(df)
-            
-            # Apply physics-based surface sensor correction if enabled
-            from config.constants import SURFACE_DETECTION_CONFIG
-            if SURFACE_DETECTION_CONFIG['USE_PHYSICS_BASED_DETECTION']:
-                df = self._apply_physics_based_surface_correction(df, curve_index)
+        """Identify per-role sensors for ``df`` via the spatial reconstructor.
 
-            # Apply physics-based core sensor correction AFTER surface correction
-            # so role-order matches the surface pattern (physics > firmware).
-            if CORE_DETECTION_CONFIG['ENABLED']:
-                df = self._apply_physics_based_core_correction(df, curve_index)
+        After M3a HMS Royal Sovereign this is a single call to
+        :func:`src.data.spatial_reconstruction.classify`; the legacy
+        firmware-mode-pick + physics-correction layering is gone. The
+        classifier IS the source of truth.
+        """
+        sample_period_ms = self.metadata.get('sample_period_ms', 5000)
+        probe_geometry = lookup_geometry(
+            probe_sn=self.metadata.get('Probe S/N'),
+            probe_model=self.metadata.get('Probe HW revision'),
+        )
+        try:
+            assignment = classify(
+                df,
+                sample_period_ms=sample_period_ms,
+                probe_geometry=probe_geometry,
+            )
+            self.curve_sensor_assignments[curve_index] = (
+                self._spatial_assignment_to_dict(assignment)
+            )
+        except Exception as exc:
+            # Defensive: never crash curve extraction on a classifier failure.
+            _log.warning(
+                "Curve %d: spatial classifier failed (%s); using degraded "
+                "fallback assignments.", curve_index + 1, exc,
+            )
+            self.curve_sensor_assignments[curve_index] = {
+                'core': None,
+                'surface': None,
+                'ambient': [],
+                'lid': None,
+                'firmware_diagnostic': None,
+                'core_position_normalised': None,
+                'surface_position_normalised': None,
+                'ambient_position_normalised': [],
+                'lid_position_normalised': None,
+                'model_used': 'piecewise',
+                'assignment': None,
+            }
+        # Backward-compat alias for the deprecated single-curve view.
+        self.sensor_assignments = self.curve_sensor_assignments[curve_index]
 
-        else:
-            # Method 2: Enhanced dynamic classification using thermodynamic principles
-            print(f"Curve {curve_index + 1}: Virtual sensor data not available, using thermodynamic classification")
-            df = self._classify_sensors_dynamically(df, curve_index)
-        
-        # For backward compatibility, also create the old average columns
-        # but mark them as deprecated
+        # Backward-compat averages stay for legacy consumers (e.g. plots
+        # that pre-date the standardised columns).
         if all(col in df.columns for col in ['T1', 'T2', 'T3', 'T4']):
             df['CoreAverage'] = df[['T1', 'T2', 'T3', 'T4']].mean(axis=1)
         if all(col in df.columns for col in ['T7', 'T8']):
             df['SurfaceAverage'] = df[['T7', 'T8']].mean(axis=1)
-        
-        # Generate standardized columns via the single canonical writer.
-        # Only run on the virtual-path branch: the dynamic-classification branch
-        # below already wrote Core/Surface/Ambient from thermodynamically-chosen
-        # sensors and has no Virtual* columns to fall back on, so re-running the
-        # helper there would wipe its assignment.
-        if used_virtual_path:
-            self._apply_standard_columns(df, curve_index)
 
-        return df
-    
-    def _apply_physics_based_surface_correction(self, df: pd.DataFrame, curve_index: int) -> pd.DataFrame:
-        """Apply physics-based surface sensor correction to fix firmware misidentification."""
-        from ..data.surface_sensor_detector import identify_surface_sensor_advanced
-        from config.constants import SURFACE_DETECTION_CONFIG
-        
-        # Get sample period from metadata
-        sample_period_ms = self.metadata.get('sample_period_ms', 5000)
-        
-        # Run detection algorithm
-        result = identify_surface_sensor_advanced(df, sample_period_ms)
-        
-        if result and result['confidence'] >= SURFACE_DETECTION_CONFIG['CONFIDENCE_THRESHOLD']:
-            # Store original firmware selection for comparison
-            curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
-            firmware_surface_sensor = curve_assignments.get('surface', 'Unknown')
-            firmware_surface_max_temp = df['VirtualSurfaceTemperature'].max() if 'VirtualSurfaceTemperature' in df.columns else 0
-            
-            # Apply correction
-            surface_sensor = result['sensor']
-            df['SurfaceTemperature'] = df[surface_sensor]
-            df['PhysicsBasedSurfaceDetection'] = True
-            
-            # Update sensor assignments for this curve
-            curve_assignments['surface'] = surface_sensor
-            curve_assignments['surface_detection'] = result
-            curve_assignments['physics_corrected'] = True
-            curve_assignments['firmware_surface_sensor'] = firmware_surface_sensor
-            curve_assignments['firmware_surface_max_temp'] = firmware_surface_max_temp
-            self.curve_sensor_assignments[curve_index] = curve_assignments
-            
-            # Update deprecated sensor_assignments for backward compatibility
-            self.sensor_assignments = curve_assignments
-            
-            # Log the correction if enabled
-            if SURFACE_DETECTION_CONFIG['LOG_CORRECTIONS']:
-                print(f"\n✅ Curve {curve_index + 1}: Physics-based surface sensor correction applied:")
-                print(f"   Firmware selected: {firmware_surface_sensor} (max {firmware_surface_max_temp:.1f}°C)")
-                print(f"   Corrected to: {surface_sensor} (max {result['max_temp']:.1f}°C)")
-                print(f"   Confidence: {result['confidence']}%")
-                print(f"   Reasoning: {result['reasoning']}")
-                print(f"   Browning time: {result['browning_time']:.1f} minutes")
-        else:
-            # Mark that physics detection was attempted but not applied
-            df['PhysicsBasedSurfaceDetection'] = False
-            curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
-            curve_assignments['physics_corrected'] = False
-            self.curve_sensor_assignments[curve_index] = curve_assignments
-            
-            # Update deprecated sensor_assignments
-            self.sensor_assignments = curve_assignments
-            
-            if result:
-                print(f"\n⚠️  Curve {curve_index + 1}: Physics-based detection confidence too low ({result.get('confidence', 0)}%)")
-            else:
-                print(f"\n⚠️  Curve {curve_index + 1}: Physics-based surface detection failed - using firmware selection")
-
+        # Drive the standardised columns from the new assignment.
+        self._apply_standard_columns(df, curve_index)
         return df
 
-    def _apply_physics_based_core_correction(
-        self, df: pd.DataFrame, curve_index: int
-    ) -> pd.DataFrame:
-        """Override firmware VirtualCoreSensor pick when combined-rank physics disagrees.
+    def _spatial_assignment_to_dict(self, assignment) -> dict:
+        """Flatten a :class:`SpatialAssignment` into the curve-assignment dict
+        shape consumed by ``curve_sensor_assignments[curve_index]``.
 
-        Gate: CORE_DETECTION_CONFIG['ENABLED'].
-        Override triggers only when the physics winner beats firmware by
-        CONFIDENCE_GAP_MIN combined-rank points — firmware stays otherwise.
-        Manual overrides (_sensor_overrides) are respected downstream by
-        _apply_standard_columns; this method only changes the curve
-        assignment and sets core_physics_corrected=True.
+        Keys (M3a contract):
+        * ``core``: nearest sensor for the core role (str or None).
+        * ``surface``: nearest sensor for the surface role (str or None).
+        * ``ambient``: list of nearest sensors for the ambient role.
+        * ``lid``: nearest sensor for lid role (str or None).
+        * ``firmware_diagnostic``: dict of firmware mode picks (diagnostic only).
+        * ``*_position_normalised``: inferred per-role positions in [0, 1] for
+          downstream visualisation.
+        * ``model_used``: name of the spatial model used.
+        * ``assignment``: the full SpatialAssignment object (for getters).
         """
-        from src.data.thermodynamic_sensor_classifier import (
-            identify_core_sensor_combined_rank,
-        )
-
-        sensor_columns = [s for s in SENSOR_LIST if s in df.columns]
-        if len(sensor_columns) < 2:
-            return df
-
-        candidate_core, diagnostics = identify_core_sensor_combined_rank(
-            df, sensor_columns
-        )
-
-        curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
-        firmware_core = curve_assignments.get("core")
-
-        # Initialise flag (false until override confirmed).
-        curve_assignments["core_physics_corrected"] = False
-        curve_assignments["core_detection_diagnostics"] = diagnostics
-        self.curve_sensor_assignments[curve_index] = curve_assignments
-
-        if candidate_core is None or not diagnostics:
-            return df
-
-        if firmware_core not in diagnostics:
-            # Firmware pick not in the ranked set (e.g. 'Unknown'); cannot
-            # measure a confidence gap — leave firmware alone.
-            return df
-
-        firmware_score = diagnostics[firmware_core]["combined_score"]
-        candidate_score = diagnostics[candidate_core]["combined_score"]
-        gap = firmware_score - candidate_score
-
-        if gap < CORE_DETECTION_CONFIG["CONFIDENCE_GAP_MIN"]:
-            return df
-
-        curve_assignments["core"] = candidate_core
-        curve_assignments["core_physics_corrected"] = True
-        curve_assignments["firmware_core_sensor"] = firmware_core
-        curve_assignments["firmware_core_combined_score"] = firmware_score
-        curve_assignments["candidate_core_combined_score"] = candidate_score
-        self.curve_sensor_assignments[curve_index] = curve_assignments
-        self.sensor_assignments = curve_assignments
-
-        print(
-            f"\n✅ Curve {curve_index + 1}: Physics-based core sensor correction applied:"
-        )
-        print(f"   Firmware selected: {firmware_core} (combined score {firmware_score})")
-        print(f"   Corrected to: {candidate_core} (combined score {candidate_score})")
-        print(f"   Confidence gap: {gap}")
-        return df
+        return {
+            'core': assignment.core,
+            'surface': assignment.surface,
+            'ambient': list(assignment.ambient),
+            'lid': assignment.lid,
+            'firmware_diagnostic': assignment.firmware_diagnostic,
+            'core_position_normalised': (
+                assignment.core_assignment.position_normalised
+                if assignment.core_assignment is not None
+                else None
+            ),
+            'surface_position_normalised': (
+                assignment.surface_assignment.position_normalised
+                if assignment.surface_assignment is not None
+                else None
+            ),
+            'ambient_position_normalised': [
+                p.position_normalised for p in assignment.ambient_assignments
+            ],
+            'lid_position_normalised': (
+                assignment.lid_assignment.position_normalised
+                if assignment.lid_assignment is not None
+                else None
+            ),
+            'model_used': assignment.model_used,
+            'assignment': assignment,
+        }
 
     def get_sensor_assignments(self) -> dict:
         """
@@ -698,24 +593,26 @@ class ThermalProfileLoader:
         return self._get_automatic_surface_sensors(curve_index)
     
     def get_ambient_sensors(self, curve_index: Optional[int] = None) -> List[str]:
-        """Get list of physical sensors identified as ambient (with override support)."""
+        """Get list of physical sensors identified as ambient (with override support).
+
+        After M3a HMS Royal Sovereign the canonical source is
+        ``assignment.ambient_assignments`` from the spatial classifier.
+        Manual ambient overrides win; if a surface-only override is in place
+        (no explicit ambient override), we pass through the classifier's
+        ambient list — geometry topology is the classifier's job.
+        """
         if curve_index is None:
             curve_index = self.current_curve_index
-            
-        # If we have overrides, infer ambient sensors based on surface position
-        if curve_index in self._sensor_overrides and 'surface' in self._sensor_overrides[curve_index]:
-            surface_sensor = self._sensor_overrides[curve_index]['surface']
-            if surface_sensor and len(surface_sensor) >= 2:
-                surface_num = int(surface_sensor[1])
-                # Return all sensors with numbers greater than surface
-                ambient_sensors = []
-                for i in range(surface_num + 1, 9):  # T1-T8, so max is 8
-                    sensor = f'T{i}'
-                    if sensor in self.data.columns:
-                        ambient_sensors.append(sensor)
-                return ambient_sensors
-            
-        # Otherwise return automatic detection
+
+        # Manual ambient override (single sensor or list).
+        overrides = self._sensor_overrides.get(curve_index, {})
+        ambient_override = overrides.get('ambient')
+        if ambient_override:
+            if isinstance(ambient_override, str):
+                return [ambient_override]
+            return list(ambient_override)
+
+        # Classifier source of truth.
         return self._get_automatic_ambient_sensors(curve_index)
     
     def get_core_sensor(self, curve_index: Optional[int] = None) -> Optional[str]:
@@ -830,7 +727,116 @@ class ThermalProfileLoader:
         if ambient_sensors:
             return 'AmbientTemperature'
         return None
-    
+
+    def get_lid_sensor(self, curve_index: Optional[int] = None) -> Optional[str]:
+        """Return the nearest sensor for the lid role.
+
+        Manual override (``_sensor_overrides[curve_index]['lid']``) wins; else
+        the classifier's ``assignment.lid`` is returned; else ``None``.
+        Introduced by M3a HMS Royal Sovereign.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        overrides = self._sensor_overrides.get(curve_index, {})
+        if 'lid' in overrides:
+            return overrides['lid']
+        return self.curve_sensor_assignments.get(curve_index, {}).get('lid')
+
+    def get_core_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the interpolated core-temperature series.
+
+        Manual override falls back to the raw sensor read; otherwise returns
+        the classifier's interpolated series at the inferred core position.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        overrides = self._sensor_overrides.get(curve_index, {})
+        df = self._curve_dataframe(curve_index)
+        if 'core' in overrides and df is not None:
+            sensor = overrides['core']
+            if sensor in df.columns:
+                return df[sensor].reset_index(drop=True)
+        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+            'assignment'
+        )
+        if assignment is not None and assignment.core_assignment is not None:
+            return assignment.core_assignment.temperature_series.reset_index(
+                drop=True
+            )
+        # Final fallback: use whatever CoreTemperature is set to.
+        if df is not None and 'CoreTemperature' in df.columns:
+            return df['CoreTemperature'].reset_index(drop=True)
+        return None
+
+    def get_surface_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the interpolated surface-temperature series, or ``None``."""
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        overrides = self._sensor_overrides.get(curve_index, {})
+        df = self._curve_dataframe(curve_index)
+        if 'surface' in overrides and df is not None:
+            sensor = overrides['surface']
+            if sensor in df.columns:
+                return df[sensor].reset_index(drop=True)
+        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+            'assignment'
+        )
+        if assignment is not None and assignment.surface_assignment is not None:
+            return assignment.surface_assignment.temperature_series.reset_index(
+                drop=True
+            )
+        if df is not None and 'SurfaceTemperature' in df.columns:
+            return df['SurfaceTemperature'].reset_index(drop=True)
+        return None
+
+    def get_ambient_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the mean of ambient sensor series, or ``None``."""
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        if df is None:
+            return None
+        sensors = self.get_ambient_sensors(curve_index)
+        available = [s for s in sensors if s in df.columns]
+        if available:
+            return df[available].mean(axis=1).reset_index(drop=True)
+        if 'AmbientTemperature' in df.columns:
+            return df['AmbientTemperature'].reset_index(drop=True)
+        return None
+
+    def get_lid_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the lid temperature series, or ``None`` when no lid contact."""
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        overrides = self._sensor_overrides.get(curve_index, {})
+        df = self._curve_dataframe(curve_index)
+        if 'lid' in overrides and df is not None:
+            sensor = overrides['lid']
+            if sensor and sensor in df.columns:
+                return df[sensor].reset_index(drop=True)
+        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+            'assignment'
+        )
+        if assignment is not None and assignment.lid_assignment is not None:
+            return assignment.lid_assignment.temperature_series.reset_index(
+                drop=True
+            )
+        return None
+
+    def _curve_dataframe(self, curve_index: int) -> Optional[pd.DataFrame]:
+        """Return the per-curve DataFrame, or fall back to ``self.data``."""
+        if 0 <= curve_index < len(self.all_curves):
+            return self.all_curves[curve_index].get('data')
+        return self.data
+
     def get_sensor_assignments_with_overrides(self, curve_index: Optional[int] = None) -> Dict:
         """Get sensor assignments including override status."""
         if curve_index is None:
@@ -856,114 +862,6 @@ class ThermalProfileLoader:
             assignments['has_overrides'] = False
             
         return assignments
-    
-    def _classify_sensors_dynamically(self, df: pd.DataFrame, curve_index: int) -> pd.DataFrame:
-        """
-        Dynamically classify sensors using thermodynamic principles.
-        
-        This is a fallback method when virtual sensor data is not available.
-        """
-        sensor_cols = list(SENSOR_LIST)
-        available_sensors = [col for col in sensor_cols if col in df.columns]
-        
-        if len(available_sensors) < 3:
-            print("Warning: Not enough sensors for dynamic classification")
-            # Fall back to old hardcoded method
-            try:
-                df['CoreTemperature'] = resolve_core_temperature_series(df)
-            except KeyError:
-                pass
-            if all(col in df.columns for col in ['T7', 'T8']):
-                df['SurfaceTemperature'] = df[['T7', 'T8']].mean(axis=1)
-            df['AmbientTemperature'] = df[available_sensors].max(axis=1) if available_sensors else 0
-            return df
-        
-        # Try thermodynamic classification first
-        try:
-            from ..data.thermodynamic_sensor_classifier import ThermodynamicSensorClassifier
-            classifier = ThermodynamicSensorClassifier(df, available_sensors)
-            assignments = classifier.classify_sensors()
-            
-            # Use thermodynamic assignments
-            core_sensors = assignments.get('core', [])
-            surface_sensors = assignments.get('surface', [])
-            ambient_sensors = assignments.get('ambient', [])
-            
-            # Calculate temperatures based on classification
-            df['CoreTemperature'] = df[core_sensors].mean(axis=1) if core_sensors else df[available_sensors[:2]].mean(axis=1)
-            df['SurfaceTemperature'] = df[surface_sensors].mean(axis=1) if surface_sensors else df[available_sensors[2:4]].mean(axis=1)
-            df['AmbientTemperature'] = df[ambient_sensors].mean(axis=1) if ambient_sensors else df[available_sensors[-2:]].mean(axis=1)
-            
-            # Store assignments per curve
-            curve_assignments = {
-                'core': core_sensors[0] if core_sensors else 'Unknown',
-                'surface': surface_sensors[0] if surface_sensors else 'Unknown', 
-                'ambient': ambient_sensors[0] if ambient_sensors else 'Unknown',
-                'method': 'thermodynamic_classification'
-            }
-            self.curve_sensor_assignments[curve_index] = curve_assignments
-            
-            # Update deprecated sensor_assignments
-            self.sensor_assignments = curve_assignments
-            
-            print(f"Thermodynamic sensor classification:")
-            for role, sensors in assignments.items():
-                print(f"  {role.upper()}: {', '.join(sensors)}")
-            
-            return df
-            
-        except Exception as e:
-            print(f"Thermodynamic classification failed: {e}")
-            print("Falling back to simple temperature-based classification")
-        
-        # Calculate statistics for each sensor
-        sensor_stats = {}
-        for sensor in available_sensors:
-            sensor_stats[sensor] = {
-                'mean': df[sensor].mean(),
-                'max': df[sensor].max(),
-                'range': df[sensor].max() - df[sensor].min(),
-                'std': df[sensor].std()
-            }
-        
-        # Sort sensors by maximum temperature (core < surface < ambient)
-        sorted_sensors = sorted(sensor_stats.items(), key=lambda x: x[1]['max'])
-        
-        # Assign roles based on temperature characteristics
-        # Lowest max temp sensors are likely core
-        core_sensors = [s[0] for s in sorted_sensors[:2]]  # 2 coolest sensors
-        # Highest max temp sensors are likely ambient
-        ambient_sensors = [s[0] for s in sorted_sensors[-2:]]  # 2 hottest sensors
-        # Middle sensors are likely surface
-        surface_sensors = [s[0] for s in sorted_sensors[2:-2]]  # Middle sensors
-        
-        # If we don't have enough surface sensors, use some from the edges
-        if len(surface_sensors) < 2:
-            surface_sensors = [s[0] for s in sorted_sensors[2:4]]
-        
-        print(f"Dynamic sensor classification based on temperature patterns:")
-        print(f"  Core sensors: {core_sensors} (coolest)")
-        print(f"  Surface sensors: {surface_sensors} (intermediate)")
-        print(f"  Ambient sensors: {ambient_sensors} (hottest)")
-        
-        # Calculate temperatures based on classification
-        df['CoreTemperature'] = df[core_sensors].mean(axis=1)
-        df['SurfaceTemperature'] = df[surface_sensors].mean(axis=1) if surface_sensors else df[core_sensors].mean(axis=1) * 1.1
-        df['AmbientTemperature'] = df[ambient_sensors].mean(axis=1)
-        
-        # Store assignments per curve
-        curve_assignments = {
-            'core': ', '.join(core_sensors),
-            'surface': ', '.join(surface_sensors),
-            'ambient': ', '.join(ambient_sensors),
-            'method': 'dynamic_classification'
-        }
-        self.curve_sensor_assignments[curve_index] = curve_assignments
-        
-        # Update deprecated sensor_assignments
-        self.sensor_assignments = curve_assignments
-        
-        return df
     
     def _extract_all_baking_curves(self, df: pd.DataFrame) -> list:
         """Extract baking curves via :class:`CurveBoundaryDetector`.
@@ -1288,55 +1186,51 @@ class ThermalProfileLoader:
         return self._sensor_manager.get_automatic_ambient_sensors(curve_index)
     
     def _apply_standard_columns(self, df: pd.DataFrame, curve_index: int) -> None:
-        """Single canonical writer of CoreTemperature / SurfaceTemperature / AmbientTemperature.
+        """Single canonical writer of the standardised temperature columns.
 
-        Layering (matches CLAUDE.md):
-          1. Virtual* firmware channels (or *Average / raw-T fallbacks).
-          2. Physics-based surface correction — preserved when
-             curve_sensor_assignments[curve_index]['physics_corrected'] is True.
-          3. Manual overrides from self._sensor_overrides[curve_index] — win
-             over physics correction (the UI rule: user > physics > firmware).
+        Layering (M3a HMS Royal Sovereign):
+          - Manual override (``_sensor_overrides[curve_index][role]``) wins.
+          - Otherwise the spatial classifier's ``temperature_series`` (interpolated
+            at the inferred position) is used.
+          - Final firmware/legacy fallback only when no classifier output exists.
+
+        ``LidTemperature`` is written ONLY when the classifier reports a lid
+        contact (or the user has set a manual lid override). When neither is
+        present, any pre-existing ``LidTemperature`` column is dropped — the
+        column is present-or-absent, never NaN.
         """
         if df is None:
             return
 
         curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
         overrides = self._sensor_overrides.get(curve_index, {})
+        assignment = curve_assignments.get('assignment')
 
-        # --- CoreTemperature ---
-        # Layering: manual override > physics correction > firmware virtual.
-        # Mirrors the SurfaceTemperature path: core_physics_corrected=True
-        # means the sensor in curve_assignments['core'] is the physics winner,
-        # NOT the firmware VirtualCoreSensor mode, so honour it here or a
-        # later regeneration will silently revert to VirtualCoreTemperature.
+        # --- CoreTemperature -------------------------------------------------
         core_override = overrides.get('core')
-        physics_core = (
-            curve_assignments.get('core')
-            if curve_assignments.get('core_physics_corrected')
-            else None
-        )
         if core_override and core_override in df.columns:
             df['CoreTemperature'] = df[core_override]
-        elif physics_core and physics_core in df.columns:
-            df['CoreTemperature'] = df[physics_core]
+        elif assignment is not None and assignment.core_assignment is not None:
+            df['CoreTemperature'] = self._align_series(
+                assignment.core_assignment.temperature_series, df
+            )
         else:
             try:
                 df['CoreTemperature'] = resolve_core_temperature_series(df)
             except KeyError:
                 pass
 
-        # --- SurfaceTemperature ---
-        # Override wins; else physics-corrected sensor wins; else firmware virtual.
+        # --- SurfaceTemperature ----------------------------------------------
         surface_override = overrides.get('surface')
-        physics_surface = (
-            curve_assignments.get('surface')
-            if curve_assignments.get('physics_corrected')
-            else None
-        )
         if surface_override and surface_override in df.columns:
             df['SurfaceTemperature'] = df[surface_override]
-        elif physics_surface and physics_surface in df.columns:
-            df['SurfaceTemperature'] = df[physics_surface]
+        elif (
+            assignment is not None
+            and assignment.surface_assignment is not None
+        ):
+            df['SurfaceTemperature'] = self._align_series(
+                assignment.surface_assignment.temperature_series, df
+            )
         elif 'VirtualSurfaceTemperature' in df.columns:
             df['SurfaceTemperature'] = df['VirtualSurfaceTemperature']
         elif 'SurfaceAverage' in df.columns:
@@ -1344,10 +1238,33 @@ class ThermalProfileLoader:
         elif all(col in df.columns for col in ['T7', 'T8']):
             df['SurfaceTemperature'] = df[['T7', 'T8']].mean(axis=1)
 
-        # --- AmbientTemperature ---
-        # A surface override implies the probe geometry changed, so recompute
-        # ambient from the inferred ambient sensors rather than the firmware pick.
-        if surface_override:
+        # --- AmbientTemperature ----------------------------------------------
+        ambient_override = overrides.get('ambient')
+        if ambient_override:
+            # Override may be a single sensor or a list.
+            if isinstance(ambient_override, str):
+                amb_list = [ambient_override]
+            else:
+                amb_list = list(ambient_override)
+            available = [s for s in amb_list if s in df.columns]
+            if available:
+                df['AmbientTemperature'] = df[available].mean(axis=1)
+            elif 'VirtualAmbientTemperature' in df.columns:
+                df['AmbientTemperature'] = df['VirtualAmbientTemperature']
+            elif 'T8' in df.columns:
+                df['AmbientTemperature'] = df['T8']
+        elif assignment is not None and assignment.ambient_assignments:
+            # Mean across all classifier-identified ambient sensors.
+            sensors = [a.nearest_sensor for a in assignment.ambient_assignments
+                       if a.nearest_sensor in df.columns]
+            if sensors:
+                df['AmbientTemperature'] = df[sensors].mean(axis=1)
+            elif 'VirtualAmbientTemperature' in df.columns:
+                df['AmbientTemperature'] = df['VirtualAmbientTemperature']
+            elif 'T8' in df.columns:
+                df['AmbientTemperature'] = df['T8']
+        elif surface_override:
+            # Surface override implies geometry changed — recompute ambient.
             ambient_sensors = self.get_ambient_sensors(curve_index)
             available_ambient = [s for s in ambient_sensors if s in df.columns]
             if available_ambient:
@@ -1360,6 +1277,33 @@ class ThermalProfileLoader:
             df['AmbientTemperature'] = df['VirtualAmbientTemperature']
         elif 'T8' in df.columns:
             df['AmbientTemperature'] = df['T8']
+
+        # --- LidTemperature (M3a) -------------------------------------------
+        # Manual override > classifier-detected lid > drop column.
+        lid_override = overrides.get('lid')
+        if lid_override and lid_override in df.columns:
+            df['LidTemperature'] = df[lid_override]
+        elif assignment is not None and assignment.lid_assignment is not None:
+            df['LidTemperature'] = self._align_series(
+                assignment.lid_assignment.temperature_series, df
+            )
+        elif 'LidTemperature' in df.columns:
+            # Stale column from a prior curve / manual planting — drop.
+            df.drop(columns=['LidTemperature'], inplace=True)
+
+    @staticmethod
+    def _align_series(series: pd.Series, df: pd.DataFrame) -> pd.Series:
+        """Return ``series`` reshaped to ``df``'s row count, defensively.
+
+        Classifier-emitted temperature series are sliced from the same
+        DataFrame the loader passed in, so equal-length is the common path.
+        When length differs (e.g. classifier auto-segmented a long raw CSV),
+        we reindex by position; mismatched lengths return the original
+        series so the caller still gets a usable Series.
+        """
+        if len(series) == len(df):
+            return series.reset_index(drop=True)
+        return series.reset_index(drop=True)
 
     def _regenerate_standard_columns(self):
         """Regenerate standardized temperature columns based on current sensor assignments."""

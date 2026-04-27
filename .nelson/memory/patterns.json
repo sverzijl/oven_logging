@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T09:09:44Z",
-  "pattern_count": 37,
+  "updated_at": "2026-04-27T11:38:59Z",
+  "pattern_count": 38,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -735,6 +735,27 @@
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_091350_860e5892",
+      "completed_at": "2026-04-27T11:38:58Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Royal Sovereign (M3a): wire spatial_reconstruction into ThermalProfileLoader; drop firmware mode-pick as primary; kill physics_corrected and core_physics_corrected flags; add LidTemperature column + interpolated get_*_temperature_series getters; rewrite sensor_assignment_manager as thin adapter to new classifier; preserve curve-switching invariants.",
+      "adopt": [
+        "Capture full SpatialAssignment in curve_sensor_assignments rather than just the flat dict \u2014 preserves PositionalAssignment.temperature_series for new getters",
+        "Drop column on no-lid curves rather than write NaN \u2014 column lifecycle test catches the leak"
+      ],
+      "avoid": [
+        "Renaming flags instead of deleting \u2014 keeping a 'core_physics_corrected_v2' would just defer the same conceptual confusion"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 0.5
       }
     }
   ]

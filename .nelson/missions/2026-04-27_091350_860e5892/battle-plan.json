@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Wire spatial_reconstruction into ThermalProfileLoader; LidTemperature column; kill physics_corrected flags; rewrite SensorAssignmentManager as adapter",
+      "owner": "HMS Royal Sovereign",
+      "deliverable": "loader.py: _identify_sensor_roles_for_curve replaced with classify(); _apply_physics_based_*_correction methods deleted; firmware mode-pick logged into firmware_diagnostic only; _classify_sensors_dynamically deleted; LidTemperature column added to _apply_standard_columns when assignment.lid is set; new methods get_lid_sensor / get_core_temperature_series / get_surface_temperature_series / get_lid_temperature_series. sensor_assignment_manager.py: rewritten as thin adapters. config/constants.py / loader.py / standard_columns: physics_corrected and core_physics_corrected flags removed. tests: test_role_classifier_assignments.py replaces test_physics_flag_regression.py; test_loader_role_classifier_integration.py covers get_lid_sensor / get_core_temperature_series; test_curve_switching_lid_column.py exercises multi-curve switching.",
+      "dependencies": [],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/loader.py",
+        "oven_logging/src/data/sensor_assignment_manager.py",
+        "oven_logging/tests/test_physics_flag_regression.py",
+        "oven_logging/tests/test_role_classifier_assignments.py",
+        "oven_logging/tests/test_loader_role_classifier_integration.py",
+        "oven_logging/tests/test_curve_switching_lid_column.py",
+        ".nelson/missions/2026-04-27_091350_860e5892/"
+      ],
+      "validation_required": "All M1a/M1b/M2a/M2b tests still pass (66+ tests). New loader integration tests pass. grep -r 'physics_corrected\\|core_physics_corrected' src/ tests/ returns empty. Detector tests stay green. Multi-curve switching test confirms LidTemperature column appears/disappears correctly. surface_sensor_detector.py and ThermodynamicSensorClassifier left alone (M3b's job).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 1,
+      "name": "Wire spatial_reconstruction into ThermalProfileLoader; LidTemperature column; kill physics_corrected flags; rewrite SensorAssignmentManager as adapter",
+      "owner": "HMS Royal Sovereign",
+      "deliverable": "loader.py: _identify_sensor_roles_for_curve replaced with classify(); _apply_physics_based_*_correction methods deleted; firmware mode-pick logged into firmware_diagnostic only; _classify_sensors_dynamically deleted; LidTemperature column added to _apply_standard_columns when assignment.lid is set; new methods get_lid_sensor / get_core_temperature_series / get_surface_temperature_series / get_lid_temperature_series. sensor_assignment_manager.py: rewritten as thin adapters. config/constants.py / loader.py / standard_columns: physics_corrected and core_physics_corrected flags removed. tests: test_role_classifier_assignments.py replaces test_physics_flag_regression.py; test_loader_role_classifier_integration.py covers get_lid_sensor / get_core_temperature_series; test_curve_switching_lid_column.py exercises multi-curve switching.",
+      "dependencies": [],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/loader.py",
+        "oven_logging/src/data/sensor_assignment_manager.py",
+        "oven_logging/tests/test_physics_flag_regression.py",
+        "oven_logging/tests/test_role_classifier_assignments.py",
+        "oven_logging/tests/test_loader_role_classifier_integration.py",
+        "oven_logging/tests/test_curve_switching_lid_column.py",
+        ".nelson/missions/2026-04-27_091350_860e5892/"
+      ],
+      "validation_required": "All M1a/M1b/M2a/M2b tests still pass (66+ tests). New loader integration tests pass. grep -r 'physics_corrected\\|core_physics_corrected' src/ tests/ returns empty. Detector tests stay green. Multi-curve switching test confirms LidTemperature column appears/disappears correctly. surface_sensor_detector.py and ThermodynamicSensorClassifier left alone (M3b's job).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Royal Sovereign",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 1
+      }
+    ]
+  },
+  "created_at": "2026-04-27T09:15:12Z",
+  "amended_at": null
+}
