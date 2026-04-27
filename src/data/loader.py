@@ -13,6 +13,7 @@ from config.constants import (
     CORE_DETECTION_CONFIG,
     CURVE_DETECTION_CONFIG,
     INTERNAL_SENSOR_CONFIG,
+    SENSOR_LIST,
 )
 from src.data.sensor_assignment_manager import SensorAssignmentManager
 from src.data.column_helpers import (
@@ -482,7 +483,7 @@ class ThermalProfileLoader:
             identify_core_sensor_combined_rank,
         )
 
-        sensor_columns = [f"T{i}" for i in range(1, 9) if f"T{i}" in df.columns]
+        sensor_columns = [s for s in SENSOR_LIST if s in df.columns]
         if len(sensor_columns) < 2:
             return df
 
@@ -862,7 +863,7 @@ class ThermalProfileLoader:
         
         This is a fallback method when virtual sensor data is not available.
         """
-        sensor_cols = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
+        sensor_cols = list(SENSOR_LIST)
         available_sensors = [col for col in sensor_cols if col in df.columns]
         
         if len(available_sensors) < 3:
@@ -1388,7 +1389,7 @@ def validate_thermal_data(df: pd.DataFrame) -> Tuple[bool, list]:
     issues = []
     
     # Check required columns
-    required_cols = ['Timestamp', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
+    required_cols = ['Timestamp'] + list(SENSOR_LIST)
     missing_cols = [col for col in required_cols if col not in df.columns]
     if missing_cols:
         issues.append(f"Missing required columns: {missing_cols}")
@@ -1401,7 +1402,7 @@ def validate_thermal_data(df: pd.DataFrame) -> Tuple[bool, list]:
             issues.append(f"Found NaN values: {nan_counts[nan_counts > 0].to_dict()}")
     
     # Check temperature ranges
-    temp_cols = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
+    temp_cols = list(SENSOR_LIST)
     for col in temp_cols:
         if col in df.columns:
             min_temp = df[col].min()

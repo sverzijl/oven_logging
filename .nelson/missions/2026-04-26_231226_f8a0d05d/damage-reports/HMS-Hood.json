@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Hood",
+  "timestamp": "2026-04-27T00:00:00Z",
+  "hull_integrity_pct": 95,
+  "hull_integrity_status": "Green — adjudication complete, no context pressure",
+  "relief_requested": false,
+  "context_summary": "Adjudicated Vanguard's 2 bugs and 7 smells against Astute's empirical evidence. Confirmed both bugs (B1 heatmap role-blindness, B2 index drift — demotion of B2 rejected; latent fragility sufficient to keep as confirmed defect). All 7 smells and both DRY groups accepted as-is. Adopted Vanguard §5 captain plan verbatim (4 captains + optional Red-cell). Go verdict issued."
+}

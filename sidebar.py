@@ -9,7 +9,7 @@ plumbing an args dict through every tab call.
 """
 import streamlit as st
 
-from config.constants import BAKEOUT_TARGETS
+from config.constants import BAKEOUT_TARGETS, SENSOR_LIST
 from src.analysis.s_curve_analysis import SCurveAnalyzer
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.data.loader import ThermalProfileLoader, validate_thermal_data
@@ -236,8 +236,8 @@ def render():
                 current_core = st.session_state.loader.get_core_sensor(st.session_state.current_curve_index)
                 core_sensor = st.selectbox(
                     "Core Sensor (single sensor for core temperature)",
-                    options=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
-                    index=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'].index(current_core) if current_core else 0,
+                    options=list(SENSOR_LIST),
+                    index=list(SENSOR_LIST).index(current_core) if current_core else 0,
                     key=f"core_override_{st.session_state.current_curve_index}",
                     help="Select the sensor that best represents the core temperature"
                 )
@@ -246,8 +246,8 @@ def render():
                 current_surface = st.session_state.loader.get_surface_sensor(st.session_state.current_curve_index)
                 surface_sensor = st.selectbox(
                     "Surface/Crust Sensor (interface between core and ambient)",
-                    options=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'],
-                    index=['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'].index(current_surface) if current_surface else 6,
+                    options=list(SENSOR_LIST),
+                    index=list(SENSOR_LIST).index(current_surface) if current_surface else 6,
                     key=f"surface_override_{st.session_state.current_curve_index}",
                     help="Select the sensor at the bread surface. Internal sensors (below) and ambient sensors (above) will be automatically determined."
                 )

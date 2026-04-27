@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Detailed read-only review of the Temperature Profile tab \u2014 bugs, code smells, DRY violations \u2014 with empirical red-cell verification and a one-page synthesis.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-26T23:12:26Z",
+    "checkpoint_number": 3
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 2,
+    "blocked": 0,
+    "total": 3
+  },
+  "budget": {
+    "tokens_spent": 140000,
+    "tokens_remaining": 60000,
+    "pct_consumed": 70.0,
+    "burn_rate_per_checkpoint": 70000,
+    "burn_rate_per_task": 70000,
+    "projected_budget_at_completion": 210000
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Astute",
+      "ship_class": null,
+      "role": "captain",
+      "hull_integrity_pct": 78,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": null,
+      "task_name": null,
+      "task_status": null
+    },
+    {
+      "ship_name": "HMS Vanguard",
+      "ship_class": null,
+      "role": "captain",
+      "hull_integrity_pct": 82,
+      "hull_integrity_status": "Seaworthy \u2014 no context pressure, full review completed without truncation",
+      "relief_requested": false,
+      "task_id": null,
+      "task_name": null,
+      "task_status": null
+    }
+  ],
+  "blockers": [],
+  "recent_events": [],
+  "last_updated": "2026-04-26T23:59:58Z"
+}

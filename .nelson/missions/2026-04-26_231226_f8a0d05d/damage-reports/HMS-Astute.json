@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Astute",
+  "timestamp": "2026-04-27T00:00:00Z",
+  "hull_integrity_pct": 78,
+  "hull_integrity_status": "Green",
+  "relief_requested": false,
+  "context_summary": "Empirically verified three claims about the Temperature Profile tab: index-drift mechanism confirmed via perturbation (latent bug, not continuously-firing), heatmap role-blindness confirmed (genuine bug), zero runtime test coverage for both issues."
+}

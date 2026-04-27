@@ -6,7 +6,7 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional
-from config.constants import TEMPERATURE_ZONES, SENSOR_NAMES, S_CURVE_ZONES, S_CURVE_BENCHMARKS
+from config.constants import TEMPERATURE_ZONES, SENSOR_NAMES, SENSOR_LIST, S_CURVE_ZONES, S_CURVE_BENCHMARKS
 from src.analysis.s_curve_analysis import SCurveLandmark, BakeOutAnalysis
 from .visualization_config import VisualizationConfig
 from src.data.column_helpers import get_core_temperature_column
@@ -88,7 +88,7 @@ class ThermalPlotter:
             sensor_roles: Dict mapping sensor names to roles (core, surface, internal, ambient)
         """
         if sensors is None:
-            sensors = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
+            sensors = list(SENSOR_LIST)
         
         fig = go.Figure()
         
@@ -208,33 +208,60 @@ class ThermalPlotter:
         
         return fig
     
-    def plot_temperature_gradient_heatmap(self, data: pd.DataFrame) -> go.Figure:
-        """Create heatmap showing temperature gradients across sensors."""
-        # Prepare data for heatmap
-        sensors = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']
+    def plot_temperature_gradient_heatmap(
+        self,
+        data: pd.DataFrame,
+        sensors: Optional[List[str]] = None,
+        sensor_roles: Optional[Dict[str, str]] = None,
+    ) -> go.Figure:
+        """Create heatmap showing temperature gradients across sensors.
+
+        Args:
+            data: Temperature data with TimeMinutes and T1..T8 columns.
+            sensors: Explicit list of sensors to include (default: all in SENSOR_LIST).
+            sensor_roles: Dict mapping sensor names to roles (core, surface, internal, ambient).
+                          When provided, y-axis labels include the role suffix, e.g.
+                          "Core 2 (Surface)". When None, firmware-default SENSOR_NAMES are used.
+        """
+        if sensors is None:
+            sensors = list(SENSOR_LIST)
+
+        # Filter to sensors present in data
+        present_sensors = [s for s in sensors if s in data.columns]
+
+        if not present_sensors:
+            raise ValueError(
+                "No sensor columns in data; expected at least one of T1..T8."
+            )
+
+        # Build heatmap array and y-axis labels for present sensors only
         heatmap_data = []
-        
-        for sensor in sensors:
-            if sensor in data.columns:
-                heatmap_data.append(data[sensor].values)
-        
+        y_labels = []
+        for sensor in present_sensors:
+            heatmap_data.append(data[sensor].values)
+            label = SENSOR_NAMES.get(sensor, sensor)
+            role = sensor_roles.get(sensor, 'unknown') if sensor_roles else 'unknown'
+            if role != 'unknown':
+                label = f"{label} ({role.capitalize()})"
+            y_labels.append(label)
+
         heatmap_array = np.array(heatmap_data)
-        
+
         fig = go.Figure(data=go.Heatmap(
             z=heatmap_array,
             x=data['TimeMinutes'],
-            y=[SENSOR_NAMES.get(s, s) for s in sensors if s in data.columns],
+            y=y_labels,
             colorscale='RdYlBu_r',
             colorbar=dict(title="Temperature (°C)")
         ))
-        
+
         fig.update_layout(
             title="Temperature Distribution Heatmap",
             xaxis_title="Time (minutes)",
             yaxis_title="Sensor Position",
             **self.default_layout
         )
-        
+
         return fig
     
     def plot_zone_duration_chart(self, zone_analysis: Dict) -> go.Figure:

@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "M4 DRY sweep: replace remaining hardcoded ['T1'..'T8'] literals with from config.constants import SENSOR_LIST across sidebar.py, plots.py, loader.py, curve_comparison.py, sensor_naming.py, curve_boundary_detector.py.",
+  "actual_outcome": "11 canonical-8 sites migrated across 5 files; _SENSOR_COLUMNS deleted; 3 new regression guard tests; sensor_naming partial fallbacks intentionally preserved. Spey commit 16e9d56.",
+  "success_metric_result": "pytest 376-377/8/1 (was 373/8/1; +3 new tests + flapper); zero canonical-8 standalone forms remaining outside allow-list.",
+  "duration_minutes": 47,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 2,
+    "reliefs": 0,
+    "max_concurrent_ships": 2
+  },
+  "tasks": {
+    "completed": 2,
+    "total": 2,
+    "by_station_tier": {
+      "0": 1,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Regression guard test using regex over production source files \u2014 pins migration completeness against future re-introduction of the literal."
+    ],
+    "avoid": [
+      "Spey's audit missed loader.py:1244 mixed-column list which Astute caught \u2014 captain's grep should include multi-line patterns, not just single-line."
+    ]
+  },
+  "created_at": "2026-04-27T02:49:44Z"
+}

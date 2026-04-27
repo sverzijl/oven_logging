@@ -1,0 +1,67 @@
+{
+  "ship": "HMS Warspite",
+  "mission": "M3 — Tab refactor (B2, S1, S2, S6 closed)",
+  "date": "2026-04-27",
+  "status": "COMPLETE",
+
+  "deliverables": [
+    "tabs/temperature_profile.py",
+    "tests/test_temperature_profile_render.py"
+  ],
+
+  "red_green_sequence": {
+    "tests_written_red": [
+      "TestB2NoIndexDrift::test_b2_no_index_drift_after_refactor",
+      "TestPatternAInlineLoopRemoved::test_pattern_a_inline_loop_removed",
+      "TestPatternBInlineLoopRemoved::test_pattern_b_inline_loop_removed",
+      "TestRenderUsesHelpers::test_render_uses_helpers",
+      "TestRenderNoDoubleFetch::test_render_no_double_fetch"
+    ],
+    "tests_passing_before_refactor": [
+      "TestHelperOutputsMatchLegacyInline (8 parametrized)",
+      "TestRenderSmokeViaStreamlitAppTest (1 — AppTest available, passed)"
+    ],
+    "red_count": 5,
+    "green_after_refactor": 14,
+    "skipped": 0
+  },
+
+  "pytest_baseline": {
+    "pre_m3_baseline": "359 passed / 8 failed / 1 skipped",
+    "post_m3_result": "373 passed / 8 failed / 1 skipped",
+    "delta": "+14 (all new tests in test_temperature_profile_render.py)"
+  },
+
+  "line_count": {
+    "pre_m2": 82,
+    "post_m2": 88,
+    "post_m3": 56,
+    "reduction_vs_m2": 32
+  },
+
+  "bugs_closed": {
+    "B2": "index drift — curve_index hoisted once from session_state; passed explicitly to both helper calls",
+    "S1": "Pattern A inline label loop replaced by build_sensor_label_map()",
+    "S2": "Pattern B inline role loop replaced by build_sensor_role_map()",
+    "S6": "double-fetch eliminated — get_sensor_assignments_with_overrides now called 0x in render() directly"
+  },
+
+  "out_of_scope_deferred": {
+    "S4": "render(state) injection deferred — requires modifying app.py callers, outside this mission's file ownership"
+  },
+
+  "m1_golden_test_status": "GREEN — TestHelpersMatchTemperatureProfileLoops: 8/8 passed",
+
+  "apptest_smoke": "PASSED — streamlit.testing.v1.AppTest was available and smoke test ran without exception",
+
+  "out_of_scope_files_unchanged": [
+    "src/ui/sensor_role_helpers.py",
+    "src/visualization/plots.py",
+    "src/data/loader.py",
+    "sensor_naming.py",
+    "config/constants.py",
+    "app.py"
+  ],
+
+  "rollback": "git reset --hard HEAD~1"
+}

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-25T11:24:53Z",
-  "pattern_count": 27,
+  "updated_at": "2026-04-27T03:32:52Z",
+  "pattern_count": 33,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -528,6 +528,129 @@
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-26_231226_f8a0d05d",
+      "completed_at": "2026-04-26T23:59:58Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Detailed read-only review of the Temperature Profile tab \u2014 bugs, code smells, DRY violations \u2014 with empirical red-cell verification and a one-page synthesis.",
+      "adopt": [
+        "Astute-first dispatch order gave Vanguard concrete empirical verdicts to cite, eliminating speculative claims in the review report.",
+        "0-crew captains for read-only review work \u2014 captain context budget was sufficient and avoided skeleton-crew anti-pattern.",
+        "Hood's 'no new findings' constraint \u2014 the synthesis captain stayed lean and produced a one-pager the user can act on without re-reading 291 lines of upstream review."
+      ],
+      "avoid": [
+        "Quarterdeck-report rotation: I overwrote checkpoint 1's report before archiving it as quarterdeck-report-0.md and had to reconstruct from memory. Always rotate FIRST, then write."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_001526_acde7444",
+      "completed_at": "2026-04-27T00:55:46Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M1 Foundation: introduce canonical SENSOR_LIST constant + new src/ui/sensor_role_helpers.py module with two pure helpers (build_sensor_role_map, build_sensor_label_map). TDD failing-first. No call-site migrations.",
+      "adopt": [
+        "Iron Duke's golden test (h) approach with parametrize across 4 representative scenarios \u2014 pins the M3 contract empirically rather than just documenting it.",
+        "Astute's empirical override-format spot-check caught a briefing error (override key is 'surface' not 'surface_sensor') that would have wasted M3's time."
+      ],
+      "avoid": [
+        "Iron Duke's pytest count claim of 355 was off by 1 (actual 354) \u2014 admiral should always re-run pytest in the red-cell verification rather than trusting captain self-reports."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_005708_778f531c",
+      "completed_at": "2026-04-27T01:32:27Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M2 fixes B1 (heatmap role-blindness): extend plot_temperature_gradient_heatmap to accept sensor_roles param, add empty-input guard (S3), migrate the heatmap call site at tabs/temperature_profile.py:81 to use build_sensor_role_map from M1.",
+      "adopt": [
+        "ValueError contract for empty-input rather than silent empty-figure \u2014 surfaces programming errors immediately."
+      ],
+      "avoid": [
+        "Surface override targeting a sensor already classified as core silently no-ops because core priority dominates in get_sensor_assignments_with_overrides \u2014 M3 must validate that role-priority interactions don't hide expected behaviour."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_013330_bbdd0d4d",
+      "completed_at": "2026-04-27T02:01:01Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M3 fixes B2 (index drift) and collapses S1/S2/S6 in tabs/temperature_profile.py: hoist single assignments fetch, use build_sensor_label_map and build_sensor_role_map from M1, fix line-53 explicit index. S4 render(state) deferred.",
+      "adopt": [
+        "ast/regex structural tests for absence (Pattern A/B removal asserted by source-grep) \u2014 pin migration completeness rather than just functional equivalence."
+      ],
+      "avoid": [
+        "Widget keys become *_None if curve_index is None at render time \u2014 M5 should add defensive guard or test for this edge case."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_020155_cb469fc1",
+      "completed_at": "2026-04-27T02:49:44Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M4 DRY sweep: replace remaining hardcoded ['T1'..'T8'] literals with from config.constants import SENSOR_LIST across sidebar.py, plots.py, loader.py, curve_comparison.py, sensor_naming.py, curve_boundary_detector.py.",
+      "adopt": [
+        "Regression guard test using regex over production source files \u2014 pins migration completeness against future re-introduction of the literal."
+      ],
+      "avoid": [
+        "Spey's audit missed loader.py:1244 mixed-column list which Astute caught \u2014 captain's grep should include multi-line patterns, not just single-line."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_025041_6688c306",
+      "completed_at": "2026-04-27T03:32:52Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M5 flotilla finale (meta-fleet): comprehensive E2E test + cross-mission perturbation re-runs across all closed bugs (B1, B2) + final no-regression guardrail. Sign off the flotilla as ready for merge to main.",
+      "adopt": [
+        "Meta-fleet finale pattern: a final mission whose only job is to re-run the original bug-discovery scenarios and prove the verdict has flipped, plus pin all closures with structural tests. Without this mission the flotilla's claims are self-reported, not evidenced."
+      ],
+      "avoid": [
+        "Mismatched filename collision with prior flotilla \u2014 Achilles renamed to test_temperature_profile_flotilla_finale.py to avoid clobbering the past flotilla's test_flotilla_finale_regression.py. Future flotillas should namespace finale-test files by topic upfront."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
       }
     }
   ]

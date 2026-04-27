@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Heatmap role-aware fix (B1) + empty-input guard (S3)",
+      "owner": "HMS Diamond",
+      "deliverable": "Single commit on refactor/temperature-profile-canonical-roles extending plot_temperature_gradient_heatmap to accept sensor_roles + empty-input guard, migrating tabs/temperature_profile.py:81 to use build_sensor_role_map from M1, with \u22654 TDD tests at tests/test_heatmap_role_aware.py.",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "src/visualization/plots.py",
+        "tabs/temperature_profile.py",
+        "tests/test_heatmap_role_aware.py"
+      ],
+      "validation_required": "Heatmap y-axis reflects overrides empirically; pytest delta = 354 + new tests; B1 Astute scenario from M0 review now passes (heatmap labels DO change with override)",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Astute red-cell \u2014 re-run B1 perturbation, confirm closure",
+      "owner": "HMS Astute",
+      "deliverable": "{mission-dir}/astute-redcell.md with go/hold verdict; B1 closure proof (heatmap y-axis now reflects override); pytest count delta vs M1 baseline",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-27_005708_778f531c/astute-redcell.md"
+      ],
+      "validation_required": "Override applied \u2192 heatmap y-axis labels change; pytest no new failures vs 354 baseline",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Britannia",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Diamond",
+        "ship_class": "destroyer",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Astute",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 2
+      }
+    ]
+  },
+  "created_at": "2026-04-27T00:57:34Z",
+  "amended_at": null
+}

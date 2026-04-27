@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "DRY sweep \u2014 migrate hardcoded ['T1'..'T8'] literals to SENSOR_LIST",
+      "owner": "HMS Spey",
+      "deliverable": "Single commit migrating all known sites: sidebar.py:239,240,249,250; src/visualization/plots.py:91; src/data/loader.py:865,1404; src/analysis/curve_comparison.py:31; sensor_naming.py:74,107; src/data/curve_boundary_detector.py:36 _SENSOR_COLUMNS. Plus tests/test_sensor_list_migration.py guarding against regression.",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "sidebar.py",
+        "src/visualization/plots.py",
+        "src/data/loader.py",
+        "src/analysis/curve_comparison.py",
+        "sensor_naming.py",
+        "src/data/curve_boundary_detector.py",
+        "tests/test_sensor_list_migration.py"
+      ],
+      "validation_required": "All cited sites use SENSOR_LIST; pytest pass count = 373 + new tests; behavioural equivalence verified",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Astute red-cell \u2014 DRY sweep verification",
+      "owner": "HMS Astute",
+      "deliverable": "{mission-dir}/astute-redcell.md with go/hold; grep audit confirming no remaining hardcoded T1..T8 lists outside SENSOR_LIST/SENSOR_NAMES; pytest delta",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-27_020155_cb469fc1/astute-redcell.md"
+      ],
+      "validation_required": "grep across project finds zero hardcoded ['T1','T2',...,'T8'] lists outside SENSOR_LIST/SENSOR_NAMES; pytest no new failures vs 373 baseline",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Britannia",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Spey",
+        "ship_class": "patrol-vessel",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Astute",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 2
+      }
+    ]
+  },
+  "created_at": "2026-04-27T02:02:27Z",
+  "amended_at": null
+}

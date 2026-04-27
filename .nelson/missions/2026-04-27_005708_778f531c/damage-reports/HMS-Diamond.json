@@ -1,0 +1,79 @@
+{
+  "ship": "HMS Diamond",
+  "mission": "M2",
+  "role": "Captain 1 — Heatmap fix captain",
+  "action_station": 1,
+  "date": "2026-04-27",
+  "branch": "refactor/temperature-profile-canonical-roles",
+  "bugs_closed": ["B1", "S3"],
+
+  "red_green_sequence": [
+    {
+      "step": "RED",
+      "description": "Wrote tests/test_heatmap_role_aware.py with 5 failing tests before any implementation.",
+      "test_count": 5,
+      "failures": [
+        "test_heatmap_y_axis_reflects_role_override — TypeError: unexpected keyword argument 'sensor_roles'",
+        "test_heatmap_y_axis_default_no_roles — TypeError: unexpected keyword argument 'sensor_roles'",
+        "test_heatmap_empty_input_raises_clear_error — TypeError: unexpected keyword argument 'sensor_roles' (no ValueError raised)",
+        "test_heatmap_partial_sensors — TypeError: unexpected keyword argument 'sensor_roles'",
+        "test_heatmap_call_site_uses_helper — AssertionError: build_sensor_role_map not found in render()"
+      ]
+    },
+    {
+      "step": "FIX-1: test_heatmap_y_axis_reflects_role_override pre-condition",
+      "description": "Initial test used T2 as override target but T2 was already the core sensor (priority wins). Test revised to dynamically pick a sensor that is neither 'surface' nor 'core'."
+    },
+    {
+      "step": "FIX-2: AttributeError get_curve_data",
+      "description": "Loader has no get_curve_data() method. Test revised to use loader.all_curves[curve_idx]['data'] (correct pattern from loader.py)."
+    },
+    {
+      "step": "GREEN",
+      "description": "All 5 new tests pass after implementation.",
+      "test_count": 5
+    }
+  ],
+
+  "implementation_changes": {
+    "src/visualization/plots.py": {
+      "line_9": "Added SENSOR_LIST to imports from config.constants.",
+      "plot_temperature_gradient_heatmap": {
+        "signature_change": "Added sensors: Optional[List[str]] = None, sensor_roles: Optional[Dict[str, str]] = None parameters.",
+        "sensors_default": "list(SENSOR_LIST) instead of hardcoded ['T1'..'T8'].",
+        "filter_present": "Filter to sensors present in data.columns before building heatmap_array.",
+        "empty_input_guard": "Raises ValueError if no present sensors found.",
+        "y_labels": "Respects sensor_roles dict: appends (Role.capitalize()) suffix when role != 'unknown'.",
+        "backwards_compat": "sensor_roles=None falls back to firmware-default SENSOR_NAMES labels (no suffix)."
+      }
+    },
+    "tabs/temperature_profile.py": {
+      "import_added": "from src.ui.sensor_role_helpers import build_sensor_role_map",
+      "heatmap_call_site": "Lines 82-86: now calls build_sensor_role_map(loader, current_curve_index) and passes sensor_roles=heatmap_roles to plot_temperature_gradient_heatmap.",
+      "pattern_a_unchanged": "Lines 22-38 (Pattern A label loop) not modified — M3 scope.",
+      "pattern_b_unchanged": "Lines 52-68 (Pattern B role loop for line plot) not modified — M3 scope."
+    }
+  },
+
+  "empty_input_contract": {
+    "choice": "ValueError",
+    "message": "No sensor columns in data; expected at least one of T1..T8.",
+    "rationale": "Empty input is a programming error. Returning a silent empty figure would hide bugs; a ValueError with a clear message surfaces the problem immediately and is trivially testable without inspecting figure internals."
+  },
+
+  "pytest_results": {
+    "m2_tests_only": "5 passed, 0 failed",
+    "full_suite": "359 passed, 8 failed (pre-existing), 1 skipped",
+    "m1_baseline_was": "354 passed, 8 failed, 1 skipped",
+    "new_passes": 5
+  },
+
+  "pattern_a_b_unchanged": true,
+  "out_of_scope_files_touched": [],
+
+  "rollback": "git reset --hard HEAD~1",
+
+  "surprises": [
+    "Loader priority rules mean set_sensor_override('surface', 'T2') has no effect when T2 is already the core sensor — core takes priority. Test was revised to select a non-core, non-surface sensor as override target."
+  ]
+}

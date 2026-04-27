@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Tab refactor \u2014 close B2 + collapse S1 + S2 + S6",
+      "owner": "HMS Warspite",
+      "deliverable": "Single commit refactoring tabs/temperature_profile.py: hoist single assignments fetch, replace Pattern A inline loop (lines 22-38) with build_sensor_label_map, replace Pattern B inline loop (lines 52-67) with build_sensor_role_map, line 53 passes explicit index. Plus tests/test_temperature_profile_render.py with B2 regression + Pattern collapse + multi-curve role consistency tests.",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "tabs/temperature_profile.py",
+        "tests/test_temperature_profile_render.py"
+      ],
+      "validation_required": "B2 perturbed-fixture regression test passes; Patterns A/B replaced (assert via inspect.getsource regex); line plot still works on real CSV via streamlit AppTest or smoke; pytest delta = 359 + new tests",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Astute red-cell \u2014 B2 closure + Pattern A/B removal + AppTest smoke",
+      "owner": "HMS Astute",
+      "deliverable": "{mission-dir}/astute-redcell.md with go/hold; B2 closure proof via perturbed fixture; Pattern A/B absent from source; live tab still renders via Streamlit AppTest or equivalent; pytest delta",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-27_013330_bbdd0d4d/astute-redcell.md"
+      ],
+      "validation_required": "Re-run M0 perturbation: line-19 vs line-53 calls now produce identical assignments; Pattern A/B inline loops absent; render() smoke succeeds",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Britannia",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Warspite",
+        "ship_class": "historic-flagship",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Astute",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 2
+      }
+    ]
+  },
+  "created_at": "2026-04-27T01:33:59Z",
+  "amended_at": null
+}

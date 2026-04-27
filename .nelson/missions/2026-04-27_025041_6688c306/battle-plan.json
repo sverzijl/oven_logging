@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Flotilla finale \u2014 E2E test + cross-mission validation guardrail",
+      "owner": "HMS Achilles",
+      "deliverable": "tests/test_temperature_profile_e2e.py with \u22656 E2E tests exercising the full tab path; tests/test_flotilla_finale_regression.py with cross-mission no-regression assertions (Patterns A/B absent in tab, helpers wired in, B1 fixture-perturbation scenario, B2 fixture-perturbation scenario, SENSOR_LIST single source of truth). Single commit.",
+      "dependencies": [],
+      "dependents": [
+        2
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        "tests/test_temperature_profile_e2e.py",
+        "tests/test_flotilla_finale_regression.py"
+      ],
+      "validation_required": "\u22656 E2E tests pass; B1/B2 perturbation regressions flip from M0 PASS-bug to PASS-fixed; pytest delta = 376/377 + new tests; 338 prior-passing baseline preserved",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Astute meta-fleet verification \u2014 full M0 scenario re-run + flotilla sign-off evidence",
+      "owner": "HMS Astute",
+      "deliverable": "{mission-dir}/astute-flotilla-signoff.md with: M0 (a) index drift re-run verdict (PASS-bug pre-flotilla, PASS-fixed post); M0 (b) heatmap role-blindness re-run verdict; M0 (c) test coverage re-count (was zero, now N); pytest baseline preserved confirmation; recommendation to merge or hold.",
+      "dependencies": [
+        1
+      ],
+      "dependents": [],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-27_025041_6688c306/astute-flotilla-signoff.md"
+      ],
+      "validation_required": "M0 perturbation scripts at .nelson/missions/2026-04-26_231226_f8a0d05d/repro/ re-run; B1 and B2 verdicts flip; pytest 338 prior-passing baseline preserved",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Britannia",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Achilles",
+        "ship_class": "historic-flagship",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Astute",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 2
+      }
+    ]
+  },
+  "created_at": "2026-04-27T02:51:12Z",
+  "amended_at": null
+}

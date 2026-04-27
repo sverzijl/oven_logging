@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "M1 Foundation: introduce canonical SENSOR_LIST constant + new src/ui/sensor_role_helpers.py module with two pure helpers (build_sensor_role_map, build_sensor_label_map). TDD failing-first. No call-site migrations.",
+  "actual_outcome": "Foundation landed. SENSOR_LIST + sensor_role_helpers module + 16 TDD tests + golden M3-contract test. Iron Duke commit 5524a0b. Astute verified GO with corrections (pytest 354 not 355; override format is {'surface':'T2'} not {'surface_sensor':'T2'}; geometric ambient recalc wipes internals).",
+  "success_metric_result": "16 new tests pass; pytest 354 passed / 8 failed / 1 skipped (was 338/8/1; +16 passes); commit landed; out-of-scope clean.",
+  "duration_minutes": 39,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 2,
+    "reliefs": 0,
+    "max_concurrent_ships": 2
+  },
+  "tasks": {
+    "completed": 2,
+    "total": 2,
+    "by_station_tier": {
+      "0": 1,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Iron Duke's golden test (h) approach with parametrize across 4 representative scenarios \u2014 pins the M3 contract empirically rather than just documenting it.",
+      "Astute's empirical override-format spot-check caught a briefing error (override key is 'surface' not 'surface_sensor') that would have wasted M3's time."
+    ],
+    "avoid": [
+      "Iron Duke's pytest count claim of 355 was off by 1 (actual 354) \u2014 admiral should always re-run pytest in the red-cell verification rather than trusting captain self-reports."
+    ]
+  },
+  "created_at": "2026-04-27T00:55:46Z"
+}

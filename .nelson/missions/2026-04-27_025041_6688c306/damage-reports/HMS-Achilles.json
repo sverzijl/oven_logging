@@ -1,0 +1,55 @@
+{
+  "ship": "HMS Achilles",
+  "mission": "M5 META-FLEET FINALE",
+  "branch": "refactor/temperature-profile-canonical-roles",
+  "date": "2026-04-27",
+  "status": "CLEAR — no HOLD required",
+  "astute_m4_concerns": {
+    "concern_a_loader_py_1244": {
+      "location": "src/data/loader.py:1244",
+      "code": "sensor_cols = ['Timestamp', 'TimeMinutes', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8']",
+      "method": "get_sensor_data()",
+      "ruling": "OUT OF SCOPE — not a missed canonical-8 site",
+      "rationale": [
+        "This list is a MIXED-purpose column selector, not a standalone sensor list.",
+        "It includes 'Timestamp' and 'TimeMinutes' which are non-sensor columns required for the DataFrame shape.",
+        "Replacing it with SENSOR_LIST would drop these two essential columns and break the method contract.",
+        "The canonical SENSOR_LIST covers only T1..T8; any replacement here would need",
+        "  ['Timestamp', 'TimeMinutes', *SENSOR_LIST] — a deliberate future refactor, not a DRY-A violation.",
+        "SENSOR_LIST is already imported in loader.py (tested by test_sensor_list_migration.py).",
+        "HOLD not required. Document in turnover brief for future maintainers."
+      ],
+      "hold_filed": false
+    },
+    "concern_c_test_deep_insertion_flapper": {
+      "test": "test_deep_insertion",
+      "ruling": "ACKNOWLEDGED — not fixed (out of scope for M5)",
+      "rationale": [
+        "test_deep_insertion is an order-dependent test that oscillates between pass/fail across runs.",
+        "This is a pre-existing flapper, not introduced by this flotilla.",
+        "The brief explicitly states 'document the flapper exists; do NOT attempt to fix (out of scope)'.",
+        "M5 does not touch any source files; no action taken.",
+        "Future maintainers: investigate whether test isolation is broken by shared loader state."
+      ],
+      "hold_filed": false
+    }
+  },
+  "source_files_modified": [],
+  "new_test_files": [
+    "tests/test_temperature_profile_e2e.py",
+    "tests/test_temperature_profile_flotilla_finale.py"
+  ],
+  "naming_decision": {
+    "collision_check": "tests/test_flotilla_finale_regression.py EXISTS (from refactor/expected-bake-time flotilla, M7 HMS Victory)",
+    "chosen_name": "tests/test_temperature_profile_flotilla_finale.py",
+    "reason": "Distinct name avoids collision and scopes the file to this flotilla by name"
+  },
+  "apptest_usage": {
+    "used": true,
+    "notes": [
+      "AppTest does not expose .plotly_chart; assertions changed to check at.exception is falsy, header/subheader present, multiselect widget keys contain curve index.",
+      "Direct render() invocation with MagicMock session_state used for figure-internal inspection (heatmap y-axis, sensor_roles capture).",
+      "Both paths are valid: AppTest for runtime integration, mock-patch for white-box figure inspection."
+    ]
+  }
+}

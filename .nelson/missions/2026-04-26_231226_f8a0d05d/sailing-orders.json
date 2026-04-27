@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Detailed read-only review of the Temperature Profile tab \u2014 bugs, code smells, DRY violations \u2014 with empirical red-cell verification and a one-page synthesis.",
+  "success_metric": "Hood's sign-off lists confirmed defects, demoted smells, and a follow-up flotilla scope estimate; user can launch the follow-up refactor mission without re-reading Vanguard's full report.",
+  "deadline": "This session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-26T23:12:26Z"
+}

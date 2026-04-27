@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Empirical verification of index-drift, heatmap role-blindness, and test-coverage claims",
+      "owner": "HMS Astute",
+      "deliverable": "Evidence pack at {mission-dir}/astute-evidence.md with pass/fail verdicts and repro commands for (a) index drift between tabs/temperature_profile.py:19 vs :53, (b) plot_temperature_gradient_heatmap role-blindness, (c) list of pytest tests that touch the heatmap or the tab",
+      "dependencies": [],
+      "dependents": [
+        2,
+        3
+      ],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-26_231226_f8a0d05d/astute-evidence.md"
+      ],
+      "validation_required": "Each of the three claims has an explicit pass/fail verdict with concrete repro command and observed numbers; non-reproductions are flagged loudly",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Unified review report \u2014 bugs, code smells, DRY inventory, canonical helper proposal, follow-up captain count",
+      "owner": "HMS Vanguard",
+      "deliverable": "Review report at {mission-dir}/vanguard-review.md with 5 sections: bugs, code smells, DRY inventory grouped by signature, proposed canonical helper API + SENSOR_LIST location (recommend config/constants.py), recommended captain count for follow-up flotilla. Reconciles against sensor_naming.get_dynamic_sensor_names and src/analysis/curve_comparison.transform_sensor_assignments_to_roles, explaining why neither is reusable as-is",
+      "dependencies": [
+        1
+      ],
+      "dependents": [
+        3
+      ],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-26_231226_f8a0d05d/vanguard-review.md"
+      ],
+      "validation_required": "Every claim has file:line citation; both existing helpers reconciled; bugs cross-referenced against Astute's evidence",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Synthesis & sign-off \u2014 confirmed defects, demoted smells, follow-up flotilla scope",
+      "owner": "HMS Hood",
+      "deliverable": "One-page sign-off at {mission-dir}/hood-signoff.md listing confirmed defects (Vanguard claim + Astute evidence both green), demoted-to-smell items, refactor scope estimate (LOC delta + captain count), recommended branch name for follow-up",
+      "dependencies": [
+        1,
+        2
+      ],
+      "dependents": [],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-26_231226_f8a0d05d/hood-signoff.md"
+      ],
+      "validation_required": "Every confirmed/demoted item traces to a Vanguard claim and an Astute verdict; no new findings introduced",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Britannia",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Astute",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Vanguard",
+        "ship_class": "historic-flagship",
+        "model": "sonnet",
+        "task_id": 2
+      },
+      {
+        "ship_name": "HMS Hood",
+        "ship_class": "historic-flagship",
+        "model": "sonnet",
+        "task_id": 3
+      }
+    ]
+  },
+  "created_at": "2026-04-26T23:15:42Z",
+  "amended_at": null
+}
