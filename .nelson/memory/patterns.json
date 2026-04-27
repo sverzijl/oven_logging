@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T02:49:44Z",
-  "pattern_count": 32,
+  "updated_at": "2026-04-27T03:32:52Z",
+  "pattern_count": 33,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -623,6 +623,26 @@
       ],
       "avoid": [
         "Spey's audit missed loader.py:1244 mixed-column list which Astute caught \u2014 captain's grep should include multi-line patterns, not just single-line."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_025041_6688c306",
+      "completed_at": "2026-04-27T03:32:52Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M5 flotilla finale (meta-fleet): comprehensive E2E test + cross-mission perturbation re-runs across all closed bugs (B1, B2) + final no-regression guardrail. Sign off the flotilla as ready for merge to main.",
+      "adopt": [
+        "Meta-fleet finale pattern: a final mission whose only job is to re-run the original bug-discovery scenarios and prove the verdict has flipped, plus pin all closures with structural tests. Without this mission the flotilla's claims are self-reported, not evidenced."
+      ],
+      "avoid": [
+        "Mismatched filename collision with prior flotilla \u2014 Achilles renamed to test_temperature_profile_flotilla_finale.py to avoid clobbering the past flotilla's test_flotilla_finale_regression.py. Future flotillas should namespace finale-test files by topic upfront."
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

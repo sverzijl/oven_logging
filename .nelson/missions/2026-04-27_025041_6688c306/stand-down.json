@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "M5 flotilla finale (meta-fleet): comprehensive E2E test + cross-mission perturbation re-runs across all closed bugs (B1, B2) + final no-regression guardrail. Sign off the flotilla as ready for merge to main.",
+  "actual_outcome": "Flotilla finale meta-fleet: Achilles added 25 tests (15 E2E + 10 structural) at commit 4f66f3d. Astute's empirical re-run flipped both M0 perturbation scenarios from PASS-bug to PASS-fixed. Branch ready to merge: 12 commits from main, pytest 401/8/2 (was 338/8/1; +63 new passes), pre-existing 338 baseline preserved.",
+  "success_metric_result": "M0 (a) verdict flipped: T7vT6 divergence gone. M0 (b) verdict flipped: heatmap y-axis now role-aware. M0 (c) test count: 0\u21926 new test files. Pytest baseline 338 preserved. MERGE verdict from Astute.",
+  "duration_minutes": 41,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 2,
+    "reliefs": 0,
+    "max_concurrent_ships": 2
+  },
+  "tasks": {
+    "completed": 2,
+    "total": 2,
+    "by_station_tier": {
+      "0": 1,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Meta-fleet finale pattern: a final mission whose only job is to re-run the original bug-discovery scenarios and prove the verdict has flipped, plus pin all closures with structural tests. Without this mission the flotilla's claims are self-reported, not evidenced."
+    ],
+    "avoid": [
+      "Mismatched filename collision with prior flotilla \u2014 Achilles renamed to test_temperature_profile_flotilla_finale.py to avoid clobbering the past flotilla's test_flotilla_finale_regression.py. Future flotillas should namespace finale-test files by topic upfront."
+    ]
+  },
+  "created_at": "2026-04-27T03:32:52Z"
+}

@@ -1,0 +1,52 @@
+{
+  "ship": "HMS Astute",
+  "role": "Red-cell navigator",
+  "mission": "M5 — flotilla sign-off",
+  "date": "2026-04-27",
+  "commit": "4f66f3d",
+  "verdict": "MERGE",
+  "empirical_verifications": {
+    "B2_index_drift": {
+      "status": "FLIP CONFIRMED",
+      "pre_flotilla": "BUG PRESENT — surface_sensor diverges (T7 vs T6) when loader.current_curve_index=0 and arg=1",
+      "post_flotilla": "FIXED — single hoisted curve_index=1 passed to both build_sensor_label_map and build_sensor_role_map; both helpers agree T7=surface for curve 1, T6=surface for curve 0",
+      "repro_script": ".nelson/missions/2026-04-27_025041_6688c306/repro/verify_b2_index_drift.py",
+      "closure_mission": "M3",
+      "closure_commit": "9d4503c"
+    },
+    "B1_heatmap_role_blindness": {
+      "status": "FLIP CONFIRMED",
+      "pre_flotilla": "BUG PRESENT — y-axis labels invariant ['Core 1'...'Surface'] regardless of sensor_roles",
+      "post_flotilla": "FIXED — y-axis labels include role suffix when sensor_roles provided: 'Core 2 (Surface)', 'Near Surface (Ambient)'; unassigned sensors use firmware default",
+      "repro_script": ".nelson/missions/2026-04-27_025041_6688c306/repro/verify_b1_heatmap_roles.py",
+      "closure_mission": "M2",
+      "closure_commit": "e72c164"
+    }
+  },
+  "test_coverage_delta": {
+    "plot_temperature_profile": {"pre": 0, "post_occurrences": 11, "post_files": 1},
+    "plot_temperature_gradient_heatmap": {"pre": 0, "post_occurrences": 16, "post_files": 3},
+    "index_drift_b2": {"pre": 0, "post_occurrences": 35, "post_files": 3}
+  },
+  "pytest_baseline": {
+    "m0_passed": 338,
+    "m0_failed": 8,
+    "m0_skipped": 1,
+    "post_m5_passed": 401,
+    "post_m5_failed": 8,
+    "post_m5_skipped": 2,
+    "new_tests_added": 63,
+    "pre_existing_failures_preserved": true,
+    "new_failures_introduced": 0
+  },
+  "defects_closed": ["B1", "B2", "S1", "S2", "S3", "S6", "S7", "DRY-A", "DRY-B"],
+  "defects_deferred": ["S4", "S5"],
+  "todos_introduced": 0,
+  "merge_ready": true,
+  "post_merge_concerns": [
+    "S4 session_state coupling — render() still reads directly from st.session_state",
+    "transform_sensor_assignments_to_roles in curve_comparison.py not yet unified with build_sensor_role_map",
+    "8 pre-existing test failures unrelated to flotilla still need dedicated fix mission",
+    "test_flotilla_finale_regression.py (pre-existing) should be reviewed for overlap with new finale tests"
+  ]
+}
