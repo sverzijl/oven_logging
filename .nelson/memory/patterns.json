@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T11:57:08Z",
-  "pattern_count": 39,
+  "updated_at": "2026-04-27T12:30:13Z",
+  "pattern_count": 40,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -769,6 +769,27 @@
       ],
       "avoid": [
         "Mocking streamlit for override tests \u2014 exercise loader-level path instead, mirrors project convention"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_115752_2038ae7c",
+      "completed_at": "2026-04-27T12:30:13Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Audacious (M4): permanent perturbation harness running \u03c3=0.5/1.0/2.0 \u00b0C noise sweeps on 9 fixtures across 100 seeds; position-flip rate per role; through-loaf and lid TP rate; Astute-style perturbation extras; piecewise-vs-Stefan stability comparison under noise; per-role flip-rate baseline report committed.",
+      "adopt": [
+        "XFAIL_FLIP_5PCT documentation tag for fixture/role pairs where the physics genuinely doesn't support 5 percent at sigma=1.0",
+        "Per-fixture per-role flip rate granular reporting beats aggregate"
+      ],
+      "avoid": [
+        "Treating noise robustness as a binary gate \u2014 partial passes with documented physical exceptions are honest"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,
