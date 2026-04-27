@@ -3,6 +3,7 @@ import streamlit as st
 
 from src.visualization.plots import ThermalPlotter
 from sensor_naming import get_default_sensors
+from src.ui.sensor_role_helpers import build_sensor_role_map
 
 
 def render():
@@ -78,5 +79,9 @@ def render():
 
     # Temperature gradient heatmap
     st.subheader("Temperature Distribution Heatmap")
-    fig_heatmap = plotter.plot_temperature_gradient_heatmap(st.session_state.data)
+    heatmap_roles = build_sensor_role_map(st.session_state.loader, st.session_state.current_curve_index)
+    fig_heatmap = plotter.plot_temperature_gradient_heatmap(
+        st.session_state.data,
+        sensor_roles=heatmap_roles,
+    )
     st.plotly_chart(fig_heatmap, use_container_width=True)
