@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T11:38:59Z",
-  "pattern_count": 38,
+  "updated_at": "2026-04-27T11:57:08Z",
+  "pattern_count": 39,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -756,6 +756,27 @@
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": 0.5
+      }
+    },
+    {
+      "mission_id": "2026-04-27_113942_cfc3d87f",
+      "completed_at": "2026-04-27T11:57:08Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Bellerophon (M3b): extend sidebar override UI to support ambient + lid roles with topology validation; delete surface_sensor_detector.py and ThermodynamicSensorClassifier class; audit tests for standardized-column-set equality assumptions.",
+      "adopt": [
+        "Through-loaf topology exception with explicit anchoring rule (ambient lower group must start at T1)",
+        "DRY validator: sidebar calls loader._validate_override_topology rather than duplicating"
+      ],
+      "avoid": [
+        "Mocking streamlit for override tests \u2014 exercise loader-level path instead, mirrors project convention"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
       }
     }
   ]

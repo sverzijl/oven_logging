@@ -230,89 +230,119 @@ def render():
             # Manual override controls
             with st.expander("Override Sensor Assignments", expanded=False):
                 st.markdown("Select which sensors represent each role for this specific curve:")
-                st.markdown("*Note: Internal and ambient sensors are automatically inferred based on surface position*")
+                st.markdown("*Topology rule: core < surface ≤ ambient ≤ lid. Through-loaf insertions (ambient on both sides) are accepted.*")
+
+                curve_idx = st.session_state.current_curve_index
 
                 # Core sensor (single selection)
-                current_core = st.session_state.loader.get_core_sensor(st.session_state.current_curve_index)
+                current_core = st.session_state.loader.get_core_sensor(curve_idx)
                 core_sensor = st.selectbox(
                     "Core Sensor (single sensor for core temperature)",
                     options=list(SENSOR_LIST),
                     index=list(SENSOR_LIST).index(current_core) if current_core else 0,
-                    key=f"core_override_{st.session_state.current_curve_index}",
+                    key=f"core_override_{curve_idx}",
                     help="Select the sensor that best represents the core temperature"
                 )
 
                 # Surface sensor (single selection)
-                current_surface = st.session_state.loader.get_surface_sensor(st.session_state.current_curve_index)
+                current_surface = st.session_state.loader.get_surface_sensor(curve_idx)
                 surface_sensor = st.selectbox(
                     "Surface/Crust Sensor (interface between core and ambient)",
                     options=list(SENSOR_LIST),
                     index=list(SENSOR_LIST).index(current_surface) if current_surface else 6,
-                    key=f"surface_override_{st.session_state.current_curve_index}",
-                    help="Select the sensor at the bread surface. Internal sensors (below) and ambient sensors (above) will be automatically determined."
+                    key=f"surface_override_{curve_idx}",
+                    help="Select the sensor at the bread surface."
                 )
 
-                # Show inferred sensor groups based on surface selection
+                # Ambient sensors (multiselect; default = current automatic ambient list)
+                current_ambient = st.session_state.loader.get_ambient_sensors(curve_idx) or []
+                ambient_sensors_choice = st.multiselect(
+                    "Ambient Sensors (one or more sensors in the oven air)",
+                    options=list(SENSOR_LIST),
+                    default=[s for s in current_ambient if s in SENSOR_LIST],
+                    key=f"ambient_override_{curve_idx}",
+                    help=(
+                        "Select sensors that read oven-air temperature. Through-loaf "
+                        "exception: if the probe pierces the loaf, you may pick sensors "
+                        "from BOTH ends with the surface sensor between them."
+                    ),
+                )
+
+                # Lid sensor (single selection, optional)
+                current_lid = st.session_state.loader.get_lid_sensor(curve_idx)
+                lid_options = ["None"] + list(SENSOR_LIST)
+                lid_default_idx = (
+                    lid_options.index(current_lid) if current_lid in lid_options else 0
+                )
+                lid_choice = st.selectbox(
+                    "Lid Sensor (optional; the sensor pressed against an oven lid)",
+                    options=lid_options,
+                    index=lid_default_idx,
+                    key=f"lid_override_{curve_idx}",
+                    help=(
+                        "Select 'None' for non-lidded bakes. When set, the chosen sensor "
+                        "writes a LidTemperature column."
+                    ),
+                )
+                lid_sensor = None if lid_choice == "None" else lid_choice
+
+                # Show inferred internal sensors for context
                 st.markdown("### Inferred Sensor Groups")
                 if surface_sensor:
-                    surface_num = int(surface_sensor[1])
-
-                    # Internal sensors (below surface)
+                    surface_num = int(surface_sensor[1:])
                     internal_sensors = [f'T{i}' for i in range(1, surface_num)]
                     if internal_sensors:
                         st.info(f"**Internal sensors**: {', '.join(internal_sensors)} (all sensors below surface)")
                     else:
                         st.warning("No internal sensors (surface is T1)")
-
-                    # Surface
                     st.info(f"**Surface sensor**: {surface_sensor}")
-
-                    # Ambient sensors (above surface)
-                    ambient_sensors = [f'T{i}' for i in range(surface_num + 1, 9)]
-                    if ambient_sensors:
-                        st.info(f"**Ambient sensors**: {', '.join(ambient_sensors)} (all sensors above surface)")
-                    else:
-                        st.warning("No ambient sensors (surface is T8)")
+                    if ambient_sensors_choice:
+                        st.info(f"**Ambient sensors**: {', '.join(ambient_sensors_choice)}")
+                    if lid_sensor:
+                        st.info(f"**Lid sensor**: {lid_sensor}")
 
                 if st.button("Apply Overrides"):
-                    # Validation function
-                    def validate_sensor_assignments(core, surface):
-                        errors = []
+                    # Authoritative validation lives in the loader
+                    # (_validate_override_topology). The sidebar mirrors only
+                    # presence/uniqueness checks the loader can't infer from
+                    # values alone.
+                    errors = []
+                    if not core_sensor:
+                        errors.append("Please select a core sensor")
+                    if not surface_sensor:
+                        errors.append("Please select a surface sensor")
 
-                        # Check for required selections
-                        if not core:
-                            errors.append("Please select a core sensor")
-                        if not surface:
-                            errors.append("Please select a surface sensor")
-
-                        # Check that sensors are different
-                        if core and surface and core == surface:
-                            errors.append("Core and surface sensors must be different")
-
-                        # Check logical order: core < surface
-                        if core and surface:
-                            core_num = int(core[1])
-                            surface_num = int(surface[1])
-
-                            if core_num >= surface_num:
-                                errors.append("Core sensor must have a lower number than surface sensor")
-
-                        return errors
-
-                    # Validate selections
-                    errors = validate_sensor_assignments(core_sensor, surface_sensor)
+                    if not errors:
+                        # Build the prospective override dict and let the
+                        # loader's validator decide; surface ValueError as
+                        # st.error rather than letting the exception kill the
+                        # render.
+                        prospective = {
+                            'core': core_sensor,
+                            'surface': surface_sensor,
+                        }
+                        if ambient_sensors_choice:
+                            prospective['ambient'] = list(ambient_sensors_choice)
+                        prospective['lid'] = lid_sensor  # may be None
+                        try:
+                            ThermalProfileLoader._validate_override_topology(prospective)
+                        except ValueError as ex:
+                            errors.append(str(ex))
 
                     if errors:
                         for error in errors:
                             st.error(error)
                     else:
-                        # Apply overrides (single sensors)
-                        st.session_state.loader.set_sensor_override(
-                            st.session_state.current_curve_index, 'core', core_sensor
-                        )
-                        st.session_state.loader.set_sensor_override(
-                            st.session_state.current_curve_index, 'surface', surface_sensor
-                        )
+                        loader = st.session_state.loader
+                        loader.set_sensor_override(curve_idx, 'core', core_sensor)
+                        loader.set_sensor_override(curve_idx, 'surface', surface_sensor)
+                        if ambient_sensors_choice:
+                            loader.set_sensor_override(
+                                curve_idx, 'ambient', list(ambient_sensors_choice)
+                            )
+                        # Lid override is always applied; None explicitly
+                        # clears any prior lid pick.
+                        loader.set_sensor_override(curve_idx, 'lid', lid_sensor)
                         # Recreate analyzers with new assignments
                         st.session_state.analyzer = ThermalAnalyzer(
                             st.session_state.data,

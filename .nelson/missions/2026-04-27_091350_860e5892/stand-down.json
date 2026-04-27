@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Royal Sovereign (M3a): wire spatial_reconstruction into ThermalProfileLoader; drop firmware mode-pick as primary; kill physics_corrected and core_physics_corrected flags; add LidTemperature column + interpolated get_*_temperature_series getters; rewrite sensor_assignment_manager as thin adapter to new classifier; preserve curve-switching invariants.",
+  "actual_outcome": "ThermalProfileLoader._identify_sensor_roles_for_curve replaced with classify(); _apply_physics_based_*_correction methods deleted; LidTemperature column added to _apply_standard_columns; physics_corrected/core_physics_corrected flags killed; new getters get_lid_sensor + get_*_temperature_series added; SensorAssignmentManager rewritten as thin adapter (~85 LOC). 26 new loader-integration tests pass; 50/50 classifier contract tests pass via loader path; 33/33 detector tests pass.",
+  "success_metric_result": "84 focused tests pass; +24 net passes on full suite; physics_corrected references gone from src/; no detector regression.",
+  "duration_minutes": 144,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 2,
+    "by_station_tier": {
+      "0": 0,
+      "1": 2,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Capture full SpatialAssignment in curve_sensor_assignments rather than just the flat dict \u2014 preserves PositionalAssignment.temperature_series for new getters",
+      "Drop column on no-lid curves rather than write NaN \u2014 column lifecycle test catches the leak"
+    ],
+    "avoid": [
+      "Renaming flags instead of deleting \u2014 keeping a 'core_physics_corrected_v2' would just defer the same conceptual confusion"
+    ]
+  },
+  "created_at": "2026-04-27T11:38:58Z"
+}

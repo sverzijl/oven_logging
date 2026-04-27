@@ -1,0 +1,32 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Bellerophon", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Sidebar override UI for ambient + lid; topology validation; delete legacy modules",
+      "owner": "HMS Bellerophon",
+      "deliverable": "sidebar.py: extend override section with Ambient (multiselect) and Lid (single, optional) dropdowns. ThermalProfileLoader.set_sensor_override accepts 'ambient' (list) and 'lid' (str|None). Topology validator enforces core_idx < surface_idx ≤ min(ambient_idx) ≤ max(ambient_idx) ≤ lid_idx (lid optional). Delete src/data/surface_sensor_detector.py. Delete ThermodynamicSensorClassifier class from thermodynamic_sensor_classifier.py (preserve identify_core_sensor_combined_rank if direct test callers exist; otherwise delete). New tests: test_sidebar_lid_override.py, test_topology_validation_rejects_invalid_overrides.py, test_legacy_modules_removed.py. Audit existing tests for standardized-column-set == assertions and update to ⊇.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/sidebar.py",
+        "oven_logging/src/data/loader.py",
+        "oven_logging/src/data/surface_sensor_detector.py",
+        "oven_logging/src/data/thermodynamic_sensor_classifier.py",
+        "oven_logging/tests/test_sidebar_lid_override.py",
+        "oven_logging/tests/test_topology_validation_rejects_invalid_overrides.py",
+        "oven_logging/tests/test_legacy_modules_removed.py",
+        ".nelson/missions/2026-04-27_113942_cfc3d87f/"
+      ],
+      "validation_required": "All M3a tests still pass (84 focused). New override + topology + deletion tests pass. surface_sensor_detector module raises ModuleNotFoundError on import. ThermodynamicSensorClassifier raises AttributeError. Detector tests still 33/33.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

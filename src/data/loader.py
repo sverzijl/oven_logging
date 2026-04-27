@@ -542,29 +542,186 @@ class ThermalProfileLoader:
         if self.all_curves and self.current_curve_index >= len(self.all_curves):
             self.current_curve_index = 0
 
-    def set_sensor_override(self, curve_index: int, role: str, sensor: str):
-        """
-        Allow user to override sensor assignments for a specific curve.
-        
+    def set_sensor_override(self, curve_index: int, role: str, sensor):
+        """Allow user to override sensor assignments for a specific curve.
+
         Args:
             curve_index: Index of the curve
-            role: 'core', 'surface', or 'ambient'
-            sensor: Single sensor name (e.g., 'T2')
+            role: ``'core'``, ``'surface'``, ``'ambient'``, or ``'lid'``
+            sensor:
+                - For ``'core'`` and ``'surface'``: a single sensor name (str), e.g. ``'T2'``.
+                - For ``'ambient'``: a list of sensor names (or a single str for
+                  backward compatibility); the AmbientTemperature column will be
+                  the row-wise mean across these sensors.
+                - For ``'lid'``: a single sensor name (str), or ``None`` to
+                  explicitly clear a previously-set lid override (drops the
+                  ``LidTemperature`` column).
+
+        Raises:
+            ValueError: if the resulting role-to-sensor mapping violates the
+                physical topology of the probe (see
+                :meth:`_validate_override_topology`).
         """
+        if role not in ('core', 'surface', 'ambient', 'lid'):
+            raise ValueError(
+                f"Unknown override role {role!r}; expected one of "
+                "'core', 'surface', 'ambient', 'lid'."
+            )
+
+        # Build the prospective override dict and topology-check before mutating.
+        existing = self._sensor_overrides.get(curve_index, {})
+        prospective = dict(existing)
+        prospective[role] = sensor
+        self._validate_override_topology(prospective)
+
+        # Topology OK — commit the mutation.
         if curve_index not in self._sensor_overrides:
             self._sensor_overrides[curve_index] = {}
         self._sensor_overrides[curve_index][role] = sensor
-        
-        # Regenerate standard columns for this curve if it's the current one
+
+        # Regenerate standard columns for this curve if it's the current one,
+        # AND for the per-curve DataFrame in all_curves so LidTemperature is
+        # written/dropped consistently.
+        df_curve = self._curve_dataframe(curve_index)
+        if df_curve is not None:
+            self._apply_standard_columns(df_curve, curve_index)
         if curve_index == self.current_curve_index:
             self._regenerate_standard_columns()
-    
+
+    @staticmethod
+    def _sensor_index(name) -> Optional[int]:
+        """Return the int index for ``'T<n>'`` sensor names, else ``None``."""
+        if not isinstance(name, str) or len(name) < 2 or name[0] != 'T':
+            return None
+        try:
+            return int(name[1:])
+        except ValueError:
+            return None
+
+    @classmethod
+    def _validate_override_topology(cls, overrides: Dict) -> None:
+        """Enforce probe topology on a prospective override dict.
+
+        Topology rule (numbers refer to the integer suffix of T1..T8):
+
+            core_idx < surface_idx <= min(ambient_idx) <=
+            max(ambient_idx) <= lid_idx
+
+        Constraints involving roles NOT present in ``overrides`` are skipped
+        (partial overrides are valid mid-edit).
+
+        **Through-loaf exception**: when the operator inserts the probe so it
+        passes through the loaf and emerges out the far side, ambient sensors
+        appear on BOTH ends of the probe (e.g. T1 in oven air below, T8 in oven
+        air above) and the surface sensor sits between them.  We accept this
+        when:
+
+          * ambient sensor indices form two non-empty contiguous groups
+            (lower group is a prefix starting at T1, upper group is a suffix
+            ending at the highest used T-index, no ambient indices between
+            them); and
+          * surface_idx lies strictly between max(lower group) and min(upper group).
+
+        Raises ``ValueError`` with a role-named message on the first
+        violation found.
+        """
+        # Filter to recognised roles whose value translates to at least one
+        # sensor name. ``lid=None`` is the explicit-clear sentinel and skips
+        # validation of the lid relation.
+        core = overrides.get('core')
+        surface = overrides.get('surface')
+        ambient_raw = overrides.get('ambient')
+        lid = overrides.get('lid')
+
+        core_idx = cls._sensor_index(core) if core else None
+        surface_idx = cls._sensor_index(surface) if surface else None
+        if isinstance(ambient_raw, str):
+            ambient_list = [ambient_raw]
+        elif ambient_raw is None:
+            ambient_list = []
+        else:
+            ambient_list = list(ambient_raw)
+        ambient_idxs = sorted(
+            i for i in (cls._sensor_index(s) for s in ambient_list) if i is not None
+        )
+        lid_idx = cls._sensor_index(lid) if lid else None
+
+        # Core vs Surface
+        if core_idx is not None and surface_idx is not None:
+            if core_idx == surface_idx:
+                raise ValueError(
+                    "Override topology: core and surface sensors must differ "
+                    f"(both set to T{core_idx})."
+                )
+            if core_idx >= surface_idx:
+                raise ValueError(
+                    "Override topology: core sensor must be deeper "
+                    f"(lower index) than surface sensor "
+                    f"(got core=T{core_idx}, surface=T{surface_idx})."
+                )
+
+        # Ambient vs Surface (with through-loaf exception)
+        if surface_idx is not None and ambient_idxs:
+            min_amb = ambient_idxs[0]
+            max_amb = ambient_idxs[-1]
+            if min_amb < surface_idx:
+                # Possible through-loaf: lower group must be a contiguous prefix
+                # starting at T1, upper group must be a contiguous suffix; the
+                # surface index sits strictly between the two groups.
+                lower = [i for i in ambient_idxs if i < surface_idx]
+                upper = [i for i in ambient_idxs if i > surface_idx]
+                # surface itself is never in ambient — earlier core/surface
+                # check already forbids overlap with core; ambient overlapping
+                # surface should also fail:
+                if surface_idx in ambient_idxs:
+                    raise ValueError(
+                        "Override topology: ambient list may not include the "
+                        f"surface sensor (T{surface_idx})."
+                    )
+                lower_is_prefix = (
+                    bool(lower)
+                    and lower[0] == 1
+                    and lower == list(range(lower[0], lower[-1] + 1))
+                )
+                upper_is_contiguous = (
+                    bool(upper)
+                    and upper == list(range(upper[0], upper[-1] + 1))
+                )
+                if not (lower_is_prefix and upper_is_contiguous):
+                    raise ValueError(
+                        "Override topology: ambient sensors must lie at or above "
+                        f"the surface sensor (got ambient={ambient_list}, "
+                        f"surface=T{surface_idx}). Through-loaf exception "
+                        "requires the lower group to start at T1 and the upper "
+                        "group to be contiguous on the far side."
+                    )
+                # Through-loaf accepted.
+
+        # Lid vs Ambient
+        if lid_idx is not None and ambient_idxs:
+            if lid_idx < ambient_idxs[-1]:
+                raise ValueError(
+                    "Override topology: lid sensor index must be >= max(ambient) "
+                    f"(got lid=T{lid_idx}, max ambient=T{ambient_idxs[-1]})."
+                )
+
+        # Lid vs Surface (when no ambient override is present)
+        if lid_idx is not None and surface_idx is not None and not ambient_idxs:
+            if lid_idx <= surface_idx:
+                raise ValueError(
+                    "Override topology: lid sensor must be above the surface "
+                    f"(got lid=T{lid_idx}, surface=T{surface_idx})."
+                )
+
     def clear_sensor_overrides(self, curve_index: int):
         """Clear all user overrides for a curve, reverting to automatic detection."""
         if curve_index in self._sensor_overrides:
             del self._sensor_overrides[curve_index]
-            
+
         # Regenerate columns if this is the current curve
+        df_curve = self._curve_dataframe(curve_index)
+        if df_curve is not None:
+            self._apply_standard_columns(df_curve, curve_index)
         if curve_index == self.current_curve_index:
             self._regenerate_standard_columns()
     
@@ -1278,11 +1435,20 @@ class ThermalProfileLoader:
         elif 'T8' in df.columns:
             df['AmbientTemperature'] = df['T8']
 
-        # --- LidTemperature (M3a) -------------------------------------------
-        # Manual override > classifier-detected lid > drop column.
-        lid_override = overrides.get('lid')
-        if lid_override and lid_override in df.columns:
-            df['LidTemperature'] = df[lid_override]
+        # --- LidTemperature (M3a, M3b) ---------------------------------------
+        # Manual override priority:
+        #   - 'lid' key explicitly None -> operator cleared lid; drop column.
+        #   - 'lid' key set to a sensor name -> write df[sensor].
+        #   - 'lid' key absent             -> fall through to classifier.
+        # Classifier writes only when assignment.lid_assignment is non-None.
+        # Otherwise drop a stale column.
+        if 'lid' in overrides:
+            lid_override = overrides['lid']
+            if lid_override is None:
+                if 'LidTemperature' in df.columns:
+                    df.drop(columns=['LidTemperature'], inplace=True)
+            elif lid_override in df.columns:
+                df['LidTemperature'] = df[lid_override]
         elif assignment is not None and assignment.lid_assignment is not None:
             df['LidTemperature'] = self._align_series(
                 assignment.lid_assignment.temperature_series, df

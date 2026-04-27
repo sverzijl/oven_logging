@@ -2,10 +2,10 @@
   "version": 1,
   "mission": {
     "outcome": "Land HMS Royal Sovereign (M3a): wire spatial_reconstruction into ThermalProfileLoader; drop firmware mode-pick as primary; kill physics_corrected and core_physics_corrected flags; add LidTemperature column + interpolated get_*_temperature_series getters; rewrite sensor_assignment_manager as thin adapter to new classifier; preserve curve-switching invariants.",
-    "status": "underway",
-    "phase": "UNDERWAY",
+    "status": "complete",
+    "phase": "STAND_DOWN",
     "started_at": "2026-04-27T09:13:50Z",
-    "checkpoint_number": 0
+    "checkpoint_number": 1
   },
   "progress": {
     "pending": 2,
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-27T09:15:28Z"
+  "last_updated": "2026-04-27T11:38:58Z"
 }
