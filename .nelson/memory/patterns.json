@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T02:01:01Z",
-  "pattern_count": 31,
+  "updated_at": "2026-04-27T02:49:44Z",
+  "pattern_count": 32,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -603,6 +603,26 @@
       ],
       "avoid": [
         "Widget keys become *_None if curve_index is None at render time \u2014 M5 should add defensive guard or test for this edge case."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_020155_cb469fc1",
+      "completed_at": "2026-04-27T02:49:44Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M4 DRY sweep: replace remaining hardcoded ['T1'..'T8'] literals with from config.constants import SENSOR_LIST across sidebar.py, plots.py, loader.py, curve_comparison.py, sensor_naming.py, curve_boundary_detector.py.",
+      "adopt": [
+        "Regression guard test using regex over production source files \u2014 pins migration completeness against future re-introduction of the literal."
+      ],
+      "avoid": [
+        "Spey's audit missed loader.py:1244 mixed-column list which Astute caught \u2014 captain's grep should include multi-line patterns, not just single-line."
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

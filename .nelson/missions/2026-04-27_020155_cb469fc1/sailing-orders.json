@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "M4 DRY sweep: replace remaining hardcoded ['T1'..'T8'] literals with from config.constants import SENSOR_LIST across sidebar.py, plots.py, loader.py, curve_comparison.py, sensor_naming.py, curve_boundary_detector.py.",
+  "success_metric": "All known T1..T8 literal sites migrated; no behavioural change; pytest delta \u22650; one commit; Astute GO.",
+  "deadline": "This session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-27T02:01:55Z"
+}

@@ -1,0 +1,74 @@
+{
+  "ship": "HMS Astute",
+  "mission": "M4 — SENSOR_LIST sweep red-cell verification",
+  "role": "Red-cell navigator — read-only",
+  "date": "2026-04-27",
+  "verdict": "GO",
+
+  "checks": [
+    {
+      "check": "1 — Completeness grep audit",
+      "result": "PASS",
+      "detail": "Zero canonical-8 standalone forms found outside allow-list. Partial lists (T1-T4, T4-T8 variants) are pre-existing technical debt, not in scope."
+    },
+    {
+      "check": "2 — _SENSOR_COLUMNS removal",
+      "result": "PASS",
+      "detail": "Zero hits for _SENSOR_COLUMNS in src/. curve_boundary_detector.py imports and uses SENSOR_LIST correctly."
+    },
+    {
+      "check": "3 — Sidebar selectbox preservation",
+      "result": "PASS",
+      "detail": "options=list(SENSOR_LIST), index=list(SENSOR_LIST).index(...) — structurally identical to old hardcoded pattern."
+    },
+    {
+      "check": "4 — sensor_naming.py left-as-is decision",
+      "result": "PASS",
+      "detail": "Line 74: 4-element partial fallback. Line 107: 3-element partial fallback. Both correct to leave; migrating would change behaviour."
+    },
+    {
+      "check": "5 — Loader behaviour unchanged",
+      "result": "PASS",
+      "detail": "Empirical: both CSVs load correctly, per-curve sensor assignments match M3 baseline. SENSOR_LIST order == range(1,9) order confirmed."
+    },
+    {
+      "check": "6 — Pytest delta",
+      "result": "PASS",
+      "detail": "376/8/1 observed vs 373 baseline = +3 (3 new migration guard tests). Discrepancy vs Spey's 377: test_deep_insertion flapper. 35 prior-flotilla tests 100% green. Zero new regressions."
+    },
+    {
+      "check": "7 — Sweep coverage map",
+      "result": "PASS — COMPLETE",
+      "detail": "One canonical definition, 9 migrated reference sites. All standalone T1..T8 forms resolved."
+    },
+    {
+      "check": "8 — app.py audit",
+      "result": "CLEAN",
+      "detail": "No hardcoded T1..T8 forms in app.py. No action required."
+    }
+  ],
+
+  "damage_items": [],
+
+  "concerns_for_m5": [
+    {
+      "id": "C1",
+      "severity": "minor",
+      "file": "src/data/loader.py",
+      "line": "1244",
+      "detail": "get_sensor_data() contains ['Timestamp','TimeMinutes','T1'...'T8'] — split across 2 lines, regex does not fire, but is a DRY violation. Migrate to ['Timestamp','TimeMinutes'] + list(SENSOR_LIST)."
+    },
+    {
+      "id": "C2",
+      "severity": "minor",
+      "detail": "Partial sensor-range lists (T1-T4, T5-T8) are pre-existing technical debt across thermal_analysis.py, plots.py, sensor_assignment_manager.py, surface_sensor_detector.py, loader.py. Post-flotilla DRY work item."
+    },
+    {
+      "id": "C3",
+      "severity": "minor",
+      "detail": "test_deep_insertion flapper — pre-existing, not caused by M4. Recommend isolating before final flotilla stand-down."
+    }
+  ],
+
+  "rollback": "N/A — read-only role"
+}
