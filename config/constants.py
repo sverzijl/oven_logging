@@ -391,3 +391,7 @@ CORE_DETECTION_CONFIG = {
     # below the 5% REVISE threshold. min_k=3 eliminates all FP but misses PWM.
     "PROBE_REMOVAL_MIN_SIMULTANEOUS_SENSORS": 2,
 }
+
+# Canonical list of physical sensor channels on a Combustion Inc. probe.
+# Ordered T1..T8 from probe tip toward probe stem.
+SENSOR_LIST = ('T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8')
