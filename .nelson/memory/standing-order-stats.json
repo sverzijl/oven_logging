@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-25T11:24:53Z",
-  "total_missions": 27,
+  "updated_at": "2026-04-26T23:59:58Z",
+  "total_missions": 28,
   "total_violations": 1,
   "violations_per_mission": 0.04,
   "by_order": {
@@ -44,6 +44,7 @@
     "2026-04-25_093421_5802073a",
     "2026-04-25_094450_7a304ac3",
     "2026-04-25_095925_68ec2c1b",
-    "2026-04-25_111859_56ebe5ee"
+    "2026-04-25_111859_56ebe5ee",
+    "2026-04-26_231226_f8a0d05d"
   ]
 }

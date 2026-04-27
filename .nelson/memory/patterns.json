@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-25T11:24:53Z",
-  "pattern_count": 27,
+  "updated_at": "2026-04-26T23:59:58Z",
+  "pattern_count": 28,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -528,6 +528,28 @@
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": null
+      }
+    },
+    {
+      "mission_id": "2026-04-26_231226_f8a0d05d",
+      "completed_at": "2026-04-26T23:59:58Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Detailed read-only review of the Temperature Profile tab \u2014 bugs, code smells, DRY violations \u2014 with empirical red-cell verification and a one-page synthesis.",
+      "adopt": [
+        "Astute-first dispatch order gave Vanguard concrete empirical verdicts to cite, eliminating speculative claims in the review report.",
+        "0-crew captains for read-only review work \u2014 captain context budget was sufficient and avoided skeleton-crew anti-pattern.",
+        "Hood's 'no new findings' constraint \u2014 the synthesis captain stayed lean and produced a one-pager the user can act on without re-reading 291 lines of upstream review."
+      ],
+      "avoid": [
+        "Quarterdeck-report rotation: I overwrote checkpoint 1's report before archiving it as quarterdeck-report-0.md and had to reconstruct from memory. Always rotate FIRST, then write."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
       }
     }
   ]

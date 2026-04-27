@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Detailed read-only review of the Temperature Profile tab \u2014 bugs, code smells, DRY violations \u2014 with empirical red-cell verification and a one-page synthesis.",
+  "actual_outcome": "Three-captain read-only review completed: 2 confirmed bugs (B1 heatmap role-blindness, B2 index-drift), 7 code smells, 2 DRY groups documented; Hood signed off with go-verdict and 4-captain follow-up flotilla plan.",
+  "success_metric_result": "Hood's one-page sign-off (60 lines) lists confirmed defects, accepts all smells/DRY findings, estimates ~150 LOC delta across ~8 files, recommends branch refactor/temperature-profile-canonical-roles.",
+  "duration_minutes": 47,
+  "budget": {
+    "tokens_consumed": 140000,
+    "tokens_budgeted": null,
+    "pct_consumed": 70.0
+  },
+  "fleet": {
+    "ships_used": 3,
+    "reliefs": 0,
+    "max_concurrent_ships": 3
+  },
+  "tasks": {
+    "completed": 3,
+    "total": 3,
+    "by_station_tier": {
+      "0": 3,
+      "1": 0,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Astute-first dispatch order gave Vanguard concrete empirical verdicts to cite, eliminating speculative claims in the review report.",
+      "0-crew captains for read-only review work \u2014 captain context budget was sufficient and avoided skeleton-crew anti-pattern.",
+      "Hood's 'no new findings' constraint \u2014 the synthesis captain stayed lean and produced a one-pager the user can act on without re-reading 291 lines of upstream review."
+    ],
+    "avoid": [
+      "Quarterdeck-report rotation: I overwrote checkpoint 1's report before archiving it as quarterdeck-report-0.md and had to reconstruct from memory. Always rotate FIRST, then write."
+    ]
+  },
+  "created_at": "2026-04-26T23:59:58Z"
+}

@@ -1,0 +1,8 @@
+{
+  "ship_name": "HMS Vanguard",
+  "timestamp": "2026-04-27T00:00:00Z",
+  "hull_integrity_pct": 82,
+  "hull_integrity_status": "Seaworthy — no context pressure, full review completed without truncation",
+  "relief_requested": false,
+  "context_summary": "Read-only review of tabs/temperature_profile.py and direct dependencies; produced vanguard-review.md covering 2 bugs, 7 code smells, DRY inventory across 13+ call sites, canonical helper API proposal, and 4-captain follow-up scope estimate."
+}

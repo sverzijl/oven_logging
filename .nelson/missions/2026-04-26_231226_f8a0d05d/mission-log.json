@@ -1,0 +1,254 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:12:42Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:15:42Z",
+      "data": {
+        "captain_count": 3,
+        "has_red_cell": false,
+        "execution_mode": "subagents",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:15:42Z",
+      "data": {
+        "task_count": 3,
+        "parallel_tracks": 1,
+        "critical_path_length": 3,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:15:58Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "FORMATION"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:16:13Z",
+      "data": {
+        "from_phase": "FORMATION",
+        "to_phase": "PERMISSION"
+      }
+    },
+    {
+      "type": "permission_granted",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:16:44Z",
+      "data": {}
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:16:45Z",
+      "data": {
+        "from_phase": "PERMISSION",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_started",
+      "checkpoint": 0,
+      "timestamp": "2026-04-26T23:17:30Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Empirical verification",
+        "owner": "HMS Astute"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-26T23:48:09Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Empirical verification",
+        "owner": "HMS Astute",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "checkpoint",
+      "checkpoint": 1,
+      "timestamp": "2026-04-26T23:49:26Z",
+      "data": {
+        "progress": {
+          "pending": 2,
+          "in_progress": 0,
+          "completed": 1,
+          "blocked": 0
+        },
+        "budget": {
+          "tokens_spent": 70000,
+          "tokens_remaining": 130000,
+          "pct_consumed": 35.0,
+          "burn_rate_per_checkpoint": 70000
+        },
+        "hull_summary": {
+          "green": 1,
+          "amber": 0,
+          "red": 0,
+          "critical": 0
+        },
+        "blockers": [],
+        "standing_order_violations": [],
+        "admiral_decision": "continue",
+        "admiral_rationale": "Astute landed strong empirical findings; dispatch Vanguard next."
+      }
+    },
+    {
+      "type": "circuit_breaker_tripped",
+      "checkpoint": 1,
+      "timestamp": "2026-04-26T23:49:26Z",
+      "data": {
+        "type": "hull_integrity_breach",
+        "value": 78,
+        "threshold": 80,
+        "action": "hull-integrity",
+        "message": "HMS Astute hull integrity 78% <= threshold 80%. See damage-control/hull-integrity.md.",
+        "context": {
+          "ship_name": "HMS Astute"
+        }
+      }
+    },
+    {
+      "type": "task_started",
+      "checkpoint": 1,
+      "timestamp": "2026-04-26T23:49:34Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Unified review report",
+        "owner": "HMS Vanguard"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-26T23:54:56Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Unified review report",
+        "owner": "HMS Vanguard",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "checkpoint",
+      "checkpoint": 2,
+      "timestamp": "2026-04-26T23:56:32Z",
+      "data": {
+        "progress": {
+          "pending": 1,
+          "in_progress": 0,
+          "completed": 2,
+          "blocked": 0
+        },
+        "budget": {
+          "tokens_spent": 140000,
+          "tokens_remaining": 60000,
+          "pct_consumed": 70.0,
+          "burn_rate_per_checkpoint": 70000
+        },
+        "hull_summary": {
+          "green": 2,
+          "amber": 0,
+          "red": 0,
+          "critical": 0
+        },
+        "blockers": [],
+        "standing_order_violations": [],
+        "admiral_decision": "continue",
+        "admiral_rationale": "Vanguard delivered 291-line review covering all 5 sections; dispatch Hood for synthesis."
+      }
+    },
+    {
+      "type": "circuit_breaker_tripped",
+      "checkpoint": 2,
+      "timestamp": "2026-04-26T23:56:32Z",
+      "data": {
+        "type": "hull_integrity_breach",
+        "value": 78,
+        "threshold": 80,
+        "action": "hull-integrity",
+        "message": "HMS Astute hull integrity 78% <= threshold 80%. See damage-control/hull-integrity.md.",
+        "context": {
+          "ship_name": "HMS Astute"
+        }
+      }
+    },
+    {
+      "type": "task_started",
+      "checkpoint": 2,
+      "timestamp": "2026-04-26T23:56:39Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "Synthesis & sign-off",
+        "owner": "HMS Hood"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-26T23:59:23Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "Synthesis & sign-off",
+        "owner": "HMS Hood",
+        "station_tier": 0,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 2,
+      "timestamp": "2026-04-26T23:59:48Z",
+      "data": {
+        "from_phase": "UNDERWAY",
+        "to_phase": "STAND_DOWN"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 3,
+      "timestamp": "2026-04-26T23:59:58Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 3,
+        "tasks_total": 3,
+        "total_tokens_consumed": 140000,
+        "budget_pct_consumed": 70.0,
+        "duration_minutes": 47,
+        "ships_used": 3,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}
