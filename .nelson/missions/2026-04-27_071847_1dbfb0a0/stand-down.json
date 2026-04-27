@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Pelican (M1b of refactor/role-classification-unified flotilla): annotate ambient sensors on all 5 real-CSV fixtures, build 4 synthetic fixtures (shallow_insertion, full_immersion, lid_touch, probe_pull_mid_bake) with x_dough_air_normalised annotations, extend the parametrized presence test, and add a failing classifier-result test that imports the not-yet-existing src.data.spatial_reconstruction.classifier.classify.",
+  "actual_outcome": "Ambient annotations on 5 real CSVs (lidded cases use physics-honest through-loaf geometry with topology_note + ambiguous=True). 4 synthetic fixtures with T1..T8 + x_dough_air_normalised. 3 new test classes; 16 schema tests pass; 9 classifier-contract tests fail with ModuleNotFoundError per design.",
+  "success_metric_result": "16 new schema tests pass; 9 classifier contract tests fail with ModuleNotFoundError per design; 33/33 detector tests still pass; full suite has 7 pre-existing + 9 intentional failures.",
+  "duration_minutes": 27,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "topology_note + ambiguous=True for fixtures where standard topology genuinely fails (through-loaf insertion)",
+      "import-inside-test-body for failing-on-main contract tests"
+    ],
+    "avoid": [
+      "refactoring existing _build_* builders to share code at this scale"
+    ]
+  },
+  "created_at": "2026-04-27T07:46:32Z"
+}

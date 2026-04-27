@@ -1,0 +1,27 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Pelican", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Ambient annotations + 4 synthetic fixtures + failing classifier test",
+      "owner": "HMS Pelican",
+      "deliverable": "tests/fixtures/curve_boundary_cases.py: add expected_ambient_sensors to all 5 real-CSV cases (per-curve list for BA3C_1759); add 4 new synthetic cases (shallow_insertion, full_immersion, lid_touch, probe_pull_mid_bake) with full T1..T8 columns and expected_x_dough_air_normalised; reuse existing _make_timestamps helper; new builders follow the _build_* naming convention. tests/test_role_classifier_unified.py: add test_ambient_annotation_present (parametrized over 5 real cases) and test_classifier_returns_expected_roles (parametrized over real + synthetic) which imports src.data.spatial_reconstruction.classifier and fails with ImportError on main.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/tests/fixtures/curve_boundary_cases.py",
+        "oven_logging/tests/test_role_classifier_unified.py",
+        ".nelson/missions/2026-04-27_071847_1dbfb0a0/"
+      ],
+      "validation_required": "Presence tests (surface, lid, ambient) all pass; classifier-result test fails on main with collection-time ImportError or runtime AttributeError citing the missing src.data.spatial_reconstruction module; existing pytest baseline unchanged (8 pre-existing failures stay the same).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

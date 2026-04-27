@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T06:50:29Z",
-  "pattern_count": 34,
+  "updated_at": "2026-04-27T07:46:32Z",
+  "pattern_count": 35,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -672,6 +672,27 @@
         "blockers_raised": 0,
         "blockers_resolved": 0,
         "task_completion_rate": 0.5
+      }
+    },
+    {
+      "mission_id": "2026-04-27_071847_1dbfb0a0",
+      "completed_at": "2026-04-27T07:46:32Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Pelican (M1b of refactor/role-classification-unified flotilla): annotate ambient sensors on all 5 real-CSV fixtures, build 4 synthetic fixtures (shallow_insertion, full_immersion, lid_touch, probe_pull_mid_bake) with x_dough_air_normalised annotations, extend the parametrized presence test, and add a failing classifier-result test that imports the not-yet-existing src.data.spatial_reconstruction.classifier.classify.",
+      "adopt": [
+        "topology_note + ambiguous=True for fixtures where standard topology genuinely fails (through-loaf insertion)",
+        "import-inside-test-body for failing-on-main contract tests"
+      ],
+      "avoid": [
+        "refactoring existing _build_* builders to share code at this scale"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
       }
     }
   ]
