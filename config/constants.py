@@ -395,3 +395,111 @@ CORE_DETECTION_CONFIG = {
 # Canonical list of physical sensor channels on a Combustion Inc. probe.
 # Ordered T1..T8 from probe tip toward probe stem.
 SENSOR_LIST = ('T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8')
+
+
+# ---------------------------------------------------------------------------
+# Spatial-reconstruction role classifier (M2a HMS Indefatigable, mission
+# 2026-04-27_074742_ad37cb29).
+#
+# Replaces the discrete-sensor heuristics in SURFACE_DETECTION_CONFIG /
+# CORE_DETECTION_CONFIG / INTERNAL_SENSOR_CONFIG. The new module
+# (src/data/spatial_reconstruction) treats T(x_1..x_8) as samples of a 1D
+# temperature profile and infers role positions, not sensor labels.
+#
+# Each constant carries a calibration story in the spirit of
+# CORE_DETECTION_CONFIG['CONFIDENCE_GAP_MIN'].
+# ---------------------------------------------------------------------------
+ROLE_CLASSIFIER_CONFIG = {
+    # ------------------------------------------------------------------
+    # Plateau-near-100°C detection (latent-heat signature)
+    # ------------------------------------------------------------------
+    # Water in the dough boils/evaporates at 100 °C; the strongest in-dough
+    # physics signature is a temperature plateau in this band. Tight 95–105
+    # window matches INTERNAL_SENSOR_CONFIG.TEMP_THRESHOLD's 100 °C + 3 °C
+    # margin spirit; the lower 95 °C floor accepts pre-boil approach since
+    # real probes never sit exactly on 100 °C.
+    "PLATEAU_NEAR_100_LOWER_C": 95.0,
+    "PLATEAU_NEAR_100_UPPER_C": 105.0,
+    # Slope below which a sample is plateau-like. 0.05 °C/s = 0.25 °C/sample
+    # at 5 s/sample — well below noise floor on real CSVs (σ < 0.5 °C
+    # observed on 1000BA3C plateau samples). Also well below typical heating
+    # rates of 0.3–1.5 °C/s in dough.
+    "PLATEAU_RATE_THRESHOLD_C_PER_S": 0.05,
+    # Minimum dwell to *count* as a plateau-bounded curve. 60 s = 12 samples
+    # at 5 s/sample. Below this an apparent "plateau" is likely an
+    # inflection point rather than a latent-heat signature.
+    "PLATEAU_MIN_DWELL_SECONDS": 60,
+
+    # ------------------------------------------------------------------
+    # Rise-slope feature
+    # ------------------------------------------------------------------
+    # Band over which the pre-plateau heating slope is measured. 30–80 °C
+    # covers the linear conduction phase before 100 °C boundary effects
+    # dominate. Air-side sensors clear this band quickly (high slope);
+    # dough sensors traverse it slowly (low slope).
+    "RISE_SLOPE_LOWER_C": 30.0,
+    "RISE_SLOPE_UPPER_C": 80.0,
+
+    # ------------------------------------------------------------------
+    # Terminal-temperature window
+    # ------------------------------------------------------------------
+    # Robust mean of last X% of curve. 5% gives ~6 samples on a 130-sample
+    # synthetic and ~17 samples on a 340-sample real bake — enough for the
+    # 5–95 percentile clip to remove probe-pull spikes without losing all
+    # signal. Mirrors the spirit of CORE_DETECTION_CONFIG's
+    # COOL_WINDOW_SECONDS (60 s = ~5% of typical bake duration).
+    "TERMINAL_WINDOW_FRACTION": 0.05,
+
+    # ------------------------------------------------------------------
+    # Oven-proxy / ambient classification
+    # ------------------------------------------------------------------
+    # Tolerance band around the cavity proxy max(T1..T8). Sensors whose
+    # terminal temperature lies within this many °C of the proxy terminal
+    # value are considered to be in oven air. 5 °C is large enough to
+    # tolerate noise + small spatial gradient between adjacent air-side
+    # sensors but smaller than typical core-vs-air gap (~30+ °C).
+    "OVEN_PROXY_TOLERANCE_C": 5.0,
+
+    # ------------------------------------------------------------------
+    # Lid-contact detection
+    # ------------------------------------------------------------------
+    # Minimum gap between lid plateau and cavity setpoint to flag lid
+    # contact. 20 °C calibrated against synthetic_lid_touch fixture: cavity
+    # proxy ~220 °C, lid plateau ~150 °C → 70 °C gap. Below 20 °C the lid
+    # signal is indistinguishable from cavity-air noise / position effects.
+    "LID_TEMP_BELOW_CAVITY_C": 20.0,
+    # Sanity upper bound — gap larger than this likely indicates a sensor
+    # that is in dough, not lid contact. 60 °C empirically distinguishes
+    # lid-contact (~30–70 °C below cavity in synthetic data) from dough
+    # plateau (cavity − 100 °C+ when oven setpoint is ~220 °C).
+    "LID_TEMP_BELOW_CAVITY_MAX_C": 80.0,
+
+    # ------------------------------------------------------------------
+    # Dough/air interface detection
+    # ------------------------------------------------------------------
+    # Minimum adjacent-sensor terminal-temperature jump to flag a dough/
+    # air interface. 15 °C: real CSVs show jumps of 25–30 °C across the
+    # interface (T6→T7 in 1000BA3C, T7→T8 in 100098DE); 15 is the smallest
+    # observed jump on lidded fixtures. Below this we suppress to avoid
+    # false interfaces from noise within a single region.
+    "MONOTONIC_GRADIENT_MIN_JUMP_C": 15.0,
+
+    # ------------------------------------------------------------------
+    # Confidence reporting
+    # ------------------------------------------------------------------
+    # Score gap (as fraction of max score) below which a role's confidence
+    # is downgraded from "high" to "medium". 0.15 mirrors the
+    # ENABLED-with-margin pattern of CORE_DETECTION_CONFIG['CONFIDENCE_GAP_MIN']
+    # (gap of 4 on a 16-point scale = 0.25; 0.15 is a tighter floor since
+    # the spatial fit reduces noise relative to discrete rank-summing).
+    "CONFIDENCE_GAP_MIN_FRACTION": 0.15,
+
+    # ------------------------------------------------------------------
+    # Multi-curve / segmentation handling
+    # ------------------------------------------------------------------
+    # When the input DataFrame is longer than this many samples AND
+    # contains multiple bakes, classify() will run CurveBoundaryDetector
+    # to extract the longest curve before fitting. 500 samples ≈ 40 min
+    # at 5 s/sample, which exceeds any single bake we have seen.
+    "MULTI_CURVE_SEGMENT_THRESHOLD_SAMPLES": 500,
+}

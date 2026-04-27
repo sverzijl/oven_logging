@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T07:46:32Z",
-  "pattern_count": 35,
+  "updated_at": "2026-04-27T08:44:08Z",
+  "pattern_count": 36,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -685,6 +685,27 @@
       ],
       "avoid": [
         "refactoring existing _build_* builders to share code at this scale"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_074742_ad37cb29",
+      "completed_at": "2026-04-27T08:44:08Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Indefatigable (M2a of refactor/role-classification-unified flotilla): build src/data/spatial_reconstruction/ package with geometry, profile, piecewise model, and classifier; add ROLE_CLASSIFIER_CONFIG; satisfy at least 7 of the 9 classifier contract tests M1b left failing; add per-component unit tests.",
+      "adopt": [
+        "Annotation-convention conflicts between similar fixtures should be documented at fixture level via ambiguous=True + topology_note before classifier implementation",
+        "x_core via time_to_60c (heat-up rate) more robust than coldest terminal under noise"
+      ],
+      "avoid": [
+        "Aggregate pass-rate metric on small fixture sets \u2014 per-role breakdown surfaces real signal"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

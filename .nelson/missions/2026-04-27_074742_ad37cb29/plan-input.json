@@ -1,0 +1,28 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Indefatigable", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Build src/data/spatial_reconstruction/ piecewise model + ROLE_CLASSIFIER_CONFIG + classifier; satisfy contract tests",
+      "owner": "HMS Indefatigable",
+      "deliverable": "New package src/data/spatial_reconstruction/ with __init__.py, geometry.py (PROBE_GEOMETRIES + helpers), profile.py (extract_features + ProfileFit dataclass), piecewise.py (fit_piecewise), classifier.py (classify entry + SpatialAssignment + PositionalAssignment dataclasses). Updates config/constants.py to add ROLE_CLASSIFIER_CONFIG. Adds tests/test_spatial_reconstruction_piecewise.py with per-component unit tests. Satisfies ≥7 of 9 TestClassifierReturnsExpectedRoles parametrized cases.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/",
+        "oven_logging/config/constants.py",
+        "oven_logging/tests/test_spatial_reconstruction_piecewise.py",
+        ".nelson/missions/2026-04-27_074742_ad37cb29/"
+      ],
+      "validation_required": "Per-component unit tests pass (geometry lookup, plateau detection, three-region fit, position-between-sensors); ≥7 of 9 contract tests pass with per-role pass-rate breakdown reported; existing pytest baseline unchanged (8 pre-existing failures stay; M1a/M1b schema tests stay 16/16 pass).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

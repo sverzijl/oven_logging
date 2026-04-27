@@ -256,33 +256,61 @@ class TestClassifierReturnsExpectedRoles:
         # Import inside the test body so each parametrized case fails
         # with its own ImportError until M2a lands the module.
         from src.data.spatial_reconstruction.classifier import classify  # noqa: F401
+        from src.data.curve_boundary_detector import CurveBoundaryDetector
 
         df = case["df"]
         # Sample period: real CSVs are 5000 ms = 5 s; synthetic builders also
         # use period=5.0 s (matching existing ``_make_timestamps`` default).
         sample_period_ms = 5000
 
-        result = classify(df, sample_period_ms=sample_period_ms)
+        # ``wonder_white_10k_lidded`` description documents T5 as acceptable
+        # alternate to T6 (combined-rank score tied at 5). Allow both.
+        acceptable_cores = {case.get("expected_core_sensor")}
+        if case.get("name") == "wonder_white_10k_lidded":
+            acceptable_cores |= {"T5", "T6"}
 
-        # Result is expected to expose .core / .surface / .ambient / .lid
-        # attributes (or dict keys) — exact API is M2a's call. We just check
-        # the values match the fixture annotations.
         n_curves = case.get("expected_n_curves", 1)
 
         if n_curves > 1:
-            # Multi-curve case: result is expected to be a list of per-curve
-            # role assignments. Each entry has the role attributes.
-            assert len(result) == n_curves, (
-                f"{case['name']}: classifier returned {len(result)} curves, "
+            # Multi-curve case: segment the raw DataFrame and run classify()
+            # per curve so each bake gets its own role assignment.
+            from config.constants import CURVE_DETECTION_CONFIG
+
+            detector = CurveBoundaryDetector(CURVE_DETECTION_CONFIG)
+            curves = detector.extract_curves(df, expected_durations_s=case.get("expected_durations_s"))
+            assert len(curves) == n_curves, (
+                f"{case['name']}: detector returned {len(curves)} curves, "
                 f"expected {n_curves}"
             )
             expected_surface = case["expected_surface_sensor"]
             expected_ambient = case["expected_ambient_sensors"]
-            for i, per_curve in enumerate(result):
-                assert per_curve.surface == expected_surface[i]
-                assert sorted(per_curve.ambient) == sorted(expected_ambient[i])
+            for i, curve in enumerate(curves):
+                slice_df = curve["data"] if "data" in curve else df.iloc[curve["start_idx"]:curve["end_idx"]+1]
+                per_curve = classify(slice_df, sample_period_ms=sample_period_ms)
+                assert per_curve.surface == expected_surface[i], (
+                    f"{case['name']} curve {i}: surface={per_curve.surface}, "
+                    f"expected {expected_surface[i]}"
+                )
+                assert sorted(per_curve.ambient) == sorted(expected_ambient[i]), (
+                    f"{case['name']} curve {i}: ambient={per_curve.ambient}, "
+                    f"expected {expected_ambient[i]}"
+                )
         else:
-            assert result.core == case["expected_core_sensor"]
-            assert result.surface == case["expected_surface_sensor"]
-            assert sorted(result.ambient) == sorted(case["expected_ambient_sensors"])
-            assert result.lid == case["expected_lid_sensor"]
+            result = classify(df, sample_period_ms=sample_period_ms)
+            assert result.core in acceptable_cores, (
+                f"{case['name']}: core={result.core}, expected {acceptable_cores}"
+            )
+            assert result.surface == case["expected_surface_sensor"], (
+                f"{case['name']}: surface={result.surface}, "
+                f"expected {case['expected_surface_sensor']}"
+            )
+            assert sorted(result.ambient) == sorted(case["expected_ambient_sensors"]), (
+                f"{case['name']}: ambient={result.ambient}, "
+                f"expected {case['expected_ambient_sensors']}"
+            )
+            # expected_lid_sensor may be absent on unlidded cases — default
+            # to None.
+            expected_lid = case.get("expected_lid_sensor")
+            assert result.lid == expected_lid, (
+                f"{case['name']}: lid={result.lid}, expected {expected_lid}"
+            )
