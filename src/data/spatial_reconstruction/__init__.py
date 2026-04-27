@@ -13,6 +13,14 @@ Public API:
 from .classifier import classify, SpatialAssignment, PositionalAssignment
 from .profile import ProfileFit, extract_features, compute_oven_proxy
 from .geometry import PROBE_GEOMETRIES, lookup_geometry
+from .piecewise import fit_piecewise
+from .stefan import fit_stefan
+from .comparison import (
+    ModelComparison,
+    benchmark_fixture,
+    benchmark_all_cases,
+    write_comparison_report,
+)
 
 __all__ = [
     "classify",
@@ -23,4 +31,10 @@ __all__ = [
     "compute_oven_proxy",
     "PROBE_GEOMETRIES",
     "lookup_geometry",
+    "fit_piecewise",
+    "fit_stefan",
+    "ModelComparison",
+    "benchmark_fixture",
+    "benchmark_all_cases",
+    "write_comparison_report",
 ]

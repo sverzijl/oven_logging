@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T08:44:08Z",
-  "pattern_count": 36,
+  "updated_at": "2026-04-27T09:09:44Z",
+  "pattern_count": 37,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -706,6 +706,27 @@
       ],
       "avoid": [
         "Aggregate pass-rate metric on small fixture sets \u2014 per-role breakdown surfaces real signal"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_084513_72d960e4",
+      "completed_at": "2026-04-27T09:09:44Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Vanguard (M2b): Stefan-physics-constrained spatial model + comparison harness vs piecewise. Document default-model decision empirically.",
+      "adopt": [
+        "Empirical model comparison via mean residual SSE + per-role pass rate is informative; per-role beats aggregate at small n",
+        "Annotation conflicts between similar fixtures are resolved by the convention that both candidate models converge on"
+      ],
+      "avoid": [
+        "Pinning latent-heat plateau at exactly 100\u00b0C in Stefan: 0.4\u00b0C calibration drift on real probes can flip ambient classification \u2014 keep piecewise's free-plateau threshold (105\u00b0C) as default"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

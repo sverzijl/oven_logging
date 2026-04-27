@@ -502,4 +502,27 @@ ROLE_CLASSIFIER_CONFIG = {
     # to extract the longest curve before fitting. 500 samples ≈ 40 min
     # at 5 s/sample, which exceeds any single bake we have seen.
     "MULTI_CURVE_SEGMENT_THRESHOLD_SAMPLES": 500,
+
+    # ------------------------------------------------------------------
+    # Default spatial-fit model (M2b HMS Vanguard)
+    # ------------------------------------------------------------------
+    # Set by the empirical comparison in
+    # tests/baselines/spatial_model_comparison.md. Loader (M3a) passes this
+    # through to classify(model=...). "piecewise" is the M2a default; M2b's
+    # comparison harness can flip this to "stefan" if it wins on
+    # role-pass count + position-error metrics.
+    "DEFAULT_MODEL": "piecewise",
+
+    # Stefan-physics-constrained model — minimum α (per-unit-x) below
+    # which the air-region rise is considered ill-determined and the fit
+    # falls back to the proxy asymptote. 0.05 is the floor used by
+    # _fit_alpha_crust to clamp pathological fits.
+    "STEFAN_ALPHA_MIN": 0.05,
+    # Maximum α — clamps overfit on noisy fixtures.
+    "STEFAN_ALPHA_MAX": 100.0,
+    # Stefan front pin temperature (latent-heat plateau). Pinned at exactly
+    # 100 °C; the constant is exposed for testability and future probe-
+    # specific calibration (e.g. high-altitude oven where the boil point
+    # shifts).
+    "STEFAN_FRONT_TEMP_C": 100.0,
 }

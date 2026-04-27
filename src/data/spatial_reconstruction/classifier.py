@@ -227,9 +227,9 @@ def classify(
     -------
     SpatialAssignment
     """
-    if model != "piecewise":
-        raise NotImplementedError(
-            f"model={model!r} not implemented in M2a; only 'piecewise' is wired"
+    if model not in ("piecewise", "stefan"):
+        raise ValueError(
+            f"Unknown model={model!r}; expected 'piecewise' or 'stefan'"
         )
 
     cfg = ROLE_CLASSIFIER_CONFIG
@@ -253,8 +253,13 @@ def classify(
         s: features.get(s, {}).get("terminal_temp", float("nan")) for s in sensor_names
     }
 
-    # Run the piecewise fit.
-    fit = fit_piecewise(features, terminal_temps, sensor_positions)
+    # Run the chosen spatial fit.
+    if model == "piecewise":
+        fit = fit_piecewise(features, terminal_temps, sensor_positions)
+    else:
+        # Lazy import — keeps the M2a piecewise path independent of stefan.py.
+        from .stefan import fit_stefan
+        fit = fit_stefan(features, terminal_temps, sensor_positions)
 
     # ------------------------------------------------------------------
     # Map fit positions to PositionalAssignments + apply topology.
@@ -584,5 +589,5 @@ def classify(
         lid_assignment=lid_assignment,
         profile_fit=fit,
         firmware_diagnostic=firmware_diagnostic,
-        model_used="piecewise",
+        model_used=model,
     )
