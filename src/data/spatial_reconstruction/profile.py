@@ -293,6 +293,79 @@ def extract_features(
     return out
 
 
+def interpolate_temperature_series_at(
+    df: pd.DataFrame,
+    positions: tuple,
+    x_target: float,
+    sensors: tuple = SENSOR_LIST,
+) -> pd.Series:
+    """Per-timestep linear spatial interpolation along the probe axis.
+
+    For each timestep ``t``, treat ``(positions, [df[s][t] for s in sensors])``
+    as samples of T(x) and linearly interpolate at ``x = x_target``. The
+    result is a pd.Series aligned with ``df.index``.
+
+    Behaviour at boundaries:
+    * ``x_target <= positions[0]`` → returns ``df[sensors[0]].copy()``.
+    * ``x_target >= positions[-1]`` → returns ``df[sensors[-1]].copy()``.
+    * Otherwise the two adjacent sensors bracketing ``x_target`` are
+      identified via ``np.searchsorted`` and the per-row blend
+      ``(1 - frac) * df[s_lo] + frac * df[s_hi]`` is returned.
+
+    Vectorised: the per-row blend is a single numpy linear combination of
+    two columns — no per-row Python loop.
+    """
+    pos_arr = np.asarray(positions, dtype=float)
+    n = len(pos_arr)
+    sensors_t = tuple(sensors)
+    if n == 0 or len(sensors_t) == 0:
+        return pd.Series([], dtype=float, index=df.index)
+    if len(sensors_t) < n:
+        # Trim positions to the available sensor count (shouldn't happen for
+        # the canonical 8-sensor probe, but degrade gracefully).
+        pos_arr = pos_arr[: len(sensors_t)]
+        n = len(sensors_t)
+
+    if x_target <= pos_arr[0]:
+        s0 = sensors_t[0]
+        return df[s0].copy() if s0 in df.columns else pd.Series(
+            np.zeros(len(df)), index=df.index, dtype=float
+        )
+    if x_target >= pos_arr[-1]:
+        sN = sensors_t[n - 1]
+        return df[sN].copy() if sN in df.columns else pd.Series(
+            np.zeros(len(df)), index=df.index, dtype=float
+        )
+
+    upper_idx = int(np.searchsorted(pos_arr, x_target))
+    if upper_idx <= 0:
+        upper_idx = 1
+    if upper_idx >= n:
+        upper_idx = n - 1
+    lower_idx = upper_idx - 1
+    x_lo = float(pos_arr[lower_idx])
+    x_hi = float(pos_arr[upper_idx])
+    if x_hi == x_lo:
+        # Degenerate (duplicate positions) — fall back to the lower sensor.
+        s_lo = sensors_t[lower_idx]
+        return df[s_lo].copy() if s_lo in df.columns else pd.Series(
+            np.zeros(len(df)), index=df.index, dtype=float
+        )
+    frac = (x_target - x_lo) / (x_hi - x_lo)
+    s_lo = sensors_t[lower_idx]
+    s_hi = sensors_t[upper_idx]
+    if s_lo not in df.columns or s_hi not in df.columns:
+        # Missing sensor column — return whichever exists, else zeros.
+        if s_lo in df.columns:
+            return df[s_lo].copy()
+        if s_hi in df.columns:
+            return df[s_hi].copy()
+        return pd.Series(np.zeros(len(df)), index=df.index, dtype=float)
+    blended = (1.0 - frac) * df[s_lo] + frac * df[s_hi]
+    blended.name = None
+    return blended
+
+
 def _empty_feature_vec() -> dict:
     return {
         "terminal_temp": float("nan"),

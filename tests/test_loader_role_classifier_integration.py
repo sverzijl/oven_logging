@@ -106,24 +106,39 @@ class TestLidColumnLifecycle:
 
 
 class TestStandardColumnsMatchClassifier:
-    """The standardised columns mirror the classifier's nearest-sensor picks."""
+    """The standardised columns track the classifier's continuous-position
+    interpolation. With M6 hot-fix HMS Penelope, the columns are NO LONGER
+    byte-identical to the nearest-sensor series; they are the per-timestep
+    spatial interpolation at the inferred continuous position. The
+    nearest-sensor-anchor contract still holds for override targeting."""
 
-    def test_core_temperature_equals_classifier_sensor(self, unlidded_loader):
+    def test_core_temperature_tracks_classifier_nearest_sensor(self, unlidded_loader):
         loader = unlidded_loader
         df = loader.data
         core_sensor = loader.get_core_sensor(0)
         assert core_sensor in df.columns
-        assert np.array_equal(
-            df['CoreTemperature'].values, df[core_sensor].values
+        # The interpolated CoreTemperature must track the nearest sensor
+        # closely (same sign, same overall magnitude), but is not
+        # byte-identical when interpolation engages.
+        core = df['CoreTemperature'].values
+        anchor = df[core_sensor].values
+        max_diff = float(np.max(np.abs(core - anchor)))
+        assert max_diff < 50.0, (
+            f"CoreTemperature deviates wildly from nearest sensor "
+            f"{core_sensor!r} (max diff {max_diff:.2f} °C)"
         )
 
-    def test_surface_temperature_equals_classifier_sensor(self, unlidded_loader):
+    def test_surface_temperature_tracks_classifier_nearest_sensor(self, unlidded_loader):
         loader = unlidded_loader
         df = loader.data
         surface_sensor = loader.get_surface_sensor(0)
         assert surface_sensor in df.columns
-        assert np.array_equal(
-            df['SurfaceTemperature'].values, df[surface_sensor].values
+        surface = df['SurfaceTemperature'].values
+        anchor = df[surface_sensor].values
+        max_diff = float(np.max(np.abs(surface - anchor)))
+        assert max_diff < 50.0, (
+            f"SurfaceTemperature deviates wildly from nearest sensor "
+            f"{surface_sensor!r} (max diff {max_diff:.2f} °C)"
         )
 
 

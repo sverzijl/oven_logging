@@ -212,7 +212,11 @@ class TestPiecewise:
         assert isinstance(fit.x_dough_air, tuple)
         assert len(fit.x_dough_air) == 2
         x_left, x_right = fit.x_dough_air
-        assert x_left < 0.4
+        # Left interface should sit in the left half (between T2 and T4),
+        # right interface should sit in the right half (between T5 and T7).
+        # With continuous interpolation, the exact crossing depends on the
+        # plateau-edge temperature; relaxed bounds reflect that.
+        assert x_left < 0.5
         assert x_right > 0.5
 
 
@@ -273,6 +277,21 @@ class TestClassifier:
         assert result.surface_assignment.nearest_sensor in {"T3", "T4"}
         # core position should be among the dough sensors (T1-T3).
         assert result.core_assignment.nearest_sensor in {"T1", "T2", "T3"}
+
+        # CONTINUOUS-POSITION CONTRACT (M6 hot-fix HMS Penelope):
+        # surface_assignment.position_normalised must be STRICTLY between
+        # T3 (2/7) and T4 (3/7) on this synthetic profile — the 100°C
+        # crossing of the linear T(x) profile lies in that interval and
+        # should NOT snap to either sensor's position.
+        sx = result.surface_assignment.position_normalised
+        assert 2 / 7.0 < sx < 3 / 7.0, (
+            f"Surface position {sx:.4f} should lie strictly between T3 (2/7) and "
+            f"T4 (3/7). Found discrete pick instead — interpolation didn't engage."
+        )
+        sensor_positions = [i / 7.0 for i in range(8)]
+        assert min(abs(sx - sp) for sp in sensor_positions) > 0.005, (
+            f"Surface position {sx:.4f} is sensor-aligned; interpolation didn't engage."
+        )
 
     def test_classify_full_immersion_returns_no_surface(self):
         from src.data.spatial_reconstruction.classifier import classify

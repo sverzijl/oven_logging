@@ -32,7 +32,12 @@ from config.constants import SENSOR_LIST, ROLE_CLASSIFIER_CONFIG  # noqa: E402
 
 from .geometry import lookup_geometry
 from .piecewise import fit_piecewise
-from .profile import ProfileFit, compute_oven_proxy, extract_features
+from .profile import (
+    ProfileFit,
+    compute_oven_proxy,
+    extract_features,
+    interpolate_temperature_series_at,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -168,12 +173,29 @@ def _build_assignment(
     df: pd.DataFrame,
     confidence: str = "medium",
     reason: str = "",
+    nearest_sensor_override: Optional[str] = None,
 ) -> PositionalAssignment:
-    nearest, idx = _nearest_sensor(position, sensor_positions, sensor_names)
-    if nearest in df.columns:
-        series = df[nearest].copy()
+    """Build a :class:`PositionalAssignment` at a continuous ``position``.
+
+    ``nearest_sensor_override`` lets callers (e.g. the surface picker) force
+    the override-anchor sensor to a specific sensor name even when the
+    continuous ``position`` is closer to a different sensor. This preserves
+    the discrete-sensor pick for override-UI purposes while still surfacing
+    a continuous ``position_normalised`` and a TRUE per-timestep spatial
+    interpolation in ``temperature_series``.
+    """
+    if nearest_sensor_override is not None:
+        nearest = nearest_sensor_override
     else:
-        series = pd.Series([], dtype=float)
+        nearest, _ = _nearest_sensor(position, sensor_positions, sensor_names)
+    # ``temperature_series`` is the TRUE per-timestep spatial interpolation at
+    # the continuous ``position``. When ``position`` lands exactly on a
+    # sensor, the interpolation degenerates to that sensor's series — so the
+    # off-sensor case and the on-sensor case share one code path. The
+    # ``nearest_sensor`` field remains the override-anchor contract.
+    series = interpolate_temperature_series_at(
+        df, sensor_positions, float(position), sensors=sensor_names
+    )
     return PositionalAssignment(
         role=role,
         position_normalised=float(position),
@@ -375,9 +397,15 @@ def classify(
                     surface_i = interface_neighbour_air
 
         if surface_i is not None:
+            # Continuous-position contract: ``position_normalised`` is the
+            # CONTINUOUS dough/air interface ``x_surface`` (off-sensor when
+            # the spatial T(x) profile crosses 100°C between sensors), while
+            # ``nearest_sensor`` retains the discrete sensor pick used by the
+            # override UI. This is the substantive win of M6 hot-fix
+            # HMS Penelope.
             surface_assignment = _build_assignment(
                 role="surface",
-                position=sensor_positions[surface_i],
+                position=float(x_surface),
                 sensor_positions=sensor_positions,
                 sensor_names=sensor_names,
                 df=working_df,
@@ -387,6 +415,7 @@ def classify(
                     if lid_bake_mode
                     else "first air-side sensor past dough/air interface"
                 ),
+                nearest_sensor_override=sensor_names[surface_i],
             )
 
     # ambient_assignments ----------------------------------------------

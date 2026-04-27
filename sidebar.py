@@ -294,6 +294,49 @@ def render():
                 )
                 lid_sensor = None if lid_choice == "None" else lid_choice
 
+                # ----------------------------------------------------
+                # Inferred Continuous Positions (read-only)
+                # ----------------------------------------------------
+                # M6 hot-fix HMS Penelope: surface up the substantive
+                # continuous-position result so the user can verify that
+                # interpolation has engaged. ``nearest_sensor`` (above) is
+                # still the override anchor; the values here are diagnostic.
+                cs = st.session_state.loader.curve_sensor_assignments.get(
+                    curve_idx, {}
+                )
+                core_x = cs.get("core_position_normalised")
+                surface_x = cs.get("surface_position_normalised")
+                lid_x = cs.get("lid_position_normalised")
+
+                def _fmt_inferred(label: str, x_val, nearest_name) -> str:
+                    if x_val is None:
+                        return f"**Inferred {label}**: not detected"
+                    if nearest_name:
+                        try:
+                            n_int = int(nearest_name[1:])
+                            nearest_pos = (n_int - 1) / 7.0
+                        except (ValueError, IndexError):
+                            nearest_pos = None
+                    else:
+                        nearest_pos = None
+                    if nearest_pos is not None and abs(x_val - nearest_pos) > 0.005:
+                        return (
+                            f"**Inferred {label}**: x={x_val:.3f} "
+                            f"(interpolated; nearest sensor {nearest_name})"
+                        )
+                    if nearest_name:
+                        return (
+                            f"**Inferred {label}**: x={x_val:.3f} "
+                            f"(at sensor {nearest_name})"
+                        )
+                    return f"**Inferred {label}**: x={x_val:.3f}"
+
+                st.markdown("### Inferred Continuous Positions (read-only)")
+                st.info(_fmt_inferred("core", core_x, cs.get("core")))
+                st.info(_fmt_inferred("surface", surface_x, cs.get("surface")))
+                if lid_x is not None or cs.get("lid"):
+                    st.info(_fmt_inferred("lid", lid_x, cs.get("lid")))
+
                 # Show inferred internal sensors for context
                 st.markdown("### Inferred Sensor Groups")
                 if surface_sensor:

@@ -27,6 +27,63 @@ from config.constants import ROLE_CLASSIFIER_CONFIG  # noqa: E402
 from .profile import ProfileFit
 
 
+def _parabolic_vertex(
+    x_arr: np.ndarray, y_arr: np.ndarray, anchor_idx: int
+) -> float:
+    """3-point parabolic vertex interpolation around ``anchor_idx``.
+
+    Fit a parabola through ``(x_arr[anchor_idx-1..anchor_idx+1],
+    y_arr[same])`` and return the x-coordinate of its vertex (max OR min,
+    whichever the parabola yields for the anchored extremum).
+
+    Limitations (intentional, documented):
+    * Boundary anchors (``anchor_idx == 0`` or ``anchor_idx == len-1``) cannot
+      form a 3-point bracket — return ``x_arr[anchor_idx]`` verbatim.
+    * Collinear samples (denominator < 1e-12) → degenerate parabola → return
+      ``x_arr[anchor_idx]`` verbatim.
+    * Offset is clamped to ``[-1, +1]`` (in units of half-step) so badly
+      conditioned parabolas cannot extrapolate past the immediate neighbours.
+    """
+    n = len(x_arr)
+    if anchor_idx <= 0 or anchor_idx >= n - 1:
+        return float(x_arr[anchor_idx])
+    x0, x1, x2 = float(x_arr[anchor_idx - 1]), float(x_arr[anchor_idx]), float(x_arr[anchor_idx + 1])
+    y0, y1, y2 = float(y_arr[anchor_idx - 1]), float(y_arr[anchor_idx]), float(y_arr[anchor_idx + 1])
+    denom = y0 - 2.0 * y1 + y2
+    if abs(denom) < 1e-12:
+        return float(x1)
+    offset = 0.5 * (y0 - y2) / denom
+    if offset > 1.0:
+        offset = 1.0
+    elif offset < -1.0:
+        offset = -1.0
+    dx = (x2 - x0) / 2.0
+    return float(x1 + offset * dx)
+
+
+def _crossing_position(
+    positions: np.ndarray, temps: np.ndarray, target_temp: float
+) -> float | None:
+    """Linear interpolation along the spatial axis: return the first ``x``
+    where the piecewise-linear T(x) profile crosses ``target_temp`` (going
+    upward, low-T to high-T). Returns ``None`` when no crossing exists.
+
+    Walks adjacent (positions, temps) pairs in index order. A bracket exists
+    when ``temps[i] <= target_temp <= temps[i+1]`` (strict bound on either
+    side) AND the bracket is non-flat (``temps[i] != temps[i+1]``).
+    """
+    n = len(temps)
+    for i in range(n - 1):
+        t0 = float(temps[i])
+        t1 = float(temps[i + 1])
+        if t0 == t1:
+            continue
+        if t0 <= target_temp <= t1:
+            frac = (target_temp - t0) / (t1 - t0)
+            return float(positions[i] + frac * (positions[i + 1] - positions[i]))
+    return None
+
+
 def _detect_through_loaf(temps: np.ndarray, jump_min: float) -> bool:
     """Return True if temps shows the symmetric U-shape of through-loaf
     insertion: high-low-high (both ends in air, middle in dough).
@@ -103,6 +160,18 @@ def _interface_position(
         else:
             boundary_candidates.sort(key=lambda t: (-t[1],))
         best_idx = boundary_candidates[0][0]
+        # Linear interpolation: the dough/air interface is the continuous
+        # position where the spatial T(x) profile crosses ``plateau_hi``.
+        T_lo = float(temps[best_idx])
+        T_hi = float(temps[best_idx + 1])
+        if T_hi != T_lo:
+            frac = (plateau_hi - T_lo) / (T_hi - T_lo)
+            # Clamp to [0, 1] to keep the crossing within the bracket.
+            if frac < 0.0:
+                frac = 0.0
+            elif frac > 1.0:
+                frac = 1.0
+            return float(positions[best_idx] + frac * (positions[best_idx + 1] - positions[best_idx]))
         return float((positions[best_idx] + positions[best_idx + 1]) / 2.0)
 
     # Fallback — largest jump anywhere in the scan range that exceeds jump_min.
@@ -116,6 +185,14 @@ def _interface_position(
     if best_idx is None or biggest_jump < jump_min:
         return None
 
+    # Linear interpolation at midpoint temperature of the jump (no plateau_hi
+    # bracket available here — use the half-jump value as the crossing target).
+    T_lo = float(temps[best_idx])
+    T_hi = float(temps[best_idx + 1])
+    target = 0.5 * (T_lo + T_hi)
+    if T_hi != T_lo:
+        frac = (target - T_lo) / (T_hi - T_lo)
+        return float(positions[best_idx] + frac * (positions[best_idx + 1] - positions[best_idx]))
     return float((positions[best_idx] + positions[best_idx + 1]) / 2.0)
 
 
@@ -362,7 +439,40 @@ def fit_piecewise(
         scores_arr = np.array(scores, dtype=float)
         slow_local = int(np.argmax(scores_arr))
         core_idx = int(in_dough_idx[slow_local])
-        x_core = float(positions[core_idx])
+        # Parabolic vertex interpolation across the GLOBAL position axis using
+        # the contiguous in-dough scores. We pad the per-sensor score array
+        # with the in-dough scores at their global indices so that boundary
+        # anchors degrade to the discrete sensor pick. Score is well-defined
+        # only for in-dough sensors; we set out-of-region scores to -inf so
+        # the parabola sees only meaningful neighbours when those neighbours
+        # are themselves in-dough — at the boundary of the dough region we
+        # fall back to the sensor pick (matches the boundary clause in
+        # ``_parabolic_vertex``).
+        in_dough_set = set(int(i) for i in in_dough_idx.tolist())
+        # If the anchor's immediate neighbours are also in-dough, use them;
+        # otherwise return the discrete sensor position.
+        if (core_idx - 1) in in_dough_set and (core_idx + 1) in in_dough_set:
+            # Build a 3-point local window (positions and scores at
+            # core_idx-1, core_idx, core_idx+1).
+            local_x = positions[core_idx - 1 : core_idx + 2]
+            # Look up scores for these three sensors directly.
+            def _score_for(i: int) -> float:
+                s = sensor_names[i]
+                feats = features.get(s, {})
+                t60 = feats.get("time_to_60c_seconds")
+                if t60 is None:
+                    t100 = feats.get("time_to_100c_seconds")
+                    return float(t100) if t100 is not None else -float(temps[i])
+                return float(t60)
+
+            local_y = np.array(
+                [_score_for(core_idx - 1), _score_for(core_idx), _score_for(core_idx + 1)],
+                dtype=float,
+            )
+            # Anchor at local idx 1 (the centre of the 3-point window).
+            x_core = _parabolic_vertex(local_x, local_y, 1)
+        else:
+            x_core = float(positions[core_idx])
     else:
         x_core = None
 

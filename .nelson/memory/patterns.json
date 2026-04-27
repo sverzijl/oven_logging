@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T12:49:34Z",
-  "pattern_count": 41,
+  "updated_at": "2026-04-27T13:50:29Z",
+  "pattern_count": 42,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -811,6 +811,26 @@
       ],
       "avoid": [
         "Reading docstrings/first-paragraphs at root rather than running the full file \u2014 surface/core mention is enough to disqualify a historical doc"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_131601_97d63fea",
+      "completed_at": "2026-04-27T13:50:29Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Penelope: deliver the continuous-position interpolation the spatial reconstruction architecture promised. core/surface position_normalised values must be able to land strictly between sensors; temperature_series must be a true spatial interpolation per timestep, not a copy of the nearest sensor's series; UI surfaces the inferred position.",
+      "adopt": [
+        "Parabolic vertex interpolation for x_core; linear T-crossing interpolation for x_dough_air; per-timestep linear spatial blend for temperature_series"
+      ],
+      "avoid": [
+        "Snapping position_normalised back to a sensor \u2014 that defeats the architecture's purpose"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

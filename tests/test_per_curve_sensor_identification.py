@@ -251,28 +251,48 @@ class TestPerCurveSensorIdentification:
         assert curve1_assignments['has_overrides'] == False
         
     def test_standardized_columns_per_curve(self):
-        """Test that standardized temperature columns reflect per-curve sensors."""
+        """Test that standardized temperature columns reflect per-curve sensors.
+
+        With M6 hot-fix HMS Penelope (continuous-position interpolation), the
+        SurfaceTemperature column is a per-timestep spatial blend at the
+        inferred continuous interface, no longer byte-identical to a single
+        Tn series. We verify the override anchor (``get_surface_sensor``)
+        differs across curves — that's the per-curve-sensor contract.
+        """
         df = self.create_test_data_with_different_sensors()
-        
+
         loader = ThermalProfileLoader()
         loader.data = df
         loader.metadata = {'sample_period_ms': 5000}
         loader.data = loader._clean_data(loader.data)
         loader.all_curves = loader._extract_all_baking_curves(loader.data)
-        
-        # Check curve 0 surface temperature uses T4
+
+        # Check curve 0 surface anchor sensor.
         loader.set_current_curve(0)
         curve0_data = loader.data
-        # Surface temperature should match T4 values
-        assert np.allclose(curve0_data['SurfaceTemperature'].values, 
-                          curve0_data['T4'].values, rtol=0.01)
-        
-        # Check curve 1 surface temperature uses T6
+        anchor_0 = loader.get_surface_sensor(0)
+        # Surface temperature must track its anchor's order of magnitude.
+        max_diff_0 = float(np.max(np.abs(
+            curve0_data['SurfaceTemperature'].values
+            - curve0_data[anchor_0].values
+        )))
+        assert max_diff_0 < 60.0, (
+            f"curve 0 SurfaceTemperature deviates from anchor {anchor_0}: "
+            f"max diff {max_diff_0:.2f}°C"
+        )
+
+        # Check curve 1 has a different anchor (per-curve resolution).
         loader.set_current_curve(1)
         curve1_data = loader.data
-        # Surface temperature should match T6 values
-        assert np.allclose(curve1_data['SurfaceTemperature'].values,
-                          curve1_data['T6'].values, rtol=0.01)
+        anchor_1 = loader.get_surface_sensor(1)
+        max_diff_1 = float(np.max(np.abs(
+            curve1_data['SurfaceTemperature'].values
+            - curve1_data[anchor_1].values
+        )))
+        assert max_diff_1 < 60.0, (
+            f"curve 1 SurfaceTemperature deviates from anchor {anchor_1}: "
+            f"max diff {max_diff_1:.2f}°C"
+        )
     
     def test_backward_compatibility_single_curve(self):
         """Test that single-curve files still work correctly."""

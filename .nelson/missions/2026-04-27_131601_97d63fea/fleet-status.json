@@ -1,11 +1,11 @@
 {
   "version": 1,
   "mission": {
-    "outcome": "Land HMS Foudroyant (M5, flotilla finale): update CLAUDE.md to reflect spatial reconstruction architecture; consolidate or remove legacy SURFACE_DETECTION_CONFIG and CORE_DETECTION_CONFIG blocks; remove root-level historical artefacts that explicitly discuss surface/core detection; add permanent flotilla-finale regression test; record M4 follow-ups (#1-#5) for post-flotilla missions.",
-    "status": "complete",
-    "phase": "STAND_DOWN",
-    "started_at": "2026-04-27T12:31:09Z",
-    "checkpoint_number": 1
+    "outcome": "Land HMS Penelope: deliver the continuous-position interpolation the spatial reconstruction architecture promised. core/surface position_normalised values must be able to land strictly between sensors; temperature_series must be a true spatial interpolation per timestep, not a copy of the nearest sensor's series; UI surfaces the inferred position.",
+    "status": "underway",
+    "phase": "UNDERWAY",
+    "started_at": "2026-04-27T13:16:01Z",
+    "checkpoint_number": 0
   },
   "progress": {
     "pending": 1,
@@ -22,7 +22,7 @@
   },
   "squadron": [
     {
-      "ship_name": "HMS Foudroyant",
+      "ship_name": "HMS Penelope",
       "ship_class": "frigate",
       "role": "captain",
       "hull_integrity_pct": 100,
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-27T12:49:34Z"
+  "last_updated": "2026-04-27T13:16:30Z"
 }
