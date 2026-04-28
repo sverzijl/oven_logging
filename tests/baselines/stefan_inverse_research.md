@@ -210,3 +210,61 @@ The M9 driver verdict was NO-GO based on real-CSV RMSE 6-10 °C matching M7's he
 - Main-bake RMSE distribution: <3 °C=0/7, 3-6 °C=2/7, >6 °C=5/7 (median=7.49 °C).
 - Main-bake lag-1 auto-corr: median=0.994, max|ρ|=0.996.
 - Main-bake RMSE remains > 6 °C on multiple fixtures and/or residuals show strong temporal structure (|ρ| > 0.6) — Stefan does not fit main-bake dynamics; the headline M9 RMSE was a genuine model-misfit signal, not an accounting artefact.
+## Round 2 - leave-one-sensor-out cross-validation (HMS Hermione, 2026-04-28)
+
+**Methodological context.** Rounds 1 of M7-M12 reported main-bake RMSE in the 6-22 degC band, but those numbers were computed on the same in-dough sensors the optimiser saw - an in-sample fit measure, not a validation. The headline RMSE may have been inflated by sensor-side noise, calibration drift, and response-time lag that the model has no representation of, rather than genuine missing physics. M13's Hermione mission pulls those threads apart by (a) measuring the sensor calibration floor at room temperature (the irreducible noise budget) and (b) running leave-one-sensor-out cross-validation: refit the model on N-1 in-dough sensors and predict the held-out sensor's trajectory. If LOO-RMSE on the held-out sensor matches in-sample RMSE, the model genuinely fits the spatial profile and the headline RMSE was sensor-side. If LOO-RMSE blows up, the model is overfitting / failing on data it didn't see, and the misfit is genuine.
+
+### Sensor calibration floor at room temperature
+
+Per fixture, the last n_samples before probe insertion (when PredictionState='Probe Not Inserted' is available pre-curve) or the first n_samples of the segmented fixture (fallback). Sensors should all read room temperature; spread is the sensor-to-sensor calibration floor.
+
+| fixture | source | n | T1 | T2 | T3 | T4 | T5 | T6 | T7 | T8 | mean | sigma | range |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `BA3C_0946` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `BA3C_1759_C0` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `BA3C_1759_C1` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `BA3C_1759_C2` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `100098DE_1351` | all_3_pre_insertion | 3 | 22.85 | 23.13 | 23.42 | 23.73 | 23.80 | 24.25 | 24.08 | 23.87 | 23.64 | 0.476 | 1.40 |
+| `wonder_white` | first_5_segmented | 5 | 34.34 | 34.11 | 33.86 | 33.82 | 32.65 | 32.10 | 31.26 | 29.97 | 32.76 | 1.565 | 4.37 |
+| `post_wonder_meal` | all_3_pre_insertion | 3 | 25.45 | 25.37 | 25.30 | 25.17 | 25.40 | 25.40 | 25.30 | 25.30 | 25.34 | 0.088 | 0.28 |
+
+**Floor summary**: median range 0.34 degC, max range 4.37 degC, median sigma 0.110 degC across 7 fixtures.
+
+### Per-fit LOO-RMSE (M9 Stefan)
+
+| fixture | held_out | LOO_rmse | in_sample | ratio | max&#124;res&#124; | mean_res | converged |
+|---|---|---|---|---|---|---|---|
+| `BA3C_0946` | T1 | 9.45 | 5.17 | 1.83 | 15.2 | +0.32 | True |
+| `BA3C_0946` | T2 | 7.40 | 5.93 | 1.25 | 12.5 | -1.12 | False |
+| `BA3C_0946` | T3 | 5.60 | 6.41 | 0.87 | 10.0 | -1.63 | True |
+| `BA3C_0946` | T4 | 4.34 | 6.65 | 0.65 | 8.6 | +0.20 | False |
+| `BA3C_0946` | T5 | 1.92 | 6.90 | 0.28 | 5.0 | +0.34 | True |
+| `100098DE_1351` | T1 | 12.99 | 7.91 | 1.64 | 20.1 | -11.92 | True |
+| `100098DE_1351` | T2 | 5.01 | 9.76 | 0.51 | 7.7 | -1.60 | True |
+| `100098DE_1351` | T3 | 7.96 | 7.13 | 1.12 | 15.8 | +2.75 | True |
+| `100098DE_1351` | T4 | 9.60 | 6.68 | 1.44 | 19.2 | +4.79 | True |
+| `wonder_white` | T1 | 21.03 | 5.65 | 3.72 | 34.9 | -16.78 | False |
+| `wonder_white` | T2 | 8.74 | 10.24 | 0.85 | 15.8 | -6.62 | False |
+| `wonder_white` | T3 | 1.92 | 10.93 | 0.18 | 3.9 | -1.46 | False |
+| `wonder_white` | T4 | 3.13 | 10.88 | 0.29 | 5.9 | +2.07 | True |
+| `wonder_white` | T5 | 6.41 | 10.58 | 0.61 | 13.4 | +4.41 | False |
+| `wonder_white` | T6 | 5.35 | 10.70 | 0.50 | 11.0 | +3.73 | False |
+
+### Per-fixture aggregate
+
+| fixture | n_loo | LOO_rmse_median | LOO_rmse_max | in_sample_median | ratio_median | ratio_max |
+|---|---|---|---|---|---|---|
+| `BA3C_0946` | 5 | 5.60 | 9.45 | 6.41 | 0.87 | 1.83 |
+| `100098DE_1351` | 4 | 8.78 | 12.99 | 7.52 | 1.28 | 1.64 |
+| `wonder_white` | 6 | 5.88 | 21.03 | 10.64 | 0.55 | 3.72 |
+
+**Overall (M9 Stefan, 15 fits)**: LOO-RMSE median **6.41 degC** (max 21.03), ratio LOO/in-sample median **0.85** (max 3.72); 2/15 below 2 degC, 3 below 4 degC, 12 above 4 degC.
+
+### Revised verdict
+
+**CONFIRM-information-limit**
+
+- Sensor calibration floor (T1-T8 spread at room temp, 7 fixtures): median range 0.34 degC, max range 4.37 degC, median sigma 0.110 degC.
+- Zurcher 5-param LOO (35 fits): LOO-RMSE median 18.34 degC, max 37.24 degC; ratio LOO/in-sample median 0.89, max 2.16; 0/35 held-out sensors below 2 degC, 0 below 4 degC, 35 above 4 degC.
+- Stefan LOO (15 fits, 3 representative fixtures): LOO-RMSE median 6.41 degC, max 21.03 degC; ratio LOO/in-sample median 0.85, max 3.72; 2/15 held-out sensors below 2 degC, 3 below 4 degC.
+- LOO-RMSE on held-out sensors exceeds 4 degC and/or the LOO/in-sample ratio exceeds 2x. The models genuinely fail to capture the spatial profile - a sensor whose data the optimiser didn't see is mispredicted. In-sample RMSE of 6-22 degC was genuine model misfit, not sensor-side noise. M7-M12 verdicts stand.

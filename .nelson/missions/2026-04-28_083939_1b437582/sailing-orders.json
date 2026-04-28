@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Hermione: leave-one-sensor-out cross-validation diagnostic on M9 Stefan and M12 Zurcher fits, plus sensor calibration-floor measurement at t=0 across 7 fixtures. Determine whether the 6-22 deg C in-sample main-bake RMSE was sensor-side noise/calibration or genuine model misfit. If LOO-RMSE on held-out sensor is below 2 deg C, the verdict revises to GO (Method 3 viable); if matches in-sample, CONFIRM-information-limit stands.",
+  "success_metric": "tests/_diagnose_loo_cross_validation.py runs end-to-end. For each fixture x model (M9 Stefan, M12 Zurcher 5-param), refit using N-1 in-dough sensors and predict the held-out sensor. Compute held-out RMSE per sensor; report median, max, and ratio against in-sample RMSE. Sensor calibration floor: spread of T1-T8 readings at t=0 (room temp) per fixture. Append Round 3 section to relevant baseline reports with revised verdict.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T08:39:39Z"
+}

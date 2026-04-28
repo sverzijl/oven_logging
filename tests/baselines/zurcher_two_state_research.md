@@ -407,3 +407,85 @@ Freeing k and c does not drive main-bake RMSE below the 3 °C bar. The synthetic
 2. **Per-fixture loaf thickness** — V2 still pins R = 50 mm across all fixtures. Per the M11 Round 1 follow-up, the radiative term scales with R through the conduction denominators. If production captures real loaf thickness, this becomes per-fixture and may shift the V2 verdict (likely toward GO-WITH-CAVEATS even if the present verdict is CONFIRM-information-limit).
 3. **Surface-sensor inclusion in the loss** — V2's loss matrix is in-dough-only (T1-T5 or T1-T6). Including the in-air sensor T_surface (which carries direct radiative-BC information) would break the (k, c) degeneracy along the α-isoline. The classifier already infers a continuous x_surface position; an extension to fit a synthetic surface time-series interpolated at that position is straightforward but out of scope for this round.
 4. **Convective coupling** — Zürcher's eq 1 omits convection. Real ovens with forced air may need an `h_conv·(T_oven - T_out)` term added to eq 4. Adding a sixth parameter is unlikely to help while the underlying observation matrix is in-dough-only.
+## Round 2 - leave-one-sensor-out cross-validation (HMS Hermione, 2026-04-28)
+
+**Methodological context.** Rounds 1 of M7-M12 reported main-bake RMSE in the 6-22 degC band, but those numbers were computed on the same in-dough sensors the optimiser saw - an in-sample fit measure, not a validation. The headline RMSE may have been inflated by sensor-side noise, calibration drift, and response-time lag that the model has no representation of, rather than genuine missing physics. M13's Hermione mission pulls those threads apart by (a) measuring the sensor calibration floor at room temperature (the irreducible noise budget) and (b) running leave-one-sensor-out cross-validation: refit the model on N-1 in-dough sensors and predict the held-out sensor's trajectory. If LOO-RMSE on the held-out sensor matches in-sample RMSE, the model genuinely fits the spatial profile and the headline RMSE was sensor-side. If LOO-RMSE blows up, the model is overfitting / failing on data it didn't see, and the misfit is genuine.
+
+### Sensor calibration floor at room temperature
+
+Per fixture, the last n_samples before probe insertion (when PredictionState='Probe Not Inserted' is available pre-curve) or the first n_samples of the segmented fixture (fallback). Sensors should all read room temperature; spread is the sensor-to-sensor calibration floor.
+
+| fixture | source | n | T1 | T2 | T3 | T4 | T5 | T6 | T7 | T8 | mean | sigma | range |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `BA3C_0946` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `BA3C_1759_C0` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `BA3C_1759_C1` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `BA3C_1759_C2` | last_5_pre_insertion | 5 | 22.91 | 22.95 | 22.97 | 22.89 | 22.88 | 22.92 | 23.01 | 23.22 | 22.97 | 0.110 | 0.34 |
+| `100098DE_1351` | all_3_pre_insertion | 3 | 22.85 | 23.13 | 23.42 | 23.73 | 23.80 | 24.25 | 24.08 | 23.87 | 23.64 | 0.476 | 1.40 |
+| `wonder_white` | first_5_segmented | 5 | 34.34 | 34.11 | 33.86 | 33.82 | 32.65 | 32.10 | 31.26 | 29.97 | 32.76 | 1.565 | 4.37 |
+| `post_wonder_meal` | all_3_pre_insertion | 3 | 25.45 | 25.37 | 25.30 | 25.17 | 25.40 | 25.40 | 25.30 | 25.30 | 25.34 | 0.088 | 0.28 |
+
+**Floor summary**: median range 0.34 degC, max range 4.37 degC, median sigma 0.110 degC across 7 fixtures.
+
+### Per-fit LOO-RMSE (M12 Zurcher 5-param)
+
+| fixture | held_out | LOO_rmse | in_sample | ratio | max&#124;res&#124; | mean_res | converged |
+|---|---|---|---|---|---|---|---|
+| `BA3C_0946` | T1 | 16.31 | 15.22 | 1.07 | 26.2 | +9.64 | True |
+| `BA3C_0946` | T2 | 13.64 | 21.70 | 0.63 | 19.8 | +6.98 | True |
+| `BA3C_0946` | T3 | 18.34 | 20.81 | 0.88 | 28.0 | +13.48 | True |
+| `BA3C_0946` | T4 | 25.12 | 19.62 | 1.28 | 39.7 | +19.85 | True |
+| `BA3C_0946` | T5 | 27.40 | 17.21 | 1.59 | 59.6 | +21.89 | True |
+| `BA3C_1759_C0` | T1 | 16.31 | 15.22 | 1.07 | 26.2 | +9.64 | True |
+| `BA3C_1759_C0` | T2 | 13.64 | 21.70 | 0.63 | 19.8 | +6.98 | True |
+| `BA3C_1759_C0` | T3 | 18.34 | 20.81 | 0.88 | 28.0 | +13.48 | True |
+| `BA3C_1759_C0` | T4 | 25.12 | 19.62 | 1.28 | 39.7 | +19.85 | True |
+| `BA3C_1759_C0` | T5 | 27.40 | 17.21 | 1.59 | 59.6 | +21.89 | True |
+| `BA3C_1759_C1` | T1 | 15.64 | 22.08 | 0.71 | 24.9 | +7.39 | True |
+| `BA3C_1759_C1` | T2 | 16.01 | 22.92 | 0.70 | 24.4 | +8.04 | True |
+| `BA3C_1759_C1` | T3 | 17.87 | 20.86 | 0.86 | 28.5 | +11.68 | True |
+| `BA3C_1759_C1` | T4 | 22.83 | 18.88 | 1.21 | 36.7 | +16.98 | True |
+| `BA3C_1759_C1` | T5 | 26.40 | 17.89 | 1.48 | 48.5 | +20.40 | True |
+| `BA3C_1759_C2` | T1 | 15.09 | 24.10 | 0.63 | 22.7 | +1.53 | True |
+| `BA3C_1759_C2` | T2 | 16.43 | 23.61 | 0.70 | 23.8 | +8.27 | True |
+| `BA3C_1759_C2` | T3 | 20.68 | 22.19 | 0.93 | 30.1 | +14.90 | True |
+| `BA3C_1759_C2` | T4 | 27.49 | 21.14 | 1.30 | 40.0 | +22.07 | True |
+| `BA3C_1759_C2` | T5 | 26.00 | 15.69 | 1.66 | 44.2 | +21.99 | True |
+| `100098DE_1351` | T1 | 11.28 | 20.69 | 0.55 | 17.3 | -6.70 | True |
+| `100098DE_1351` | T2 | 12.64 | 20.78 | 0.61 | 22.2 | +5.97 | True |
+| `100098DE_1351` | T3 | 21.98 | 19.11 | 1.15 | 34.8 | +16.86 | True |
+| `100098DE_1351` | T4 | 25.43 | 13.31 | 1.91 | 37.5 | +19.80 | True |
+| `wonder_white` | T1 | 14.92 | 24.98 | 0.60 | 19.1 | -12.81 | True |
+| `wonder_white` | T2 | 13.55 | 27.84 | 0.49 | 21.1 | +4.26 | True |
+| `wonder_white` | T3 | 18.34 | 25.69 | 0.71 | 27.0 | +11.87 | True |
+| `wonder_white` | T4 | 18.85 | 22.05 | 0.85 | 28.4 | +11.84 | True |
+| `wonder_white` | T5 | 33.79 | 23.55 | 1.44 | 45.7 | +27.79 | True |
+| `wonder_white` | T6 | 37.24 | 22.03 | 1.69 | 59.4 | +30.49 | True |
+| `post_wonder_meal` | T1 | 11.56 | 22.07 | 0.52 | 16.0 | -10.48 | True |
+| `post_wonder_meal` | T2 | 11.29 | 23.40 | 0.48 | 17.2 | +3.80 | True |
+| `post_wonder_meal` | T3 | 20.02 | 22.54 | 0.89 | 28.7 | +13.71 | True |
+| `post_wonder_meal` | T4 | 25.97 | 19.80 | 1.31 | 37.6 | +20.28 | True |
+| `post_wonder_meal` | T5 | 35.91 | 16.60 | 2.16 | 48.4 | +30.70 | True |
+
+### Per-fixture aggregate
+
+| fixture | n_loo | LOO_rmse_median | LOO_rmse_max | in_sample_median | ratio_median | ratio_max |
+|---|---|---|---|---|---|---|
+| `BA3C_0946` | 5 | 18.34 | 27.40 | 19.62 | 1.07 | 1.59 |
+| `BA3C_1759_C0` | 5 | 18.34 | 27.40 | 19.62 | 1.07 | 1.59 |
+| `BA3C_1759_C1` | 5 | 17.87 | 26.40 | 20.86 | 0.86 | 1.48 |
+| `BA3C_1759_C2` | 5 | 20.68 | 27.49 | 22.19 | 0.93 | 1.66 |
+| `100098DE_1351` | 4 | 17.31 | 25.43 | 19.90 | 0.88 | 1.91 |
+| `wonder_white` | 6 | 18.59 | 37.24 | 24.26 | 0.78 | 1.69 |
+| `post_wonder_meal` | 5 | 20.02 | 35.91 | 22.07 | 0.89 | 2.16 |
+
+**Overall (M12 Zurcher 5-param, 35 fits)**: LOO-RMSE median **18.34 degC** (max 37.24), ratio LOO/in-sample median **0.89** (max 2.16); 0/35 below 2 degC, 0 below 4 degC, 35 above 4 degC.
+
+### Revised verdict
+
+**CONFIRM-information-limit**
+
+- Sensor calibration floor (T1-T8 spread at room temp, 7 fixtures): median range 0.34 degC, max range 4.37 degC, median sigma 0.110 degC.
+- Zurcher 5-param LOO (35 fits): LOO-RMSE median 18.34 degC, max 37.24 degC; ratio LOO/in-sample median 0.89, max 2.16; 0/35 held-out sensors below 2 degC, 0 below 4 degC, 35 above 4 degC.
+- Stefan LOO (15 fits, 3 representative fixtures): LOO-RMSE median 6.41 degC, max 21.03 degC; ratio LOO/in-sample median 0.85, max 3.72; 2/15 held-out sensors below 2 degC, 3 below 4 degC.
+- LOO-RMSE on held-out sensors exceeds 4 degC and/or the LOO/in-sample ratio exceeds 2x. The models genuinely fail to capture the spatial profile - a sensor whose data the optimiser didn't see is mispredicted. In-sample RMSE of 6-22 degC was genuine model misfit, not sensor-side noise. M7-M12 verdicts stand.

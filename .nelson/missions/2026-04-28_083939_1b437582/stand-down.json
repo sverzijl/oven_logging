@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Hermione: leave-one-sensor-out cross-validation diagnostic on M9 Stefan and M12 Zurcher fits, plus sensor calibration-floor measurement at t=0 across 7 fixtures. Determine whether the 6-22 deg C in-sample main-bake RMSE was sensor-side noise/calibration or genuine model misfit. If LOO-RMSE on held-out sensor is below 2 deg C, the verdict revises to GO (Method 3 viable); if matches in-sample, CONFIRM-information-limit stands.",
+  "actual_outcome": "LOO cross-validation diagnostic complete. Calibration floor: median sigma 0.11 deg C, range 0.34 deg C \u2014 sensor noise definitively NOT the cause of 6-22 deg C model residual (12-44x noise floor). Zurcher 5-param LOO: 35/35 fits with held-out RMSE > 4 deg C; median 18.3 deg C; max 37.2 deg C. Stefan PDE LOO: 12/15 above 4 deg C; median 6.4 deg C. Surface-side held-out sensors fit well (T5 BA3C 1.9, T3 wonder_white 1.9); deep held-out sensors fail (T1 wonder_white 21.0). Model captures field near BC, fails far from it. Verdict CONFIRM-information-limit: M7-M12 in-sample RMSE was genuine missing-physics model misfit, not sensor-side noise. The data is informative near the surface and uninformative near (and past) the probe tip \u2014 exactly the opposite of what x_core extrapolation needs.",
+  "success_metric_result": "Calibration floor 0.11 deg C; Zurcher 0/35 LOO fits under 2 deg C; Stefan 2/15 LOO fits under 2 deg C; verdict consistent across both model classes.",
+  "duration_minutes": 221,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "LOO cross-validation is the gold-standard test for inverse-problem viability \u2014 it distinguishes overfitting (LOO >> in-sample) from genuine model adequacy (LOO close to in-sample). Should be standard for any future physics-inversion work"
+    ],
+    "avoid": [
+      "Treating in-sample RMSE as evidence of model adequacy; always run LOO before declaring an inverse problem successful"
+    ]
+  },
+  "created_at": "2026-04-28T12:21:50Z"
+}

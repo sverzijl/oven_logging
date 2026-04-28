@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T08:31:37Z",
-  "pattern_count": 48,
+  "updated_at": "2026-04-28T12:21:50Z",
+  "pattern_count": 49,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -953,6 +953,26 @@
       ],
       "avoid": [
         "Treating clean synthetic recovery as evidence the inverse will work on real data \u2014 even Zurcher-class synthetic recovery says nothing about whether the data carries enough information to constrain the model"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_083939_1b437582",
+      "completed_at": "2026-04-28T12:21:50Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Hermione: leave-one-sensor-out cross-validation diagnostic on M9 Stefan and M12 Zurcher fits, plus sensor calibration-floor measurement at t=0 across 7 fixtures. Determine whether the 6-22 deg C in-sample main-bake RMSE was sensor-side noise/calibration or genuine model misfit. If LOO-RMSE on held-out sensor is below 2 deg C, the verdict revises to GO (Method 3 viable); if matches in-sample, CONFIRM-information-limit stands.",
+      "adopt": [
+        "LOO cross-validation is the gold-standard test for inverse-problem viability \u2014 it distinguishes overfitting (LOO >> in-sample) from genuine model adequacy (LOO close to in-sample). Should be standard for any future physics-inversion work"
+      ],
+      "avoid": [
+        "Treating in-sample RMSE as evidence of model adequacy; always run LOO before declaring an inverse problem successful"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

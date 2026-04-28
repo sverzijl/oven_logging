@@ -1,0 +1,16 @@
+
+=== phase 1: sensor calibration floor at room temperature ===
+             BA3C_0946: source=      last_5_pre_insertion n=5 mean=22.97 sigma=0.110 range=0.34 degC
+          BA3C_1759_C0: source=      last_5_pre_insertion n=5 mean=22.97 sigma=0.110 range=0.34 degC
+          BA3C_1759_C1: source=      last_5_pre_insertion n=5 mean=22.97 sigma=0.110 range=0.34 degC
+          BA3C_1759_C2: source=      last_5_pre_insertion n=5 mean=22.97 sigma=0.110 range=0.34 degC
+         100098DE_1351: source=       all_3_pre_insertion n=3 mean=23.64 sigma=0.476 range=1.40 degC
+          wonder_white: source=         first_5_segmented n=5 mean=32.76 sigma=1.565 range=4.37 degC
+      post_wonder_meal: source=       all_3_pre_insertion n=3 mean=25.34 sigma=0.088 range=0.28 degC
+  phase 1 elapsed: 0.0s
+
+=== phase 2a: Zurcher 5-param LOO sweep (all 7 fixtures, ~7x5=35 fits) ===
+  zurcher            BA3C_0946 -T1: LOO_rmse=16.31 in_sample=15.22 ratio=1.07 max|res|=26.2 (6.1s)
+  zurcher            BA3C_0946 -T2: LOO_rmse=13.64 in_sample=21.70 ratio=0.63 max|res|=19.8 (5.0s)
+  zurcher            BA3C_0946 -T3: LOO_rmse=18.34 in_sample=20.81 ratio=0.88 max|res|=28.0 (4.1s)
+  zurcher            BA3C_0946 -T4: LOO_rmse=25.12 in_sample=19.62 ratio=1.28 max|res|=39.7 (6.3s)
