@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T07:42:14Z",
-  "pattern_count": 47,
+  "updated_at": "2026-04-28T08:31:37Z",
+  "pattern_count": 48,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -933,6 +933,26 @@
       ],
       "avoid": [
         "Treating a literature model as right by default \u2014 Zurcher's eq 6 + 1mm coarse-graining produces a 6x-too-fast centre rise; literature solutions don't always survive numerical implementation"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_075015_24a1d508",
+      "completed_at": "2026-04-28T08:31:37Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Tireless: extend Zurcher inverse to free k (thermal conductivity) and c (specific heat) in addition to x_core j_0 T_oven_eff. 5-param fit with rho pinned at 1000 kg/m^3 (most product-stable). Test whether per-product physics calibration drops main-bake RMSE below the M9 Stefan baseline.",
+      "adopt": [
+        "Multi-init synthetic recovery (4 inits x 5 seeds = 20 runs) is a robust identifiability check \u2014 single-init synthetic recovery would have given misleading optimism"
+      ],
+      "avoid": [
+        "Treating clean synthetic recovery as evidence the inverse will work on real data \u2014 even Zurcher-class synthetic recovery says nothing about whether the data carries enough information to constrain the model"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

@@ -1,10 +1,10 @@
 {
   "version": 1,
   "mission": {
-    "outcome": "Land HMS Diamond: decompose M9 Stefan-fit real-CSV residuals into per-sensor, per-time-segment, and structure components. Determine whether the headline 6-10 deg C RMSE is real model misfit or accounting artefact (startup transient, probe-pull tail, per-sensor calibration bias).",
+    "outcome": "Land HMS Tireless: extend Zurcher inverse to free k (thermal conductivity) and c (specific heat) in addition to x_core j_0 T_oven_eff. 5-param fit with rho pinned at 1000 kg/m^3 (most product-stable). Test whether per-product physics calibration drops main-bake RMSE below the M9 Stefan baseline.",
     "status": "complete",
     "phase": "STAND_DOWN",
-    "started_at": "2026-04-28T06:31:14Z",
+    "started_at": "2026-04-28T07:50:15Z",
     "checkpoint_number": 1
   },
   "progress": {
@@ -22,8 +22,8 @@
   },
   "squadron": [
     {
-      "ship_name": "HMS Diamond",
-      "ship_class": "destroyer",
+      "ship_name": "HMS Tireless",
+      "ship_class": "frigate",
       "role": "captain",
       "hull_integrity_pct": 100,
       "hull_integrity_status": "Green",
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-28T06:38:01Z"
+  "last_updated": "2026-04-28T08:31:37Z"
 }

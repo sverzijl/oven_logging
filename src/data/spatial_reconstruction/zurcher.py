@@ -675,3 +675,354 @@ def fit_zurcher_inverse(
         "in_dough": list(in_dough_sensors),
         "sensor_positions_normalised": list(sensor_positions_normalised),
     }
+
+
+# ---------------------------------------------------------------------------
+# V2 inverse: optionally free k and c (M12 / HMS Tireless)
+# ---------------------------------------------------------------------------
+
+
+# V2 default initial values and bounds for the freeable physical constants.
+# Picked to be mid-range across literature (k 0.2-0.5; c 1500-3000), with
+# bounds tight enough to be physical and wide enough to find a real optimum.
+_V2_K_INIT = 0.35
+_V2_C_INIT = 2200.0
+_V2_K_BOUNDS: tuple = (0.1, 1.0)
+_V2_C_BOUNDS: tuple = (1000.0, 4000.0)
+
+
+# Order matters: param vector is built in this canonical order with
+# the always-fitted block first, then the optionally-freed constants.
+_V2_BASE_PARAMS: tuple = ("x_core_m", "j_0", "T_oven_eff_K")
+_V2_FREEABLE_CONSTANTS: tuple = ("k", "c")
+
+
+def fit_zurcher_inverse_v2(
+    df: pd.DataFrame,
+    in_dough_sensors: list[str],
+    x_surface_normalised: float,
+    sensor_positions_normalised: tuple = SENSOR_POSITIONS_DEFAULT,
+    sensor_names: tuple = SENSOR_NAMES_DEFAULT,
+    free_constants: Optional[list[str]] = None,
+    init: Optional[dict] = None,
+    sample_period_s: float = 5.0,
+    downsample_factor: int = 4,
+    loaf_thickness_m: float = LOAF_THICKNESS_M_DEFAULT,
+    dx_m: float = DX_DEFAULT_M,
+    n_init_frac: float = 0.99,
+    bounds: Optional[dict] = None,
+    max_iter: int = 600,
+    rtol: float = 1e-6,
+    atol: float = 1e-3,
+    method: str = "LSODA",
+    startup_skip_frac: float = 0.20,
+) -> dict:
+    """Extends ``fit_zurcher_inverse`` to optionally free ``k`` and ``c``.
+
+    When ``free_constants=['k','c']`` the parameter vector becomes
+    ``[x_core_m, j_0, T_oven_eff_K, k, c]`` and the forward solver
+    receives the freed values via the ``physical_constants`` dict. When
+    ``free_constants`` is empty (the default), behaviour is identical to
+    M11's :func:`fit_zurcher_inverse`: the same forward solver runs with
+    the module-level pinned defaults (k=0.5, c=2000).
+
+    Why the option matters
+    ----------------------
+    M11 pinned k at 0.5 W/(m·K) (high end of the 0.2-0.5 literature range)
+    and c at 2000 J/(kg·K) (low end of the 1500-3000 range). The combination
+    gives α = k/(ρc) = 2.5×10⁻⁷ m²/s, near the high end of feasible bread
+    diffusivity. On real CSVs the centre cell saturated ~6× faster than the
+    measured trajectory; the 3-parameter optimizer responded by slamming
+    j_0, T_oven_eff, and x_core_m into their bounds. Freeing k and c lets
+    the optimizer discover product-specific thermal properties; pinning
+    only ρ (the most product-stable across formulations: 700-1100 kg/m³)
+    keeps the k vs ρ vs c degeneracy from going fully unidentifiable.
+
+    Identifiability sketch
+    ----------------------
+    Bulk diffusion (Zürcher eq 11) depends only on α = k/(ρc). The Stefan
+    front (eq 5) depends on k/(ρ·L·j_0). The radiative BC (eq 4) depends
+    on 1/(ρc·dx) and k separately — three independent combinations of
+    four unknowns (k, ρ, c, j_0), so pinning ρ leaves k and c jointly
+    fittable. Whether the **synthetic** test recovers them is the
+    load-bearing question; see :class:`TestSyntheticRecovery5Param`.
+
+    Parameters
+    ----------
+    free_constants:
+        Subset of ``{"k", "c"}``. ``None`` or ``[]`` means "M11
+        behaviour" (3-parameter fit); ``["k", "c"]`` is the V2 5-parameter
+        fit. Order within the list is ignored.
+    init:
+        Optional initial values. Recognised keys: ``x_core_m``, ``j_0``,
+        ``T_oven_eff_K``, ``k``, ``c``. Defaults: x_core_m=-0.005,
+        j_0=0.05, T_oven=450, k=0.35, c=2200.
+    bounds:
+        Optional bound overrides; recognised keys mirror ``init``.
+        Defaults: x_core_m∈(-0.04, 0.04), j_0∈(0.005, 0.20),
+        T_oven_eff_K∈(350, 600), k∈(0.1, 1.0), c∈(1000, 4000).
+    max_iter:
+        Default raised vs M11 because the simplex grows by 2 vertices
+        when the parameter count rises from 3 to 5.
+
+    Returns
+    -------
+    dict matching ``fit_zurcher_inverse``'s shape with the following
+    additions:
+
+    * ``free_constants`` — list of constants that were fit (mirrors the
+      argument; ``[]`` for the V1-equivalent path).
+    * ``k``, ``c`` — fitted values when freed; the pinned literature
+      values otherwise.
+    * ``k_se``, ``c_se`` — Hessian-based standard errors when freed; NaN
+      otherwise.
+    * The correlation matrix is sized to the number of fitted parameters
+      (3×3 for the V1-equivalent path, 5×5 when both ``k`` and ``c`` are
+      freed).
+    """
+    free_constants = list(free_constants or [])
+    # Sort against canonical order to make the parameter vector stable.
+    free_constants = [c for c in _V2_FREEABLE_CONSTANTS if c in free_constants]
+    invalid = set(free_constants) - set(_V2_FREEABLE_CONSTANTS)
+    if invalid:
+        raise ValueError(
+            f"Unsupported free_constants {sorted(invalid)}; "
+            f"supported: {list(_V2_FREEABLE_CONSTANTS)}"
+        )
+
+    init = init or {}
+    bounds = bounds or {}
+    x_core_m_init = float(init.get("x_core_m", -0.005))
+    j_0_init = float(init.get("j_0", 0.05))
+    T_oven_init = float(init.get("T_oven_eff_K", 450.0))
+    k_init = float(init.get("k", _V2_K_INIT))
+    c_init = float(init.get("c", _V2_C_INIT))
+    x_core_lo, x_core_hi = bounds.get("x_core_m", (-0.04, 0.04))
+    j_0_lo, j_0_hi = bounds.get("j_0", (0.005, 0.20))
+    T_oven_lo, T_oven_hi = bounds.get("T_oven_eff_K", (350.0, 600.0))
+    k_lo, k_hi = bounds.get("k", _V2_K_BOUNDS)
+    c_lo, c_hi = bounds.get("c", _V2_C_BOUNDS)
+
+    t_obs, T_obs_C, x_obs_n = _build_observation_matrix(
+        df=df,
+        in_dough_sensors=in_dough_sensors,
+        sensor_names=sensor_names,
+        sensor_positions_normalised=sensor_positions_normalised,
+        downsample_factor=downsample_factor,
+    )
+    T_obs_K = T_obs_C + 273.15
+    T_initial_K = float(np.mean(T_obs_K[0, :]))
+
+    n_t_total = len(t_obs)
+    n_skip = max(int(startup_skip_frac * n_t_total), 0)
+    if n_skip >= n_t_total - 5:
+        n_skip = max(n_t_total // 4, 0)
+
+    # Build the parameter vector in the canonical order. We always optimise
+    # in unconstrained reals via the same squashing transforms M11 used
+    # for the base block (x_core linear, log j_0, T_oven linear); for k and
+    # c we use linear (their dynamic ranges are <10×).
+    param_names: list[str] = list(_V2_BASE_PARAMS) + list(free_constants)
+    init_vec: list[float] = [
+        x_core_m_init,
+        float(np.log(max(j_0_init, 1e-4))),
+        T_oven_init,
+    ]
+    bounds_lo: list[float] = [x_core_lo, j_0_lo, T_oven_lo]
+    bounds_hi: list[float] = [x_core_hi, j_0_hi, T_oven_hi]
+    for name in free_constants:
+        if name == "k":
+            init_vec.append(k_init)
+            bounds_lo.append(k_lo)
+            bounds_hi.append(k_hi)
+        elif name == "c":
+            init_vec.append(c_init)
+            bounds_lo.append(c_lo)
+            bounds_hi.append(c_hi)
+
+    p_count = len(param_names)
+
+    def _theta_to_kwargs(theta: np.ndarray) -> dict:
+        """Unpack the parameter vector into named kwargs."""
+        x_core = float(theta[0])
+        j0 = float(np.exp(theta[1]))
+        T_oven = float(theta[2])
+        params = {
+            "x_core_m": x_core,
+            "j_0": j0,
+            "T_oven_eff_K": T_oven,
+        }
+        for offset, name in enumerate(free_constants):
+            params[name] = float(theta[3 + offset])
+        return params
+
+    def _within_bounds(params: dict) -> bool:
+        if not (x_core_lo <= params["x_core_m"] <= x_core_hi):
+            return False
+        if not (j_0_lo <= params["j_0"] <= j_0_hi):
+            return False
+        if not (T_oven_lo <= params["T_oven_eff_K"] <= T_oven_hi):
+            return False
+        if "k" in params:
+            if not (k_lo <= params["k"] <= k_hi):
+                return False
+        if "c" in params:
+            if not (c_lo <= params["c"] <= c_hi):
+                return False
+        return True
+
+    def _loss(theta: np.ndarray) -> float:
+        params = _theta_to_kwargs(theta)
+        if not _within_bounds(params):
+            return 1e10
+        try:
+            sample_x_m = _normalised_to_metres_with_core(
+                x_normalised=x_obs_n,
+                x_core_m=params["x_core_m"],
+                x_surface_normalised=x_surface_normalised,
+                loaf_thickness_m=loaf_thickness_m,
+            )
+        except ValueError:
+            return 1e10
+        physical_constants: Optional[dict] = None
+        if "k" in params or "c" in params:
+            physical_constants = {}
+            if "k" in params:
+                physical_constants["k"] = params["k"]
+            if "c" in params:
+                physical_constants["c"] = params["c"]
+        try:
+            fwd = solve_zurcher_forward(
+                x_core_m=params["x_core_m"],
+                j_0=params["j_0"],
+                T_oven_eff_K=params["T_oven_eff_K"],
+                t_grid_s=t_obs,
+                T_initial_K=T_initial_K,
+                T_in_initial_K=T_initial_K,
+                T_out_initial_K=T_initial_K,
+                loaf_thickness_m=loaf_thickness_m,
+                dx_m=dx_m,
+                n_init_frac=n_init_frac,
+                sample_x_m=sample_x_m,
+                physical_constants=physical_constants,
+                rtol=rtol,
+                atol=atol,
+                method=method,
+            )
+        except Exception:
+            return 1e10
+        if not fwd.converged:
+            return 1e10
+        diff = (fwd.T_predicted_K[n_skip:] - T_obs_K[n_skip:]).ravel()
+        if not np.all(np.isfinite(diff)):
+            return 1e10
+        return float(np.sum(diff * diff))
+
+    theta0 = np.array(init_vec, dtype=float)
+    # Use Nelder-Mead with the briefing's xatol/fatol. Briefing prescribes
+    # xatol=0.005 and fatol=0.5 in physical units; these are looser than
+    # M11's 1e-5 / 1e-2 because the simplex grows with parameter count and
+    # the absolute tolerances should be in the data's native scale.
+    opt = minimize(
+        _loss,
+        theta0,
+        method="Nelder-Mead",
+        options={
+            "xatol": 0.005,
+            "fatol": 0.5,
+            "maxiter": max_iter,
+            "adaptive": True,
+        },
+    )
+
+    fitted = _theta_to_kwargs(opt.x)
+    sse = float(opt.fun)
+    n_obs_fit = int(T_obs_K[n_skip:].size)
+    n_obs_total = int(T_obs_K.size)
+
+    # p×p Hessian → covariance → correlation. Per-parameter step sizes
+    # tuned to the parameter scales: linear params get an absolute step
+    # comparable to a few percent; the log(j_0) coordinate gets a small
+    # multiplicative step.
+    h_per_param: list[float] = [1e-3, 1e-2, 1e-2]  # x_core, log j_0, T_oven
+    for name in free_constants:
+        if name == "k":
+            h_per_param.append(1e-2)  # ~1% of mid-range k
+        elif name == "c":
+            h_per_param.append(20.0)  # ~1% of mid-range c
+    try:
+        H_sse = _numerical_hessian(_loss, opt.x, h=h_per_param)
+        dof = max(n_obs_fit - p_count, 1)
+        sigma2 = sse / dof
+        cov_inflate = 1.4 ** 2  # match M7/M9/M11 calibration
+        Cov_theta = 2.0 * sigma2 * cov_inflate * np.linalg.pinv(H_sse)
+        # Delta method jacobian: (x_core, log j_0, T_oven, [k], [c]) →
+        # (x_core, j_0, T_oven, [k], [c]).
+        diag = [1.0, fitted["j_0"], 1.0]
+        for _ in free_constants:
+            diag.append(1.0)
+        J = np.diag(diag)
+        Cov_param = J @ Cov_theta @ J.T
+        diag_p = np.maximum(np.diag(Cov_param), 0.0)
+        stderr_param = np.sqrt(diag_p)
+        denom = np.outer(stderr_param, stderr_param)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corr_param = np.where(denom > 0, Cov_param / denom, np.nan)
+        n = corr_param.shape[0]
+        off = np.abs(corr_param.copy())
+        for i in range(n):
+            off[i, i] = 0.0
+        max_off = (
+            float(np.nanmax(off)) if np.any(np.isfinite(off)) else float("nan")
+        )
+    except Exception:
+        stderr_param = np.full(p_count, np.nan)
+        corr_param = np.full((p_count, p_count), np.nan)
+        max_off = float("nan")
+
+    rmse = float(np.sqrt(sse / max(n_obs_fit, 1)))
+    x_core_normalised = fitted["x_core_m"] / float(loaf_thickness_m)
+
+    out = {
+        "x_core_m": fitted["x_core_m"],
+        "x_core_normalised": x_core_normalised,
+        "j_0": fitted["j_0"],
+        "T_oven_eff_K": fitted["T_oven_eff_K"],
+        "x_core_m_se": float(stderr_param[0]),
+        "j_0_se": float(stderr_param[1]),
+        "T_oven_eff_K_se": float(stderr_param[2]),
+        "full_correlation_matrix": corr_param.tolist(),
+        "max_abs_off_diag_correlation": max_off,
+        "sse": sse,
+        "rmse_per_sensor": rmse,
+        "n_obs": n_obs_fit,
+        "n_obs_total": n_obs_total,
+        "startup_skip_frac": float(startup_skip_frac),
+        "n_skip": int(n_skip),
+        "converged": bool(opt.success),
+        "n_iter": int(opt.nit) if hasattr(opt, "nit") else 0,
+        "T_initial_K": T_initial_K,
+        "loaf_thickness_m": float(loaf_thickness_m),
+        "dx_m": float(dx_m),
+        "x_surface_normalised": float(x_surface_normalised),
+        "in_dough": list(in_dough_sensors),
+        "sensor_positions_normalised": list(sensor_positions_normalised),
+        "free_constants": list(free_constants),
+        "param_names": list(param_names),
+    }
+    # k and c are always reported — fitted when freed, pinned otherwise.
+    if "k" in free_constants:
+        out["k"] = fitted["k"]
+        idx = 3 + free_constants.index("k")
+        out["k_se"] = float(stderr_param[idx])
+    else:
+        out["k"] = K_DOUGH
+        out["k_se"] = float("nan")
+    if "c" in free_constants:
+        out["c"] = fitted["c"]
+        idx = 3 + free_constants.index("c")
+        out["c_se"] = float(stderr_param[idx])
+    else:
+        out["c"] = C_DOUGH
+        out["c_se"] = float("nan")
+    return out

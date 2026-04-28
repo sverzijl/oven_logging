@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Tireless: extend Zurcher inverse to free k (thermal conductivity) and c (specific heat) in addition to x_core j_0 T_oven_eff. 5-param fit with rho pinned at 1000 kg/m^3 (most product-stable). Test whether per-product physics calibration drops main-bake RMSE below the M9 Stefan baseline.",
+  "success_metric": "5-param joint inverse runs to convergence on 5+ of 7 real CSVs. Main-bake RMSE comparison vs Bellona (35-38 deg C), M9 Stefan (5-11 deg C), M7 baseline. Fitted k and c values land in literature ranges (k 0.2-0.5 W/m/K, c 1500-3000 J/kg/K) on most fixtures. If main-bake RMSE less than 3 deg C verdict GO and proceed to production wiring; if 3-6 deg C GO-WITH-CAVEATS; if greater than 6 deg C the information limit is confirmed across the full parameter-space exploration.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T07:50:15Z"
+}

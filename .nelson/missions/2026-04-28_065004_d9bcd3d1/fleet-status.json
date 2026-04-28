@@ -2,10 +2,10 @@
   "version": 1,
   "mission": {
     "outcome": "Land HMS Bellona: implement Zurcher 2014 two-state bread-baking model with radiative outer boundary condition; 3-parameter inverse fit (x_core, j_0, T_oven_eff); test whether main-bake RMSE drops below the M9 Stefan baseline (median 7.5 deg C) when the model has both correct physics class AND correct boundary conditions (radiative not Dirichlet).",
-    "status": "underway",
-    "phase": "UNDERWAY",
+    "status": "complete",
+    "phase": "STAND_DOWN",
     "started_at": "2026-04-28T06:50:04Z",
-    "checkpoint_number": 0
+    "checkpoint_number": 1
   },
   "progress": {
     "pending": 1,
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-28T06:50:35Z"
+  "last_updated": "2026-04-28T07:42:14Z"
 }

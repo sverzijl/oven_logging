@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Extend Zurcher inverse to 5 free parameters (x_core, j_0, T_oven_eff, k, c) with rho pinned",
+      "owner": "HMS Tireless",
+      "deliverable": "Extend src/data/spatial_reconstruction/zurcher.py with fit_zurcher_inverse_v2 accepting an optional free_constants list and adding k, c to the optimisable set when requested. tests/test_zurcher_research_v2.py: forward solver behaviour at perturbed (k, c), 5-param synthetic recovery test (with generator using DIFFERENT k, c than initial guess), real-CSV viability sweep on 7 fixtures, residual decomposition. tests/_driver_zurcher_v2.py: end-to-end driver. Append a 'Round 2 \u2014 k+c free (HMS Tireless)' section to tests/baselines/zurcher_two_state_research.md with verdict GO / GO-WITH-CAVEATS / CONFIRM-information-limit. NOT wired into runtime classifier.",
+      "dependencies": [],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/zurcher.py",
+        "oven_logging/tests/test_zurcher_research_v2.py",
+        "oven_logging/tests/_driver_zurcher_v2.py",
+        "oven_logging/tests/baselines/zurcher_two_state_research.md",
+        "oven_logging/tests/baselines/zurcher_two_state_research_v2.json",
+        ".nelson/missions/2026-04-28_075015_24a1d508/"
+      ],
+      "validation_required": "5-param synthetic recovery: x_core within 0.005m of true, k and c within 30% of true, j_0 within 30% of true. Real-CSV joint inverse converges on at least 5 of 7. Fitted (k, c) values land within literature ranges (k 0.2-0.5, c 1500-3000) on at least 4 of 7 fixtures. Existing M1-M11 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Tireless",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 1
+      }
+    ]
+  },
+  "created_at": "2026-04-28T07:50:46Z",
+  "amended_at": null
+}

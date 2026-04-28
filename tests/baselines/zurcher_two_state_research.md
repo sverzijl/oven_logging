@@ -235,3 +235,175 @@ Even with the right physics class (Stefan-front + radiative BC) and the parametr
 2. The latent heat constant `L` is taken as 22.4×10⁵ J/kg, which Zürcher uses in his order-of-magnitude estimate on p. 226 (his text gives 33.5×10⁵ for the latent heat of water). The choice scales the bake-time linearly via eq 5; if the user wants tighter Zürcher-Table-II reproduction, switching to 33.5×10⁵ shifts the ratio in Phase 1 by 33.5/22.4 ≈ 1.5×.
 3. Convective heat transfer is omitted (Zürcher's eq 1 also omits it). Real ovens with forced air would have a convective term `h_conv·(T_oven - T_out)` added to the radiative term in eq 4. Adding this is a straightforward extension if production captures fan state, but is unlikely to change the verdict at the inverse-problem level.
 4. **Speculative model-extension**: split `dx_crust` (Zürcher's 1 mm crust) from `dx_centre` (effective centre-cell bulk-thermal-mass thickness, ~25 mm) and let `dx_centre` be a free fourth parameter. This addresses the centre-overheat diagnostic but likely reintroduces M9-style numerical degeneracy. Worth exploring only if Method 4 fails. Not in scope for this mission.
+## Round 2 — k+c free (HMS Tireless, 2026-04-28)
+
+Round 1 (HMS Bellona, M11) pinned k=0.5 W/(m·K) and c=2000 J/(kg·K) at the high end of their literature ranges and ran a 3-parameter inverse over (x_core_m, j_0, T_oven_eff_K). The result: every fixture's main-bake RMSE landed at 35-38 °C, with all 3 free parameters slammed into bounds (j_0 → 0.005, T_oven_eff → 350 K, x_core_m → -0.032 m or -0.0046 m). The diagnostic was that the centre cell saturates ~6× too fast under the pinned (k, c), and the optimizer has no thermal-properties knob to slow it. M12 Round 2 frees k and c (still pins ρ at 1000 kg/m³, the most product-stable constant) and re-runs the inverse. The bar: does main-bake RMSE drop into the 3 °C zone on most fixtures, with fitted (k, c, j_0) inside literature ranges?
+
+### Executive summary
+
+**Verdict: CONFIRM-information-limit**
+
+- Synthetic 5-param recovery (20/20 runs finite, σ_noise=0.5 °C, 4 init × 5 seeds): RMSE median 0.496 °C (max 0.507); T_oven_eff recovery within 5 K = 20/20 (mean fit-truth bias +0.90 K); j_0 within 30% = 18/20; k within 30% = 20/20; c within 30% = 4/20; x_core within 5 mm = 7/20.
+- Real-CSV 5-param convergence: 7/7 fixtures.
+- Main-bake RMSE: <3 °C=0/7, 3-6 °C=0/7, >6 °C=7/7 (median 20.51 °C).
+- Main-bake lag-1 ρ: median 0.998, max|ρ| 0.999.
+- Fixtures with all of (k, c, j_0) inside literature ranges: 0/7.
+- Correlation conditioning: median max|ρ_off| 0.623, worst 1.000.
+- Lid-bake T_oven_eff: wonder_white=350K, post_wonder_meal=350K (sub-cavity 350-380 K — physically plausible)
+- V2-V1 main-bake RMSE delta (median across fixtures): -15.24 °C (negative = V2 better than V1).
+- Even with k and c freed (5-parameter inverse with only ρ pinned), main-bake RMSE remains above 6 °C on multiple fixtures and/or fitted parameters drift outside literature ranges and/or the correlation matrix is rank-deficient. The two-state Zürcher physics class is information-limited at the in-dough-only observation matrix this dataset provides; Method 4 (capture loaf thickness per CSV plus oven setpoint and lid state) is the only remaining path.
+
+### Synthetic 5-param recovery (manifold sweep)
+
+Generator dx = 0.5 mm (inverter dx = 1.0 mm). Truth: x_core = -10.0 mm past surface, j_0 = 0.04, T_oven_eff = 460 K, k = 0.30 W/(m·K), c = 1800 J/(kg·K). 4 initial guesses × 5 noise seeds (σ=0.5 °C). Each fit allowed up to 2000 Nelder-Mead iterations.
+
+Headline finding: **the 5-parameter fit drives RMSE → 0 even from far-from-truth initial guesses**, but lands at *different* (x_core, j_0, k, c) tuples on a flat α-isoline manifold. Only **T_oven_eff is robustly identifiable** — recovered within a few K across all 20 runs. (k, c) are systematically biased: c slides toward its lower bound (~1100-1200 J/(kg·K)), well below the literature mid-range, regardless of init.
+
+| metric | value |
+|---|---|
+| n runs (4 init × 5 seeds) | 20 |
+| n finite | 20 |
+| RMSE median | 0.496 °C |
+| RMSE max | 0.507 °C |
+| T_oven_eff recovered within 5 K | 20/20 |
+| j_0 within 30% | 18/20 |
+| k within 30% | 20/20 |
+| c within 30% | 4/20 |
+| x_core within 5 mm | 7/20 |
+
+Per-init recovery (mean across 5 noise seeds):
+
+| init# | x_core_init | j_0_init | T_oven_init | k_init | c_init | x_core_fit | j_0_fit | T_oven_fit | k_fit | c_fit | rmse |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | -0.0050 | 0.0500 | 450 | 0.350 | 2200 | -0.0129 | 0.0414 | 461 | 0.333 | 1135 | 0.495 |
+| 1 | -0.0120 | 0.0380 | 458 | 0.320 | 1850 | -0.0148 | 0.0385 | 460 | 0.335 | 1184 | 0.493 |
+| 2 | -0.0020 | 0.1000 | 480 | 0.500 | 1500 | -0.0047 | 0.0494 | 462 | 0.302 | 1154 | 0.497 |
+| 3 | -0.0200 | 0.0200 | 420 | 0.200 | 3000 | -0.0226 | 0.0334 | 460 | 0.365 | 1169 | 0.492 |
+
+### Per-fixture 5-param inverse results
+
+| fixture | x_core_n | j_0 | T_oven_K | k | c | RMSE_full | RMSE_main | RMSE_startup | RMSE_tail | ρ_main | max&#124;ρ_off&#124; |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `BA3C_0946` | -0.148 | 0.0050 | 394 | 0.100 | 2662 | 13.30 | 19.00 | 28.64 | 11.87 | 0.998 | 1.000 |
+| `BA3C_1759_C0` | -0.148 | 0.0050 | 394 | 0.100 | 2662 | 13.30 | 19.00 | 28.64 | 11.87 | 0.998 | 1.000 |
+| `BA3C_1759_C1` | -0.168 | 0.0050 | 394 | 0.102 | 2817 | 14.77 | 19.46 | 28.98 | 11.85 | 0.999 | 1.000 |
+| `BA3C_1759_C2` | -0.124 | 0.0050 | 398 | 0.140 | 3998 | 15.49 | 22.11 | 29.49 | 10.95 | 0.999 | 0.623 |
+| `100098DE_1351` | -0.162 | 0.0050 | 405 | 0.224 | 4000 | 15.76 | 20.51 | 15.06 | 5.86 | 0.997 | 0.508 |
+| `wonder_white` | -0.505 | 0.0053 | 350 | 0.285 | 4000 | 19.32 | 23.05 | 24.56 | 10.86 | 0.999 | 0.250 |
+| `post_wonder_meal` | -0.371 | 0.0057 | 350 | 0.334 | 4000 | 17.39 | 21.09 | 18.92 | 8.17 | 0.998 | 0.250 |
+
+### Main-bake RMSE comparison: V2 vs V1 vs M9 (Stefan) vs M7 (heat-eq)
+
+| fixture | V2 main-bake (k+c free) | V1 main-bake (M11, k+c pinned) | M10 main-bake (M9 Stefan) | M7 full-bake (heat-eq) |
+|---|---|---|---|---|
+| `BA3C_0946` | 19.00 | 36.51 | 5.76 | 6.09 |
+| `BA3C_1759_C0` | 19.00 | 36.51 | 5.76 | 6.09 |
+| `BA3C_1759_C1` | 19.46 | 34.70 | 6.80 | 6.14 |
+| `BA3C_1759_C2` | 22.11 | 38.54 | 7.95 | 6.48 |
+| `100098DE_1351` | 20.51 | 35.22 | 7.49 | 7.03 |
+| `wonder_white` | 23.05 | 38.07 | 11.03 | 10.01 |
+| `post_wonder_meal` | 21.09 | 35.40 | 10.55 | 9.98 |
+
+### Parameter physicality
+
+Literature ranges: k ∈ (0.2, 0.5) W/(m·K); c ∈ (1500, 3000) J/(kg·K); j_0 ∈ (0.01, 0.10); T_oven_eff ∈ (450, 500) K open / (350, 380) K lidded.
+
+| fixture | k in lit | c in lit | j_0 in lit | T_oven in lit |
+|---|---|---|---|---|
+| `BA3C_0946` | NO (0.100) | yes (2662) | NO (0.0050) | NO (394K) |
+| `BA3C_1759_C0` | NO (0.100) | yes (2662) | NO (0.0050) | NO (394K) |
+| `BA3C_1759_C1` | NO (0.102) | yes (2817) | NO (0.0050) | NO (394K) |
+| `BA3C_1759_C2` | NO (0.140) | NO (3998) | NO (0.0050) | NO (398K) |
+| `100098DE_1351` | yes (0.224) | NO (4000) | NO (0.0050) | NO (405K) |
+| `wonder_white` | yes (0.285) | NO (4000) | NO (0.0053) | yes (350K) |
+| `post_wonder_meal` | yes (0.334) | NO (4000) | NO (0.0057) | yes (350K) |
+
+### 5×5 correlation matrices per fixture
+
+
+#### `BA3C_0946`
+
+| | x_core_m | j_0 | T_oven_K | k | c |
+|---|---|---|---|---|---|
+| **x_core_m** |  1.000 | -0.001 | -0.056 | -0.001 |  0.054 |
+| **j_0** | -0.001 |  1.000 |  0.000 |  0.250 | -0.000 |
+| **T_oven_K** | -0.056 |  0.000 |  1.000 |  0.000 | -1.000 |
+| **k** | -0.001 |  0.250 |  0.000 |  1.000 | -0.000 |
+| **c** |  0.054 | -0.000 | -1.000 | -0.000 |  1.000 |
+
+
+#### `BA3C_1759_C0`
+
+| | x_core_m | j_0 | T_oven_K | k | c |
+|---|---|---|---|---|---|
+| **x_core_m** |  1.000 | -0.001 | -0.056 | -0.001 |  0.054 |
+| **j_0** | -0.001 |  1.000 |  0.000 |  0.250 | -0.000 |
+| **T_oven_K** | -0.056 |  0.000 |  1.000 |  0.000 | -1.000 |
+| **k** | -0.001 |  0.250 |  0.000 |  1.000 | -0.000 |
+| **c** |  0.054 | -0.000 | -1.000 | -0.000 |  1.000 |
+
+
+#### `BA3C_1759_C1`
+
+| | x_core_m | j_0 | T_oven_K | k | c |
+|---|---|---|---|---|---|
+| **x_core_m** |  1.000 | -0.000 | -0.049 | -0.001 | -0.052 |
+| **j_0** | -0.000 |  1.000 |  0.000 |  0.250 |  0.000 |
+| **T_oven_K** | -0.049 |  0.000 |  1.000 |  0.000 |  1.000 |
+| **k** | -0.001 |  0.250 |  0.000 |  1.000 |  0.000 |
+| **c** | -0.052 |  0.000 |  1.000 |  0.000 |  1.000 |
+
+
+#### `BA3C_1759_C2`
+
+| | x_core_m | j_0 | T_oven_K | k | c |
+|---|---|---|---|---|---|
+| **x_core_m** |  1.000 | -0.001 | -0.131 | -0.623 |  0.001 |
+| **j_0** | -0.001 |  1.000 |  0.000 |  0.001 | -0.250 |
+| **T_oven_K** | -0.131 |  0.000 |  1.000 | -0.005 | -0.000 |
+| **k** | -0.623 |  0.001 | -0.005 |  1.000 | -0.001 |
+| **c** |  0.001 | -0.250 | -0.000 | -0.001 |  1.000 |
+
+
+#### `100098DE_1351`
+
+| | x_core_m | j_0 | T_oven_K | k | c |
+|---|---|---|---|---|---|
+| **x_core_m** |  1.000 | -0.001 | -0.028 | -0.508 |  0.001 |
+| **j_0** | -0.001 |  1.000 |  0.000 |  0.001 | -0.250 |
+| **T_oven_K** | -0.028 |  0.000 |  1.000 | -0.015 | -0.000 |
+| **k** | -0.508 |  0.001 | -0.015 |  1.000 | -0.001 |
+| **c** |  0.001 | -0.250 | -0.000 | -0.001 |  1.000 |
+
+
+#### `wonder_white`
+
+| | x_core_m | j_0 | T_oven_K | k | c |
+|---|---|---|---|---|---|
+| **x_core_m** | n/a | n/a | n/a | n/a | n/a |
+| **j_0** | n/a | n/a | n/a | n/a | n/a |
+| **T_oven_K** | n/a | n/a |  1.000 | n/a | -0.250 |
+| **k** | n/a | n/a | n/a | n/a | n/a |
+| **c** | n/a | n/a | -0.250 | n/a |  1.000 |
+
+
+#### `post_wonder_meal`
+
+| | x_core_m | j_0 | T_oven_K | k | c |
+|---|---|---|---|---|---|
+| **x_core_m** | n/a | n/a | n/a | n/a | n/a |
+| **j_0** | n/a | n/a | n/a | n/a | n/a |
+| **T_oven_K** | n/a | n/a |  1.000 | n/a | -0.250 |
+| **k** | n/a | n/a | n/a | n/a | n/a |
+| **c** | n/a | n/a | -0.250 | n/a |  1.000 |
+
+### Recommendation
+
+Freeing k and c does not drive main-bake RMSE below the 3 °C bar. The synthetic test confirms the 5-parameter fit is **non-identifiable** at the in-dough-only observation matrix this dataset provides — multiple very different (k, c, x_core, j_0) tuples reproduce the observable trajectories. Only T_oven_eff is robustly identifiable. The two-state Zürcher model class is information-limited; **Method 4** (capture loaf thickness, oven setpoint, and lid state per CSV at acquisition time) is the only remaining path. Recommend pivoting away from inverse-problem work on this data alone.
+
+### Open follow-ups
+
+1. **Production wiring vs Method 4 pivot** — depends on the verdict above. If GO/GO-WITH-CAVEATS, wire `fit_zurcher_inverse_v2` into the loader with `free_constants=['k','c']` and surface (k, c) as per-curve metadata. If CONFIRM-information-limit, the inverse-problem track is closed; next step is Method 4 (data-acquisition metadata capture).
+2. **Per-fixture loaf thickness** — V2 still pins R = 50 mm across all fixtures. Per the M11 Round 1 follow-up, the radiative term scales with R through the conduction denominators. If production captures real loaf thickness, this becomes per-fixture and may shift the V2 verdict (likely toward GO-WITH-CAVEATS even if the present verdict is CONFIRM-information-limit).
+3. **Surface-sensor inclusion in the loss** — V2's loss matrix is in-dough-only (T1-T5 or T1-T6). Including the in-air sensor T_surface (which carries direct radiative-BC information) would break the (k, c) degeneracy along the α-isoline. The classifier already infers a continuous x_surface position; an extension to fit a synthetic surface time-series interpolated at that position is straightforward but out of scope for this round.
+4. **Convective coupling** — Zürcher's eq 1 omits convection. Real ovens with forced air may need an `h_conv·(T_oven - T_out)` term added to eq 4. Adding a sixth parameter is unlikely to help while the underlying observation matrix is in-dough-only.

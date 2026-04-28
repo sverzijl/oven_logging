@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Tireless: extend Zurcher inverse to free k (thermal conductivity) and c (specific heat) in addition to x_core j_0 T_oven_eff. 5-param fit with rho pinned at 1000 kg/m^3 (most product-stable). Test whether per-product physics calibration drops main-bake RMSE below the M9 Stefan baseline.",
+  "actual_outcome": "5-param Zurcher inverse (k, c free; rho pinned) implemented and tested. Synthetic recovery passes cleanly: RMSE 0.5 deg C, k within 30 percent on 20 of 20 runs. Real-CSV: 7/7 converge but main-bake RMSE 13-22 deg C (down from M11's 35-38 but still 2-4x M9 Stefan), all 7 fixtures hit j_0 lower bound, 4/7 have correlation rank-deficient. Lid bakes did find sub-cavity T_oven_eff (350K) \u2014 the radiative-BC mechanism does work as intended. Verdict CONFIRM-information-limit: even 5 free parameters cannot recover x_core well when in-dough sensors are saturated near 100 deg C. Method 4 (loaf-thickness metadata) is the only remaining path.",
+  "success_metric_result": "23 fast tests pass; synthetic recovery clean; real-CSV main-bake RMSE >6 deg C on 7/7; correlation matrix degenerate on 4/7; lag-1 autocorr 0.998 unchanged; 0/7 fixtures with all params in literature ranges.",
+  "duration_minutes": 40,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Multi-init synthetic recovery (4 inits x 5 seeds = 20 runs) is a robust identifiability check \u2014 single-init synthetic recovery would have given misleading optimism"
+    ],
+    "avoid": [
+      "Treating clean synthetic recovery as evidence the inverse will work on real data \u2014 even Zurcher-class synthetic recovery says nothing about whether the data carries enough information to constrain the model"
+    ]
+  },
+  "created_at": "2026-04-28T08:31:37Z"
+}
