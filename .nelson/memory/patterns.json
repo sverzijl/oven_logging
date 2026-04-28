@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T03:51:24Z",
-  "pattern_count": 44,
+  "updated_at": "2026-04-28T06:15:06Z",
+  "pattern_count": 45,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -872,6 +872,27 @@
       ],
       "avoid": [
         "Treating a single OR-clause in an automated verdict logic as load-bearing \u2014 read the empirical totality"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_044720_1c1b7857",
+      "completed_at": "2026-04-28T06:15:06Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Triumph: 1D Stefan moving-boundary inverse problem with latent-heat phase change. Forward solver via enthalpy method; joint 4-parameter inverse (x_core alpha_dough alpha_crust rhoL_eff) + comparison against literature-pinned 1-parameter fit. Viability study with honest verdict on whether Stefan physics fits real bread bakes.",
+      "adopt": [
+        "Enthalpy method (effective Cp with smearing window) for moving-boundary problems \u2014 non-stiff, uses standard ODE solvers, well-suited to inverse problems",
+        "Generate synthetic test data via DIFFERENT numerical realisation than the inverse-fitter (different smearing dT) to avoid self-test tautology"
+      ],
+      "avoid": [
+        "Treating headline RMSE alone as the verdict \u2014 Stefan vs heat-eq RMSE were similar but well-conditioning, x_core extrapolation, and physical interpretability all differ"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

@@ -1,0 +1,852 @@
+{
+  "phase1": {
+    "stefan_number": 2.0,
+    "rhoL_eff_used": 25.0,
+    "alpha": 0.001,
+    "T_surf": 150.0,
+    "T_init": 100.0,
+    "max_abs_diff_C": 2.816569269876382,
+    "per_position_max_C": [
+      2.816569269876382,
+      1.7259212270704438,
+      0.8707755582754544,
+      0.2910718272117947
+    ],
+    "tolerance_C": 3.0,
+    "pass": true,
+    "note": "Enthalpy method has unavoidable bias O(rhoL_eff/2) \u00b0C from the smearing window when matched to a sharp-interface analytical solution \u2014 tightening dT does not remove the bias since rhoL_eff is held constant. Bar of 3 \u00b0C accepts that bias as the cost of a non-stiff inverse problem."
+  },
+  "phase2": {
+    "rows": [
+      {
+        "seed": 0,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.05072366572964812,
+        "alpha_dough_fit": 0.0009462441436862563,
+        "alpha_crust_fit": 0.0006068992198665672,
+        "rhoL_eff_fit": 59.45408809917194,
+        "rmse_per_sensor": 1.410599039172965,
+        "max_abs_off_diag_correlation": 0.31014891410649287,
+        "converged": true,
+        "n_iter": 102,
+        "fit_seconds": 127.86986207962036
+      },
+      {
+        "seed": 1,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.04530289347749237,
+        "alpha_dough_fit": 0.0009452475715225083,
+        "alpha_crust_fit": 0.0006204184740128588,
+        "rhoL_eff_fit": 61.596516344665915,
+        "rmse_per_sensor": 1.4401053258941248,
+        "max_abs_off_diag_correlation": 0.2974490634838552,
+        "converged": true,
+        "n_iter": 111,
+        "fit_seconds": 113.14615416526794
+      },
+      {
+        "seed": 2,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.048836479175025496,
+        "alpha_dough_fit": 0.0009460899228643103,
+        "alpha_crust_fit": 0.0005917204976547606,
+        "rhoL_eff_fit": 58.29168745864352,
+        "rmse_per_sensor": 1.3940023213997674,
+        "max_abs_off_diag_correlation": 0.5652806978624653,
+        "converged": true,
+        "n_iter": 141,
+        "fit_seconds": 161.58161044120789
+      },
+      {
+        "seed": 3,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.05085892450481147,
+        "alpha_dough_fit": 0.0009375074581481866,
+        "alpha_crust_fit": 0.0008823181282437356,
+        "rhoL_eff_fit": 89.78113379000158,
+        "rmse_per_sensor": 1.0942421842693444,
+        "max_abs_off_diag_correlation": 0.39700651707026036,
+        "converged": true,
+        "n_iter": 141,
+        "fit_seconds": 176.93627548217773
+      },
+      {
+        "seed": 4,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.050774640575196234,
+        "alpha_dough_fit": 0.0009485085354223647,
+        "alpha_crust_fit": 0.0006231969780288444,
+        "rhoL_eff_fit": 61.30146721025454,
+        "rmse_per_sensor": 1.3845351917098667,
+        "max_abs_off_diag_correlation": 0.47787626348404993,
+        "converged": true,
+        "n_iter": 125,
+        "fit_seconds": 183.1164767742157
+      },
+      {
+        "seed": 5,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.05055122750931612,
+        "alpha_dough_fit": 0.0009379854232823173,
+        "alpha_crust_fit": 0.000634738998936184,
+        "rhoL_eff_fit": 62.33730712423817,
+        "rmse_per_sensor": 1.3389861307541249,
+        "max_abs_off_diag_correlation": 0.2720711579737387,
+        "converged": true,
+        "n_iter": 168,
+        "fit_seconds": 318.1798586845398
+      },
+      {
+        "seed": 6,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.0530663607246455,
+        "alpha_dough_fit": 0.0009530365923554015,
+        "alpha_crust_fit": 0.0006591167026620212,
+        "rhoL_eff_fit": 66.52136378276322,
+        "rmse_per_sensor": 1.2315412209637173,
+        "max_abs_off_diag_correlation": 0.24774616063029178,
+        "converged": true,
+        "n_iter": 159,
+        "fit_seconds": 137.2543022632599
+      },
+      {
+        "seed": 7,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.047698040412822496,
+        "alpha_dough_fit": 0.0009262994174166101,
+        "alpha_crust_fit": 0.0006264687159175136,
+        "rhoL_eff_fit": 60.79494391270694,
+        "rmse_per_sensor": 1.3865534842100902,
+        "max_abs_off_diag_correlation": 0.3300460079545369,
+        "converged": true,
+        "n_iter": 127,
+        "fit_seconds": 101.96643781661987
+      },
+      {
+        "seed": 8,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.04892792690372399,
+        "alpha_dough_fit": 0.0009540621981487141,
+        "alpha_crust_fit": 0.0005956557469646008,
+        "rhoL_eff_fit": 58.58622227880145,
+        "rmse_per_sensor": 1.4758468338879582,
+        "max_abs_off_diag_correlation": 0.43149546171246567,
+        "converged": true,
+        "n_iter": 114,
+        "fit_seconds": 97.2606749534607
+      },
+      {
+        "seed": 9,
+        "x_core_true": -0.1,
+        "x_core_fit": -0.05584216527749174,
+        "alpha_dough_fit": 0.0009591055657516415,
+        "alpha_crust_fit": 0.0008598082579552838,
+        "rhoL_eff_fit": 86.95601404243693,
+        "rmse_per_sensor": 1.0042227405906752,
+        "max_abs_off_diag_correlation": 0.5515236365973125,
+        "converged": true,
+        "n_iter": 159,
+        "fit_seconds": 115.36870694160461
+      }
+    ],
+    "summary": {
+      "n_seeds": 10,
+      "n_converged": 10,
+      "x_core_true": -0.1,
+      "bias": 0.049741767570982656,
+      "spread": 0.0028847671885441238,
+      "rmse_median": 1.3855443379599786,
+      "generator_delta_T_smear": 0.3,
+      "inverter_delta_T_smear": 1.0
+    }
+  },
+  "phase3": {
+    "joint": {
+      "BA3C_0946": {
+        "x_core": -0.051262612058807416,
+        "alpha_dough": 0.000356960463072217,
+        "alpha_crust": 0.001065130712973615,
+        "rhoL_eff": 39.95328224745562,
+        "x_core_se": 0.007302822200204915,
+        "alpha_dough_se": 5.092876412192494e-06,
+        "alpha_crust_se": 2.0295828460159176e-05,
+        "rhoL_eff_se": 0.8605331941790207,
+        "full_correlation_matrix": [
+          [
+            1.0,
+            -0.23459236751897167,
+            -0.019370286563560775,
+            -0.047863254602974796
+          ],
+          [
+            -0.23459236751897183,
+            1.0,
+            -0.09067009848883115,
+            0.08993813157477079
+          ],
+          [
+            -0.019370286563560796,
+            -0.09067009848883113,
+            1.0,
+            -0.03600276982900428
+          ],
+          [
+            -0.04786325460297479,
+            0.08993813157477065,
+            -0.03600276982900446,
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.23459236751897183,
+        "sse": 13591.400192078603,
+        "rmse_per_sensor": 6.187538633728551,
+        "n_obs": 355,
+        "converged": false,
+        "n_iter": 400,
+        "T_initial": 29.3,
+        "x_surface_continuous": 0.6786994367639527,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "fit_seconds": 71.52259516716003,
+        "fixture_label": "BA3C_0946",
+        "fixture_name": "real_1000BA3C_0946",
+        "expected_curve_idx": 0,
+        "n_in_dough": 5,
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "BA3C_1759_C0": {
+        "x_core": -0.051262612058807416,
+        "alpha_dough": 0.000356960463072217,
+        "alpha_crust": 0.001065130712973615,
+        "rhoL_eff": 39.95328224745562,
+        "x_core_se": 0.007302822200204915,
+        "alpha_dough_se": 5.092876412192494e-06,
+        "alpha_crust_se": 2.0295828460159176e-05,
+        "rhoL_eff_se": 0.8605331941790207,
+        "full_correlation_matrix": [
+          [
+            1.0,
+            -0.23459236751897167,
+            -0.019370286563560775,
+            -0.047863254602974796
+          ],
+          [
+            -0.23459236751897183,
+            1.0,
+            -0.09067009848883115,
+            0.08993813157477079
+          ],
+          [
+            -0.019370286563560796,
+            -0.09067009848883113,
+            1.0,
+            -0.03600276982900428
+          ],
+          [
+            -0.04786325460297479,
+            0.08993813157477065,
+            -0.03600276982900446,
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.23459236751897183,
+        "sse": 13591.400192078603,
+        "rmse_per_sensor": 6.187538633728551,
+        "n_obs": 355,
+        "converged": false,
+        "n_iter": 400,
+        "T_initial": 29.3,
+        "x_surface_continuous": 0.6786994367639527,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "fit_seconds": 73.23737859725952,
+        "fixture_label": "BA3C_1759_C0",
+        "fixture_name": "real_1000BA3C_1759",
+        "expected_curve_idx": 0,
+        "n_in_dough": 5,
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "BA3C_1759_C1": {
+        "x_core": -0.0605797791553293,
+        "alpha_dough": 0.00045973621667668563,
+        "alpha_crust": 0.003979488228048842,
+        "rhoL_eff": 16.05641702254966,
+        "x_core_se": 0.00916669659928971,
+        "alpha_dough_se": 6.996964123991489e-06,
+        "alpha_crust_se": 8.059200054439384e-05,
+        "rhoL_eff_se": 0.41502967839795374,
+        "full_correlation_matrix": [
+          [
+            1.0,
+            -0.30277034785645085,
+            -0.14356311307126168,
+            -0.013418396372962013
+          ],
+          [
+            -0.3027703478564509,
+            1.0000000000000002,
+            0.03441169836112527,
+            0.00225245752388219
+          ],
+          [
+            -0.1435631130712616,
+            0.03441169836112518,
+            0.9999999999999999,
+            0.02490868729880752
+          ],
+          [
+            -0.01341839637296216,
+            0.0022524575238822577,
+            0.02490868729880823,
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.3027703478564509,
+        "sse": 15221.678832521455,
+        "rmse_per_sensor": 6.414021555960679,
+        "n_obs": 370,
+        "converged": true,
+        "n_iter": 191,
+        "T_initial": 35.470000000000006,
+        "x_surface_continuous": 0.7177439275421984,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "fit_seconds": 34.627761363983154,
+        "fixture_label": "BA3C_1759_C1",
+        "fixture_name": "real_1000BA3C_1759",
+        "expected_curve_idx": 1,
+        "n_in_dough": 5,
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "BA3C_1759_C2": {
+        "x_core": -0.050890662573499855,
+        "alpha_dough": 0.0003379275640262144,
+        "alpha_crust": 0.0010366868649953902,
+        "rhoL_eff": 39.477171690825486,
+        "x_core_se": 0.006625731772005065,
+        "alpha_dough_se": 4.991142885806467e-06,
+        "alpha_crust_se": 1.705788946096672e-05,
+        "rhoL_eff_se": 0.790112928447737,
+        "full_correlation_matrix": [
+          [
+            1.0,
+            -0.11580412513715947,
+            -0.07909234320624331,
+            -0.02236489294414583
+          ],
+          [
+            -0.11580412513715937,
+            1.0,
+            -0.08356486968930373,
+            -0.022295743853834683
+          ],
+          [
+            -0.07909234320624332,
+            -0.08356486968930348,
+            1.0000000000000002,
+            0.10457867615932809
+          ],
+          [
+            -0.022364892944145814,
+            -0.02229574385383442,
+            0.10457867615932771,
+            1.0000000000000002
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.11580412513715947,
+        "sse": 21833.575729223307,
+        "rmse_per_sensor": 7.630391117843315,
+        "n_obs": 375,
+        "converged": false,
+        "n_iter": 400,
+        "T_initial": 35.10000000000001,
+        "x_surface_continuous": 0.7131671056904703,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "fit_seconds": 112.16345691680908,
+        "fixture_label": "BA3C_1759_C2",
+        "fixture_name": "real_1000BA3C_1759",
+        "expected_curve_idx": 2,
+        "n_in_dough": 5,
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "100098DE_1351": {
+        "x_core": 0.4403577993858237,
+        "alpha_dough": 0.00021285720516604317,
+        "alpha_crust": 9.737766073729659e-14,
+        "rhoL_eff": 45599513173869.46,
+        "x_core_se": 0.006103153040756671,
+        "alpha_dough_se": 4.414455666368366e-06,
+        "alpha_crust_se": 0.0,
+        "rhoL_eff_se": 0.0,
+        "full_correlation_matrix": [
+          [
+            0.9999999999999998,
+            -0.2549689277988048,
+            NaN,
+            NaN
+          ],
+          [
+            -0.25496892779880487,
+            0.9999999999999999,
+            NaN,
+            NaN
+          ],
+          [
+            NaN,
+            NaN,
+            NaN,
+            NaN
+          ],
+          [
+            NaN,
+            NaN,
+            NaN,
+            NaN
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.25496892779880487,
+        "sse": 14533.286802217379,
+        "rmse_per_sensor": 6.914250825720616,
+        "n_obs": 304,
+        "converged": true,
+        "n_iter": 201,
+        "T_initial": 30.4,
+        "x_surface_continuous": 0.7703681378329582,
+        "extrapolated": false,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "fit_seconds": 28.82962989807129,
+        "fixture_label": "100098DE_1351",
+        "fixture_name": "real_100098DE_1351",
+        "expected_curve_idx": 0,
+        "n_in_dough": 4,
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4"
+        ]
+      },
+      "wonder_white": {
+        "x_core": -0.06276124355255108,
+        "alpha_dough": 1705.1855986708993,
+        "alpha_crust": 1.3321318597393777e-05,
+        "rhoL_eff": 1002.4916901974157,
+        "x_core_se": 0.013841125507328984,
+        "alpha_dough_se": 55.27019228956822,
+        "alpha_crust_se": 0.0,
+        "rhoL_eff_se": 0.0,
+        "full_correlation_matrix": [
+          [
+            1.0000000000000002,
+            -0.018688188806331274,
+            NaN,
+            NaN
+          ],
+          [
+            -0.01868818880633127,
+            1.0000000000000002,
+            NaN,
+            NaN
+          ],
+          [
+            NaN,
+            NaN,
+            NaN,
+            NaN
+          ],
+          [
+            NaN,
+            NaN,
+            NaN,
+            NaN
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.018688188806331274,
+        "sse": 49846.21312091767,
+        "rmse_per_sensor": 9.828590347493007,
+        "n_obs": 516,
+        "converged": false,
+        "n_iter": 400,
+        "T_initial": 30.608333333333334,
+        "x_surface_continuous": 0.9285714285714286,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "fit_seconds": 210.04038310050964,
+        "fixture_label": "wonder_white",
+        "fixture_name": "wonder_white_10k_lidded",
+        "expected_curve_idx": 0,
+        "n_in_dough": 6,
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5",
+          "T6"
+        ]
+      },
+      "post_wonder_meal": {
+        "x_core": -0.06204913916246882,
+        "alpha_dough": 225.1617729067369,
+        "alpha_crust": 1.4813979361085524e-05,
+        "rhoL_eff": 631.1702791652798,
+        "x_core_se": 0.012681246072699342,
+        "alpha_dough_se": 6.134321994594921,
+        "alpha_crust_se": 0.0,
+        "rhoL_eff_se": 0.0,
+        "full_correlation_matrix": [
+          [
+            1.0,
+            0.006069985181408145,
+            NaN,
+            NaN
+          ],
+          [
+            0.00606998518140815,
+            1.0,
+            NaN,
+            NaN
+          ],
+          [
+            NaN,
+            NaN,
+            NaN,
+            NaN
+          ],
+          [
+            NaN,
+            NaN,
+            NaN,
+            NaN
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.00606998518140815,
+        "sse": 38419.65215138065,
+        "rmse_per_sensor": 9.452408595645068,
+        "n_obs": 430,
+        "converged": false,
+        "n_iter": 400,
+        "T_initial": 29.659999999999997,
+        "x_surface_continuous": 0.9285714285714286,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "fit_seconds": 175.2775206565857,
+        "fixture_label": "post_wonder_meal",
+        "fixture_name": "post_wonder_meal_lidded",
+        "expected_curve_idx": 0,
+        "n_in_dough": 5,
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      }
+    },
+    "pinned": {
+      "BA3C_0946": {
+        "x_core": 0.4271875000000016,
+        "x_core_se": 0.003847805567525437,
+        "alpha_dough_pinned": 5.599999999999999e-05,
+        "alpha_crust_pinned": 3.999999999999999e-05,
+        "rhoL_eff_pinned": 68571.42857142855,
+        "alpha_dough_lit_si": 1.4e-07,
+        "alpha_crust_lit_si": 1e-07,
+        "rhoL_eff_lit_si": 600000000.0,
+        "loaf_thickness_m": 0.05,
+        "full_correlation_matrix": [
+          [
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.0,
+        "sse": 25604.110033254936,
+        "rmse_per_sensor": 8.492599932576752,
+        "n_obs": 355,
+        "converged": true,
+        "n_iter": 12,
+        "T_initial": 29.3,
+        "x_surface_continuous": 0.6786994367639527,
+        "extrapolated": false,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "variant": "pinned",
+        "fit_seconds": 1.218583345413208,
+        "fixture_label": "BA3C_0946",
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "BA3C_1759_C0": {
+        "x_core": 0.4271875000000016,
+        "x_core_se": 0.003847805567525437,
+        "alpha_dough_pinned": 5.599999999999999e-05,
+        "alpha_crust_pinned": 3.999999999999999e-05,
+        "rhoL_eff_pinned": 68571.42857142855,
+        "alpha_dough_lit_si": 1.4e-07,
+        "alpha_crust_lit_si": 1e-07,
+        "rhoL_eff_lit_si": 600000000.0,
+        "loaf_thickness_m": 0.05,
+        "full_correlation_matrix": [
+          [
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.0,
+        "sse": 25604.110033254936,
+        "rmse_per_sensor": 8.492599932576752,
+        "n_obs": 355,
+        "converged": true,
+        "n_iter": 12,
+        "T_initial": 29.3,
+        "x_surface_continuous": 0.6786994367639527,
+        "extrapolated": false,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "variant": "pinned",
+        "fit_seconds": 1.023874044418335,
+        "fixture_label": "BA3C_1759_C0",
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "BA3C_1759_C1": {
+        "x_core": 0.47860351562500175,
+        "x_core_se": 0.004036937767577858,
+        "alpha_dough_pinned": 5.599999999999999e-05,
+        "alpha_crust_pinned": 3.999999999999999e-05,
+        "rhoL_eff_pinned": 68571.42857142855,
+        "alpha_dough_lit_si": 1.4e-07,
+        "alpha_crust_lit_si": 1e-07,
+        "rhoL_eff_lit_si": 600000000.0,
+        "loaf_thickness_m": 0.05,
+        "full_correlation_matrix": [
+          [
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.0,
+        "sse": 23234.55976425519,
+        "rmse_per_sensor": 7.924399502231067,
+        "n_obs": 370,
+        "converged": true,
+        "n_iter": 12,
+        "T_initial": 35.470000000000006,
+        "x_surface_continuous": 0.7177439275421984,
+        "extrapolated": false,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "variant": "pinned",
+        "fit_seconds": 0.8900041580200195,
+        "fixture_label": "BA3C_1759_C1",
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "BA3C_1759_C2": {
+        "x_core": 0.44300781250000165,
+        "x_core_se": 0.0038951100305444873,
+        "alpha_dough_pinned": 5.599999999999999e-05,
+        "alpha_crust_pinned": 3.999999999999999e-05,
+        "rhoL_eff_pinned": 68571.42857142855,
+        "alpha_dough_lit_si": 1.4e-07,
+        "alpha_crust_lit_si": 1e-07,
+        "rhoL_eff_lit_si": 600000000.0,
+        "loaf_thickness_m": 0.05,
+        "full_correlation_matrix": [
+          [
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.0,
+        "sse": 23081.953124119813,
+        "rmse_per_sensor": 7.845500302571712,
+        "n_obs": 375,
+        "converged": true,
+        "n_iter": 13,
+        "T_initial": 35.10000000000001,
+        "x_surface_continuous": 0.7131671056904703,
+        "extrapolated": false,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "variant": "pinned",
+        "fit_seconds": 2.483154058456421,
+        "fixture_label": "BA3C_1759_C2",
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      },
+      "100098DE_1351": {
+        "x_core": 0.6018041992187521,
+        "x_core_se": 0.0038193831620974015,
+        "alpha_dough_pinned": 5.599999999999999e-05,
+        "alpha_crust_pinned": 3.999999999999999e-05,
+        "rhoL_eff_pinned": 68571.42857142855,
+        "alpha_dough_lit_si": 1.4e-07,
+        "alpha_crust_lit_si": 1e-07,
+        "rhoL_eff_lit_si": 600000000.0,
+        "loaf_thickness_m": 0.05,
+        "full_correlation_matrix": [
+          [
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.0,
+        "sse": 14539.904599460064,
+        "rmse_per_sensor": 6.915824864096507,
+        "n_obs": 304,
+        "converged": true,
+        "n_iter": 13,
+        "T_initial": 30.4,
+        "x_surface_continuous": 0.7703681378329582,
+        "extrapolated": false,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "variant": "pinned",
+        "fit_seconds": 1.1288728713989258,
+        "fixture_label": "100098DE_1351",
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4"
+        ]
+      },
+      "wonder_white": {
+        "x_core": -0.045,
+        "x_core_se": 0.07331461570042201,
+        "alpha_dough_pinned": 5.599999999999999e-05,
+        "alpha_crust_pinned": 3.999999999999999e-05,
+        "rhoL_eff_pinned": 68571.42857142855,
+        "alpha_dough_lit_si": 1.4e-07,
+        "alpha_crust_lit_si": 1e-07,
+        "rhoL_eff_lit_si": 600000000.0,
+        "loaf_thickness_m": 0.05,
+        "full_correlation_matrix": [
+          [
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.0,
+        "sse": 737987.2558320903,
+        "rmse_per_sensor": 37.818089059862736,
+        "n_obs": 516,
+        "converged": true,
+        "n_iter": 4,
+        "T_initial": 30.608333333333334,
+        "x_surface_continuous": 0.9285714285714286,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "variant": "pinned",
+        "fit_seconds": 0.4159271717071533,
+        "fixture_label": "wonder_white",
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5",
+          "T6"
+        ]
+      },
+      "post_wonder_meal": {
+        "x_core": -0.052500000000000005,
+        "x_core_se": 8.22806322520966e+16,
+        "alpha_dough_pinned": 5.599999999999999e-05,
+        "alpha_crust_pinned": 3.999999999999999e-05,
+        "rhoL_eff_pinned": 68571.42857142855,
+        "alpha_dough_lit_si": 1.4e-07,
+        "alpha_crust_lit_si": 1e-07,
+        "rhoL_eff_lit_si": 600000000.0,
+        "loaf_thickness_m": 0.05,
+        "full_correlation_matrix": [
+          [
+            1.0
+          ]
+        ],
+        "max_abs_off_diag_correlation": 0.0,
+        "sse": 740911.7215286335,
+        "rmse_per_sensor": 41.509643640759776,
+        "n_obs": 430,
+        "converged": true,
+        "n_iter": 2,
+        "T_initial": 29.659999999999997,
+        "x_surface_continuous": 0.9285714285714286,
+        "extrapolated": true,
+        "bc_source": "interpolated_v2",
+        "delta_T_smear": 1.0,
+        "variant": "pinned",
+        "fit_seconds": 0.265765905380249,
+        "fixture_label": "post_wonder_meal",
+        "in_dough": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5"
+        ]
+      }
+    }
+  },
+  "verdict": "NO-GO",
+  "rationale": [
+    "Forward-solver sanity (Stefan-Neumann analytical): max diff 2.82 \u00b0C (bar 3 \u00b0C) \u2192 PASS",
+    "Synthetic recovery (10 seeds, generator dT=0.3, inverter dT=1.0): bias=0.0497, spread=0.0029, converged=10/10 \u2192 PASS",
+    "Joint RMSE (real CSVs): median=6.91 \u00b0C, max=9.83 \u00b0C across 7 fixtures.",
+    "Pinned RMSE (real CSVs): median=8.49 \u00b0C, max=41.51 \u00b0C across 7 fixtures.",
+    "M7 heat-eq baseline RMSE for context: median=6.48 \u00b0C.",
+    "Max |\u03c1| of joint 4-param fit: median=0.235, max-across-fixtures=0.303 (well-conditioned bar < 0.85).",
+    "BA3C cases extrapolating past T1 (x_core < 0): BA3C_0946, BA3C_1759_C0, BA3C_1759_C1, BA3C_1759_C2"
+  ],
+  "wall_seconds": 2262.594629049301
+}
