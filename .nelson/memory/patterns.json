@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T06:15:06Z",
-  "pattern_count": 45,
+  "updated_at": "2026-04-28T06:38:01Z",
+  "pattern_count": 46,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -893,6 +893,26 @@
       ],
       "avoid": [
         "Treating headline RMSE alone as the verdict \u2014 Stefan vs heat-eq RMSE were similar but well-conditioning, x_core extrapolation, and physical interpretability all differ"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_063114_3cc77192",
+      "completed_at": "2026-04-28T06:38:01Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Diamond: decompose M9 Stefan-fit real-CSV residuals into per-sensor, per-time-segment, and structure components. Determine whether the headline 6-10 deg C RMSE is real model misfit or accounting artefact (startup transient, probe-pull tail, per-sensor calibration bias).",
+      "adopt": [
+        "Decompose pooled RMSE into per-segment / per-sensor / structure components before trusting headline number. Lag-1 auto-correlation is a quick pass/fail for white-noise vs structured residual"
+      ],
+      "avoid": [
+        "Assuming pooled RMSE has accounting issues without measuring \u2014 three artefact hypotheses (startup, tail, calibration) all rejected by the data"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

@@ -149,3 +149,64 @@ Stefan does not deliver enough RMSE reduction to justify the implementation cost
 1. The literature-pinned variant relies on a 50 mm loaf-thickness scaling. If/when production captures real loaf thickness per CSV, this becomes per-fixture and removes one pragmatic conversion.
 2. Lid-suppressed bakes (`wonder_white`, `post_wonder_meal`) cap the cavity at ~100 °C. The Stefan front cannot advance, and the inverse problem genuinely loses information. A different model (possibly two-parameter fit pinning ρL_eff and α_crust to literature) may be needed for those bakes.
 3. Forward-solver bias of ~2-3 °C from the smearing window propagates into RMSE. Tighter ΔT_smear (0.3 °C) would shave that bias at the cost of doubled wall-time per fit. Worth re-examining once production wiring is decided.
+## Round 2 — residual decomposition (HMS Diamond, 2026-04-28)
+
+The M9 driver verdict was NO-GO based on real-CSV RMSE 6-10 °C matching M7's heat-equation baseline. The admiral suspected the RMSE might be inflated by startup transient, probe-pull tail, and per-sensor calibration bias rather than genuine model misfit. This decomposition tests that hypothesis empirically by re-evaluating the M9-fitted forward solver once per fixture and slicing the residual matrix by time segment, by sensor, and by autocorrelation structure. No new physics — same Stefan forward solver, same M9 fitted parameters.
+
+### Per-time-segment RMSE
+
+| fixture | startup (0-10%) | main (10-90%) | tail (90-100%) | full |
+|---|---|---|---|---|
+| `BA3C_0946` | 4.79 | 5.76 | 9.36 | 6.19 |
+| `BA3C_1759_C0` | 4.79 | 5.76 | 9.36 | 6.19 |
+| `BA3C_1759_C1` | 0.89 | 6.80 | 6.64 | 6.41 |
+| `BA3C_1759_C2` | 0.93 | 7.95 | 8.90 | 7.63 |
+| `100098DE_1351` | 5.43 | 7.49 | 2.06 | 6.91 |
+| `wonder_white` | 1.72 | 11.03 | 1.14 | 9.83 |
+| `post_wonder_meal` | 3.63 | 10.55 | 0.53 | 9.45 |
+
+### Per-sensor RMSE
+
+| fixture | T1 | T2 | T3 | T4 | T5 | T6 | worst | trim-mean (drop worst) | full |
+|---|---|---|---|---|---|---|---|---|---|
+| `BA3C_0946` | 9.30 | 7.35 | 5.48 | 4.24 | 1.73 | — | T1 (9.30) | 5.12 | 6.19 |
+| `BA3C_1759_C0` | 9.30 | 7.35 | 5.48 | 4.24 | 1.73 | — | T1 (9.30) | 5.12 | 6.19 |
+| `BA3C_1759_C1` | 9.19 | 7.19 | 6.05 | 5.32 | 2.15 | — | T1 (9.19) | 5.51 | 6.41 |
+| `BA3C_1759_C2` | 9.79 | 8.58 | 7.27 | 7.07 | 4.35 | — | T1 (9.79) | 6.99 | 7.63 |
+| `100098DE_1351` | 8.17 | 4.56 | 6.81 | 7.57 | — | — | T1 (8.17) | 6.44 | 6.91 |
+| `wonder_white` | 16.85 | 4.36 | 2.70 | 7.58 | 10.79 | 9.77 | T1 (16.85) | 7.69 | 9.83 |
+| `post_wonder_meal` | 15.84 | 3.92 | 3.47 | 7.71 | 10.45 | — | T1 (15.84) | 7.00 | 9.45 |
+
+### Residual structure (lag-1 autocorr, signed mean)
+
+| fixture | segment | lag-1 ρ (mean over sensors) | mean residual (°C) |
+|---|---|---|---|
+| `BA3C_0946` | startup | 0.548 | -4.10 |
+| `BA3C_0946` | main | 0.991 | +1.11 |
+| `BA3C_0946` | tail | 0.992 | -7.90 |
+| `BA3C_1759_C0` | startup | 0.548 | -4.10 |
+| `BA3C_1759_C0` | main | 0.991 | +1.11 |
+| `BA3C_1759_C0` | tail | 0.992 | -7.90 |
+| `BA3C_1759_C1` | startup | 0.853 | -0.61 |
+| `BA3C_1759_C1` | main | 0.995 | +1.59 |
+| `BA3C_1759_C1` | tail | 0.997 | -5.37 |
+| `BA3C_1759_C2` | startup | 0.892 | +0.03 |
+| `BA3C_1759_C2` | main | 0.996 | +3.33 |
+| `BA3C_1759_C2` | tail | 0.996 | -6.76 |
+| `100098DE_1351` | startup | 0.726 | -5.04 |
+| `100098DE_1351` | main | 0.993 | +0.14 |
+| `100098DE_1351` | tail | 0.997 | -1.96 |
+| `wonder_white` | startup | 0.292 | -1.26 |
+| `wonder_white` | main | 0.994 | +1.30 |
+| `wonder_white` | tail | 0.444 | +0.37 |
+| `post_wonder_meal` | startup | -0.071 | -3.16 |
+| `post_wonder_meal` | main | 0.994 | -0.06 |
+| `post_wonder_meal` | tail | 0.859 | -0.05 |
+
+### Revised verdict
+
+**CONFIRM NO-GO**
+
+- Main-bake RMSE distribution: <3 °C=0/7, 3-6 °C=2/7, >6 °C=5/7 (median=7.49 °C).
+- Main-bake lag-1 auto-corr: median=0.994, max|ρ|=0.996.
+- Main-bake RMSE remains > 6 °C on multiple fixtures and/or residuals show strong temporal structure (|ρ| > 0.6) — Stefan does not fit main-bake dynamics; the headline M9 RMSE was a genuine model-misfit signal, not an accounting artefact.
