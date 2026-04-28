@@ -1,0 +1,30 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Resolution", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Heat-equation re-test with corrected BC + profile likelihood + true-misfit synthetic",
+      "owner": "HMS Resolution",
+      "deliverable": "Extend src/data/spatial_reconstruction/heat_equation.py with: (a) fit_heat_equation_inverse_v2 that takes x_surface as a continuous float (M6 inferred interface) AND derives the surface time series via interpolate_temperature_series_at instead of accepting an in-dough sensor's series; (b) profile_likelihood_x_core helper that scans x_core on a grid and refits alpha at each. Update tests/test_heat_equation_research.py (or add tests/test_heat_equation_research_v2.py) to: (1) re-run real-CSV viability with the corrected BC across all 7 fixtures, (2) run profile-likelihood scan on 3 chosen fixtures (BA3C_0946, 100098DE_1351, wonder_white) over x_core grid covering past-tip region, (3) run synthetic_shallow_insertion through the inverse fitter as a true model-misfit baseline. Append a 'Round 2 — corrected BC + profile likelihood' section to tests/baselines/heat_equation_extrapolation_research.md with new tables and a revised verdict (CONFIRM NO-GO / GO-WITH-CAVEATS / GO).",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/heat_equation.py",
+        "oven_logging/tests/test_heat_equation_research.py",
+        "oven_logging/tests/test_heat_equation_research_v2.py",
+        "oven_logging/tests/_driver_heat_equation_v2.py",
+        "oven_logging/tests/baselines/heat_equation_extrapolation_research.md",
+        ".nelson/missions/2026-04-28_032352_3b868e39/"
+      ],
+      "validation_required": "Real-CSV v2 fits run to convergence on all 7 fixtures (per-fit time may still be slow — keep downsample_factor sane). Profile-likelihood scan completes on 3 fixtures with at least 15 grid points. synthetic_shallow_insertion produces a per-sensor residual table. Existing M1a-M7 tests untouched (heat_equation.py is research-only).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

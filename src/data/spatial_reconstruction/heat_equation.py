@@ -604,8 +604,227 @@ def bootstrap_heat_equation(
     return pd.DataFrame(rows)
 
 
+# ---------------------------------------------------------------------------
+# v2 — corrected-BC variant (HMS Resolution, 2026-04-28)
+# ---------------------------------------------------------------------------
+#
+# Round 1 (HMS Ambush) passed the *discrete in-dough sensor* time series as
+# the Dirichlet BC at x_surface — e.g. T6 for BA3C. That sensor is itself
+# in-dough and plateaus near 100 °C, so the BC was a fake-plateau and the
+# inverse problem became information-free over most of the bake.
+#
+# v2 derives the surface BC from a per-timestep linear *spatial* interpolation
+# of all 8 sensors at the continuous M6/M2a interface position
+# ``x_surface_continuous`` (the dough/air interface position the spatial
+# classifier infers). Above the interface the probe is in air and rises
+# freely above 100 °C; the interpolated series carries that real physics.
+
+
+def fit_heat_equation_inverse_v2(
+    df: pd.DataFrame,
+    in_dough_sensors: list[str],
+    x_surface_continuous: float,
+    sensor_positions_normalised: tuple = (
+        0 / 7,
+        1 / 7,
+        2 / 7,
+        3 / 7,
+        4 / 7,
+        5 / 7,
+        6 / 7,
+        7 / 7,
+    ),
+    sensor_names: tuple = ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"),
+    x_core_init: float = -0.1,
+    alpha_init: float = 1e-3,
+    sample_period_s: float = 5.0,
+    downsample_factor: int = 4,
+    n_spatial: int = 30,
+    method: str = "Nelder-Mead",
+) -> dict:
+    """Joint fit of (alpha, x_core) with the *spatially interpolated* BC.
+
+    Behaviour-equivalent to :func:`fit_heat_equation_inverse` except:
+
+    1. The Dirichlet BC at ``x_surface_continuous`` is built by per-timestep
+       linear spatial interpolation of all 8 sensors at the continuous
+       interface position via
+       :func:`profile.interpolate_temperature_series_at`. This avoids the
+       round-1 mistake of feeding an in-dough sensor's plateau-y signal as
+       the surface BC.
+    2. ``x_surface`` is set equal to ``x_surface_continuous`` (the
+       interpolated position becomes the domain edge — keeps geometry and
+       BC consistent).
+    3. The result dict contains an extra key ``"bc_source": "interpolated_v2"``
+       so v1 / v2 results are not silently confused downstream.
+
+    Returns the same keys as v1 plus the ``bc_source`` flag.
+    """
+    # Late import to avoid module-level cycles if profile.py grows imports.
+    from .profile import interpolate_temperature_series_at
+
+    # Per-timestep spatial interpolation across all 8 sensors at the
+    # continuous interface position. This is the corrected BC.
+    surface_series = interpolate_temperature_series_at(
+        df,
+        positions=sensor_positions_normalised,
+        x_target=float(x_surface_continuous),
+        sensors=sensor_names,
+    ).to_numpy(dtype=float)
+
+    result = fit_heat_equation_inverse(
+        df=df,
+        in_dough_sensors=in_dough_sensors,
+        x_surface=float(x_surface_continuous),
+        T_surface_series=surface_series,
+        sensor_positions_normalised=sensor_positions_normalised,
+        sensor_names=sensor_names,
+        x_core_init=x_core_init,
+        alpha_init=alpha_init,
+        sample_period_s=sample_period_s,
+        downsample_factor=downsample_factor,
+        n_spatial=n_spatial,
+        method=method,
+    )
+    result["bc_source"] = "interpolated_v2"
+    result["x_surface_continuous"] = float(x_surface_continuous)
+    return result
+
+
+def profile_likelihood_x_core(
+    df: pd.DataFrame,
+    in_dough_sensors: list[str],
+    x_surface_continuous: float,
+    x_core_grid: np.ndarray,
+    alpha_init: float = 1e-3,
+    downsample_factor: int = 4,
+    n_spatial: int = 30,
+    sensor_positions_normalised: tuple = (
+        0 / 7,
+        1 / 7,
+        2 / 7,
+        3 / 7,
+        4 / 7,
+        5 / 7,
+        6 / 7,
+        7 / 7,
+    ),
+    sensor_names: tuple = ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"),
+) -> pd.DataFrame:
+    """Profile-likelihood scan: refit ``alpha`` only at each ``x_core``.
+
+    Used to distinguish *structural degeneracy* (loss is genuinely flat
+    along the (alpha, x_core) ridge — ρ ≈ −0.9 reflects real model
+    non-identifiability) from *optimiser laziness* (loss has a proper
+    basin the joint Nelder-Mead missed because it converged early on a
+    flat plateau).
+
+    For each ``x_core`` in ``x_core_grid``:
+
+    1. Hold ``x_core`` fixed.
+    2. Optimise ``log(alpha)`` only via :func:`scipy.optimize.minimize_scalar`
+       (Brent's method, bracketed around ``log(alpha_init) ± 4``).
+    3. Record the minimum SSE loss and the corresponding alpha.
+
+    Reuses the v1 forward solver and the v2 spatially-interpolated surface
+    BC for like-for-like comparison.
+
+    Parameters
+    ----------
+    x_core_grid:
+        1-D array of x_core values to scan, e.g.
+        ``np.linspace(-0.5, 0.5, 25)``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: ``x_core``, ``alpha_best``, ``loss``, ``n_iter``,
+        ``converged``. One row per grid point.
+    """
+    from scipy.optimize import minimize_scalar
+
+    from .profile import interpolate_temperature_series_at
+
+    # Build observation matrix and surface BC ONCE (outside the loop).
+    t_obs, T_obs, x_obs = _build_observation_matrix(
+        df=df,
+        in_dough_sensors=in_dough_sensors,
+        sensor_names=sensor_names,
+        sensor_positions_normalised=sensor_positions_normalised,
+        downsample_factor=downsample_factor,
+    )
+    surface_series_full = interpolate_temperature_series_at(
+        df,
+        positions=sensor_positions_normalised,
+        x_target=float(x_surface_continuous),
+        sensors=sensor_names,
+    ).to_numpy(dtype=float)
+    t_full = df["Timestamp"].to_numpy(dtype=float)
+    T_surf_obs = np.interp(t_obs, t_full, surface_series_full)
+    T_initial = float(np.mean(T_obs[0, :]))
+    x_surface = float(x_surface_continuous)
+
+    def _sse_at(x_core: float, log_alpha: float) -> float:
+        if x_core >= x_surface - 1e-3:
+            return 1e9
+        alpha = float(np.exp(log_alpha))
+        try:
+            T_pred = solve_heat_eq_forward(
+                alpha=alpha,
+                x_core=float(x_core),
+                x_surface=x_surface,
+                t_grid=t_obs,
+                T_surface_series=T_surf_obs,
+                T_initial=T_initial,
+                n_spatial=n_spatial,
+                sample_x=x_obs,
+            )
+        except Exception:
+            return 1e9
+        diff = T_pred - T_obs
+        return float(np.sum(diff * diff))
+
+    rows = []
+    log_alpha0 = float(np.log(alpha_init))
+    for x_core in np.asarray(x_core_grid, dtype=float):
+
+        def _loss_alpha(log_alpha: float, _x_core=float(x_core)) -> float:
+            return _sse_at(_x_core, log_alpha)
+
+        try:
+            opt = minimize_scalar(
+                _loss_alpha,
+                bracket=(log_alpha0 - 4.0, log_alpha0, log_alpha0 + 4.0),
+                method="Brent",
+                options={"xtol": 1e-3, "maxiter": 100},
+            )
+            alpha_best = float(np.exp(float(opt.x)))
+            loss = float(opt.fun)
+            n_iter = int(getattr(opt, "nit", 0) or 0)
+            converged = bool(getattr(opt, "success", True))
+        except Exception:
+            alpha_best = float("nan")
+            loss = float("nan")
+            n_iter = 0
+            converged = False
+
+        rows.append(
+            {
+                "x_core": float(x_core),
+                "alpha_best": alpha_best,
+                "loss": loss,
+                "n_iter": n_iter,
+                "converged": converged,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
 __all__ = [
     "solve_heat_eq_forward",
     "fit_heat_equation_inverse",
+    "fit_heat_equation_inverse_v2",
+    "profile_likelihood_x_core",
     "bootstrap_heat_equation",
 ]

@@ -4,7 +4,7 @@
     {
       "type": "squadron_formed",
       "checkpoint": 0,
-      "timestamp": "2026-04-27T13:16:29Z",
+      "timestamp": "2026-04-28T03:24:22Z",
       "data": {
         "captain_count": 1,
         "has_red_cell": false,
@@ -18,7 +18,7 @@
     {
       "type": "battle_plan_approved",
       "checkpoint": 0,
-      "timestamp": "2026-04-27T13:16:29Z",
+      "timestamp": "2026-04-28T03:24:22Z",
       "data": {
         "task_count": 1,
         "parallel_tracks": 1,
@@ -32,7 +32,7 @@
     {
       "type": "phase_override",
       "checkpoint": 0,
-      "timestamp": "2026-04-27T13:16:30Z",
+      "timestamp": "2026-04-28T03:24:22Z",
       "data": {
         "from_phase": "BATTLE_PLAN",
         "to_phase": "UNDERWAY"
@@ -41,11 +41,11 @@
     {
       "type": "task_completed",
       "checkpoint": 1,
-      "timestamp": "2026-04-27T13:50:29Z",
+      "timestamp": "2026-04-28T03:51:24Z",
       "data": {
         "task_id": 1,
-        "task_name": "Continuous-position interpolation across piecewise + Stefan + classifier",
-        "owner": "HMS Penelope",
+        "task_name": "Heat-equation re-test with corrected BC + profile likelihood",
+        "owner": "HMS Resolution",
         "station_tier": 1,
         "verification": "passed"
       }
@@ -53,14 +53,14 @@
     {
       "type": "mission_complete",
       "checkpoint": 1,
-      "timestamp": "2026-04-27T13:50:29Z",
+      "timestamp": "2026-04-28T03:51:24Z",
       "data": {
         "outcome_achieved": true,
         "tasks_completed": 1,
         "tasks_total": 1,
         "total_tokens_consumed": 0,
         "budget_pct_consumed": 0.0,
-        "duration_minutes": 34,
+        "duration_minutes": 27,
         "ships_used": 1,
         "reliefs": 0,
         "standing_order_violations_total": 0
