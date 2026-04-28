@@ -1,10 +1,10 @@
 {
   "version": 1,
   "mission": {
-    "outcome": "Land HMS Lively: Luikov 1D coupled heat-mass transfer model with 3 dimensionless free parameters (Lu Ko Bi) plus x_core and T_oven_eff. Solve the inverse problem from temperature data alone via Levenberg-Marquardt per published methodology. Test whether explicit moisture-transport physics finally addresses the deep-end information limit M13 surfaced.",
+    "outcome": "Land HMS Sirius: reformulate Luikov inverse with corrected geometry \u2014 full-thickness domain x in [0, L], asymmetric BCs (radiative-convective top + conductive-tin bottom), real probe geometry (95mm T1-T8 span, 13.6mm spacing, 54mm minimum insertion). 8 free parameters. Test whether asymmetric-tin BC fixes the M13 deep-end LOO failure.",
     "status": "complete",
     "phase": "STAND_DOWN",
-    "started_at": "2026-04-28T12:51:09Z",
+    "started_at": "2026-04-28T13:58:27Z",
     "checkpoint_number": 1
   },
   "progress": {
@@ -22,7 +22,7 @@
   },
   "squadron": [
     {
-      "ship_name": "HMS Lively",
+      "ship_name": "HMS Sirius",
       "ship_class": "frigate",
       "role": "captain",
       "hull_integrity_pct": 100,
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-28T13:35:09Z"
+  "last_updated": "2026-04-28T14:35:22Z"
 }

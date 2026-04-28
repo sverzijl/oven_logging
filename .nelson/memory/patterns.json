@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T13:35:09Z",
-  "pattern_count": 50,
+  "updated_at": "2026-04-28T14:35:22Z",
+  "pattern_count": 51,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -993,6 +993,27 @@
       ],
       "avoid": [
         "Adding more model complexity (more parameters, coupled state vars) when the previous LOO test already showed information-limit; complexity makes the inverse harder when data is information-limited"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_135827_d3177ebb",
+      "completed_at": "2026-04-28T14:35:22Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Sirius: reformulate Luikov inverse with corrected geometry \u2014 full-thickness domain x in [0, L], asymmetric BCs (radiative-convective top + conductive-tin bottom), real probe geometry (95mm T1-T8 span, 13.6mm spacing, 54mm minimum insertion). 8 free parameters. Test whether asymmetric-tin BC fixes the M13 deep-end LOO failure.",
+      "adopt": [
+        "Asymmetric BCs and physical probe geometry are necessary not sufficient \u2014 they cut RMSE in half but don't reach the 3 deg C bar",
+        "Synthetic 8-param recovery passes cleanly with 13.6mm sensor spacing and probe geometry baked in \u2014 the formulation IS identifiable; real-CSV failure is data-side not model-side"
+      ],
+      "avoid": [
+        "Reporting verdict CONFIRM purely on RMSE without contextualising the trajectory of improvement across missions"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

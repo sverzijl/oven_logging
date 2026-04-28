@@ -1,0 +1,30 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Sirius", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Asymmetric-tin-BC Luikov inverse with corrected geometry",
+      "owner": "HMS Sirius",
+      "deliverable": "src/data/spatial_reconstruction/luikov_tin.py: Luikov 1D coupled heat-mass on full-thickness domain x in [0, L]; radiative-convective BC at top (x=0) and conductive-tin BC at bottom (x=L); real probe geometry with sensor depths d_i = D - (i-1) × 13.6mm. fit_luikov_tin_inverse: 8-param Nelder-Mead fit (L, D, Lu, Ko, Bi_top, Bi_bottom, T_oven_eff, T_tin_eff) with Hessian-based correlation matrix. tests/test_luikov_tin_research.py: forward sanity (BC-asymmetry checks), synthetic recovery, real-CSV viability sweep, LOO subset on 3 representative fixtures with focus on T1 and T2 held-out. tests/_driver_luikov_tin.py: end-to-end driver. tests/baselines/luikov_tin_research.md: report with comparison vs M9/M14/M13 LOO baseline. NOT wired into runtime classifier.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/luikov_tin.py",
+        "oven_logging/tests/test_luikov_tin_research.py",
+        "oven_logging/tests/_driver_luikov_tin.py",
+        "oven_logging/tests/baselines/luikov_tin_research.md",
+        "oven_logging/tests/baselines/luikov_tin_research.json",
+        ".nelson/missions/2026-04-28_135827_d3177ebb/"
+      ],
+      "validation_required": "Forward sanity passes both top-only-heated and bottom-only-heated symmetry-breaking checks. Synthetic recovery with DIFFERENT-class generator passes within 30 percent on at least 1 case. Real-CSV joint inverse converges on at least 5 of 7 fixtures, with at least 6 of 8 parameters NOT hitting bounds. LOO subset includes T1 and T2 held-out RMSE per fixture. Existing M1-M14 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}
