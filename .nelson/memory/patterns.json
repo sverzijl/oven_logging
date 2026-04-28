@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T13:50:29Z",
-  "pattern_count": 42,
+  "updated_at": "2026-04-28T02:35:20Z",
+  "pattern_count": 43,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -831,6 +831,26 @@
       ],
       "avoid": [
         "Snapping position_normalised back to a sensor \u2014 that defeats the architecture's purpose"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_011739_e9776158",
+      "completed_at": "2026-04-28T02:35:20Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Ambush research mission: empirically test whether Method 3 (1D heat-equation inverse problem) can extrapolate x_core past the probe tip on the existing real CSVs, characterise its parameter confidence (Hessian + bootstrap), and quantify robustness under sigma=0.5/1.0/2.0 deg C noise. Output is a research report with a clear go/no-go recommendation; no production wiring.",
+      "adopt": [
+        "Always report parameter correlation rho alongside CIs for 2-parameter inverse problems \u2014 marginal CIs are misleading when |rho| > 0.8"
+      ],
+      "avoid": [
+        "Sizing slow-path runtime budgets on synthetic data only; real-CSV time-grids can be much longer and the per-fit cost can scale 27x"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

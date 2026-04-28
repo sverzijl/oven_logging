@@ -1,0 +1,28 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Ambush", "ship_class": "submarine", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Heat-equation extrapolation viability study",
+      "owner": "HMS Ambush",
+      "deliverable": "Research-only modules src/data/spatial_reconstruction/heat_equation.py (forward solver + inverse fitter + Hessian-based confidence + optional bootstrap). tests/test_heat_equation_research.py: synthetic ground-truth recovery on a known x_core_true synthetic; real-CSV viability sweep; sigma-noise robustness comparison vs parabolic extrapolation. tests/baselines/heat_equation_extrapolation_research.md committed with: per-fixture inferred x_core + 95 percent CI, alpha-x_core coupling correlation, sigma-noise robustness table, and a clear go/no-go recommendation against the parabolic baseline.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/heat_equation.py",
+        "oven_logging/tests/test_heat_equation_research.py",
+        "oven_logging/tests/baselines/heat_equation_extrapolation_research.md",
+        ".nelson/missions/2026-04-28_011739_e9776158/"
+      ],
+      "validation_required": "Synthetic ground-truth recovery test passes (known x_core within 95% CI on >=90/100 seeds). Real-CSV inversion runs without crashes on all 7 curves. Robustness harness completes within 5 min total. Report committed. Existing tests untouched (heat_equation.py is research-only; no classifier wiring).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}
