@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Daring: reformulate Luikov-tin with observed T_air(t) and h_eff(t) extracted from sensors (replacing fitted T_oven_eff and Bi_top); add oven-spring alpha(T) piecewise profile (alpha_post/alpha_pre as free parameter or pinned at 0.4); per-fixture diagnostics for steam phase and oven spring window; reduced free parameters from M15's 8 down to 4-5.",
+  "success_metric": "Phase 1 diagnostic outputs per-fixture: steam-phase start/end, oven-spring detection window (50-65 deg C bulk dough), T_air(t) extraction, h_eff(t) extraction. Phase 2 inverse: 4-5 free params (L, D, Lu, q_bottom_eff, optionally alpha_ratio); main-bake RMSE comparison vs M15 (6.1 deg C); LOO deep-end T1 test vs M15 (11.7 deg C). If main-bake RMSE less than 4 deg C and parameters interior verdict GO; if 4-6 GO-WITH-CAVEATS; if greater than 6 deg C the information limit is final.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T14:54:44Z"
+}

@@ -1,0 +1,32 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Daring", "ship_class": "destroyer", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Reformulated Luikov-tin with observed BCs + alpha(T) oven-spring + diagnostics",
+      "owner": "HMS Daring",
+      "deliverable": "src/data/spatial_reconstruction/luikov_tin_observed.py: M15 Luikov-tin reformulated with observed T_air(t) and h_eff(t) inputs (replacing fitted T_oven_eff and Bi_top); piecewise alpha(T) profile with free alpha_ratio parameter for oven spring property change; 4-5 free params (L, D, Lu, q_bottom_eff coupling, optionally alpha_ratio). tests/test_luikov_tin_observed_research.py: forward solver sanity, synthetic recovery with different-class generator, real-CSV viability sweep. tests/_diagnose_observables.py: per-fixture diagnostic phase (steam detection, oven spring window detection, T_air(t) extraction, h_eff(t) extraction) with output JSON. tests/_driver_luikov_tin_observed.py: end-to-end driver. tests/baselines/luikov_tin_observed_research.md: report with comparison vs M15. NOT wired into runtime classifier.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/luikov_tin_observed.py",
+        "oven_logging/tests/test_luikov_tin_observed_research.py",
+        "oven_logging/tests/_diagnose_observables.py",
+        "oven_logging/tests/_driver_luikov_tin_observed.py",
+        "oven_logging/tests/baselines/luikov_tin_observed_research.md",
+        "oven_logging/tests/baselines/luikov_tin_observed_research.json",
+        "oven_logging/tests/baselines/observables_diagnostic.json",
+        ".nelson/missions/2026-04-28_145444_9193a856/"
+      ],
+      "validation_required": "Phase 1 diagnostic completes for all 7 fixtures with steam/oven-spring/T_air/h_eff extraction. Phase 2 forward sanity passes. Phase 3 synthetic recovery passes within 30 percent on at least 1 case. Phase 4 real-CSV joint inverse converges on at least 5 of 7 fixtures with at least 4 of 5 parameters interior. Existing M1-M15 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

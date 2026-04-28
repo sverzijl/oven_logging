@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T14:35:22Z",
-  "pattern_count": 51,
+  "updated_at": "2026-04-28T16:25:55Z",
+  "pattern_count": 52,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -1014,6 +1014,27 @@
       ],
       "avoid": [
         "Reporting verdict CONFIRM purely on RMSE without contextualising the trajectory of improvement across missions"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_145444_9193a856",
+      "completed_at": "2026-04-28T16:25:55Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Daring: reformulate Luikov-tin with observed T_air(t) and h_eff(t) extracted from sensors (replacing fitted T_oven_eff and Bi_top); add oven-spring alpha(T) piecewise profile (alpha_post/alpha_pre as free parameter or pinned at 0.4); per-fixture diagnostics for steam phase and oven spring window; reduced free parameters from M15's 8 down to 4-5.",
+      "adopt": [
+        "M2a 'ambient' sensors measure the air NEAR THE LOAF in the boundary layer, NOT bulk oven air. Use them with caution as BC sources",
+        "Observed-BC reformulation can REGRESS results when the observable doesn't match the modelled physical quantity"
+      ],
+      "avoid": [
+        "Treating M2a's 'ambient' classification as equivalent to 'bulk oven temperature'; the boundary layer matters"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,
