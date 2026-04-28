@@ -1,0 +1,30 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Bellona", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Implement Zurcher (2014) two-state bread-baking model with radiative BC; 3-param inverse",
+      "owner": "HMS Bellona",
+      "deliverable": "src/data/spatial_reconstruction/zurcher_two_state.py: forward solver implementing Zurcher (2014) Eqs (4)-(11) — three coupled ODEs for T_out(t), T_in(t), and front position n(t); radiative outer BC with parameter T_oven_eff; literature-pinned k, rho, c_p, L; free parameters x_core (= R(1 - n_init)), j_0 (excess water fraction), T_oven_eff. fit_zurcher_inverse: 3-param Nelder-Mead joint fit with Hessian-based correlation matrix. tests/test_zurcher_research.py: forward-solver sanity vs Zurcher Figs 4-6, real-CSV viability sweep on 7 fixtures, residual decomposition (per-segment + lag-1 autocorr) reusing M10 helpers. tests/_driver_zurcher.py: end-to-end driver. tests/baselines/zurcher_two_state_research.md: report comparing Bellona vs M9 Stefan vs M10 baseline with verdict GO / GO-WITH-CAVEATS / CONFIRM-information-limit. NOT wired into runtime classifier.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/zurcher_two_state.py",
+        "oven_logging/tests/test_zurcher_research.py",
+        "oven_logging/tests/_driver_zurcher.py",
+        "oven_logging/tests/baselines/zurcher_two_state_research.md",
+        "oven_logging/tests/baselines/zurcher_two_state_research.json",
+        ".nelson/missions/2026-04-28_065004_d9bcd3d1/"
+      ],
+      "validation_required": "Forward solver matches Zurcher Fig 4 (front position n(t)) and Fig 6 (T_out(t)) within plotting accuracy at j_0 = 0.05. Joint 3-param inverse runs to convergence on at least 5 of 7 real CSVs. Lid fixtures (wonder_white, post_wonder_meal) produce non-pathological alpha-equivalent and finite RMSE. Residual decomposition includes lag-1 autocorr for each fixture's main-bake segment. Existing M1-M10 tests untouched (zurcher_two_state.py is research-only).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T06:38:01Z",
-  "pattern_count": 46,
+  "updated_at": "2026-04-28T07:42:14Z",
+  "pattern_count": 47,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -913,6 +913,26 @@
       ],
       "avoid": [
         "Assuming pooled RMSE has accounting issues without measuring \u2014 three artefact hypotheses (startup, tail, calibration) all rejected by the data"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_065004_d9bcd3d1",
+      "completed_at": "2026-04-28T07:42:14Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Bellona: implement Zurcher 2014 two-state bread-baking model with radiative outer boundary condition; 3-parameter inverse fit (x_core, j_0, T_oven_eff); test whether main-bake RMSE drops below the M9 Stefan baseline (median 7.5 deg C) when the model has both correct physics class AND correct boundary conditions (radiative not Dirichlet).",
+      "adopt": [
+        "Cite the model author's own warnings \u2014 Zurcher explicitly says 'temperature at the center is an unreliable indicator' for this regime. Should have read that flag before implementing the inverse"
+      ],
+      "avoid": [
+        "Treating a literature model as right by default \u2014 Zurcher's eq 6 + 1mm coarse-graining produces a 6x-too-fast centre rise; literature solutions don't always survive numerical implementation"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,
