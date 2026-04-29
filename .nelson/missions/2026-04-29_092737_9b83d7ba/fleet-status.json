@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "M24 HMS Foxhound + Astute red-cell: Replace classify_temporal walking-core artefact with isothermal-tracking. Time-evolving Stefan front (100C) + bread-chemistry zones (60C, 80C, 110C). FIXED core position computed once from full bake. Red-cell verifies new traces are physically sensible.",
+    "status": "underway",
+    "phase": "UNDERWAY",
+    "started_at": "2026-04-29T09:27:37Z",
+    "checkpoint_number": 0
+  },
+  "progress": {
+    "pending": 2,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 2
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Foxhound",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Astute",
+      "ship_class": "submarine",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 2 captains"
+  ],
+  "last_updated": "2026-04-29T09:28:13Z"
+}

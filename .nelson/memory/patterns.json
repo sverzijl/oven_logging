@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-29T09:06:24Z",
-  "pattern_count": 57,
+  "updated_at": "2026-04-29T09:39:36Z",
+  "pattern_count": 59,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -1133,6 +1133,42 @@
       "adopt": [
         "Re-frame inverse-problem questions through user's actual goal (derived quantities, not training-sensor RMSE) before architecture choice"
       ],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_090640_f657208a",
+      "completed_at": "2026-04-29T09:19:30Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Drake M23: classify_temporal() wrapper over existing M2a/Stefan classifier; per-timestep classification + Savitzky-Golay smoothing produces time-evolving moisture-front, surface-position, core-position traces. Single empirical test on BA3C_0946 validating monotonicity (front moves inward) and continuity (no jumps). Output 3-trace plot.",
+      "adopt": [
+        "Per-snapshot classifier + Savitzky-Golay smoothing produces physically-sensible time-evolving derived quantities at zero parametric inverse-fitting cost \u2014 the right abstraction for user-facing 'where is the moisture front right now' UI."
+      ],
+      "avoid": [
+        "Setting acceptance metrics (e.g. 'x_core std<0.05 over full bake') without considering that the metric is testing the wrong window \u2014 early-bake x_core can legitimately drift before stabilising."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_092737_9b83d7ba",
+      "completed_at": "2026-04-29T09:39:36Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M24 HMS Foxhound + Astute red-cell: Replace classify_temporal walking-core artefact with isothermal-tracking. Time-evolving Stefan front (100C) + bread-chemistry zones (60C, 80C, 110C). FIXED core position computed once from full bake. Red-cell verifies new traces are physically sensible.",
+      "adopt": [],
       "avoid": [],
       "standing_order_violations": [],
       "damage_control_events": 0,

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "M24 HMS Foxhound + Astute red-cell: Replace classify_temporal walking-core artefact with isothermal-tracking. Time-evolving Stefan front (100C) + bread-chemistry zones (60C, 80C, 110C). FIXED core position computed once from full bake. Red-cell verifies new traces are physically sensible.",
+  "success_metric": "src/data/spatial_reconstruction/temporal.py replaced or extended with track_isothermal() function returning per-timestep positions of T crosses 60, 80, 100, 110 C. core_position fixed once. Astute red-cell signs off on physical sensibility. Empirical PNG on BA3C_0946 shows monotone-inward 100C front, ordering 60C deepest then 80C, 100C, 110C nearest surface, fixed core.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-29T09:27:37Z"
+}
