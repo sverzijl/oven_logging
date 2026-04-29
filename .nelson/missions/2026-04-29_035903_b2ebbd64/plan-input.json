@@ -1,0 +1,30 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Resolute", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "M20 — M9 Stefan with alpha_dough + delta_T_smear free, single-fixture validation then 5-fixture sweep + LOO",
+      "owner": "HMS Resolute",
+      "deliverable": "src/data/spatial_reconstruction/stefan_inverse_v2.py: extends existing stefan_inverse.py to free alpha_dough (5e-7, 1e-5) and delta_T_smear (3, 10 C) — adds 2 free parameters to M9's existing 4 (x_core, alpha_crust, rhoL_eff, plus the 2 new). 6-param Nelder-Mead. tests/test_stefan_inverse_v2.py: forward sanity, single-fixture validation on BA3C_0946 first (must pass main-bake RMSE less than 4 C with params interior), then 5-fixture sweep, then LOO on T1, T2 of BA3C_0946. tests/_driver_stefan_v2.py: end-to-end driver. tests/baselines/stefan_v2_research.md: report comparing vs M9 baseline (5.76 C on BA3C_0946; 5-11 C across fixtures). NOT wired into runtime classifier.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/stefan_inverse_v2.py",
+        "oven_logging/tests/test_stefan_inverse_v2.py",
+        "oven_logging/tests/_driver_stefan_v2.py",
+        "oven_logging/tests/baselines/stefan_v2_research.md",
+        "oven_logging/tests/baselines/stefan_v2_research.json",
+        ".nelson/missions/2026-04-29_035903_b2ebbd64/"
+      ],
+      "validation_required": "Forward sanity passes. Single-fixture BA3C_0946 fit converges with main-bake RMSE less than 4 C (M19 RCA target) and 6 free params interior. If yes, sweep 5 unlidded fixtures; if no, stop and report failure with diagnosis (which params hit bounds, what residual structure remains). LOO subset on BA3C_0946 T1 and T2 documenting whether deep-end LOO improves vs M9 baseline. Existing M1-M19 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-29T02:56:21Z",
-  "pattern_count": 53,
+  "updated_at": "2026-04-29T03:58:45Z",
+  "pattern_count": 54,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -1055,6 +1055,26 @@
       ],
       "avoid": [
         "6-param Nelder-Mead on Luikov-class problems without strong physical priors finds pathological geometric minima"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_030517_945ea12c",
+      "completed_at": "2026-04-29T03:58:45Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Deep RCA: why does no physics model fit below the ~6 deg C floor across 17 missions, given that real bake time is 22-25 minutes (much shorter than the 60+ min we may have implicitly modelled). Find the actual root cause via parallel investigation: (a) bake-time-to-physics audit (does the 22-25 min target imply specific alpha/Bi we're missing?), (b) M9-Stefan deep diagnostic (the best result we have \u2014 characterise its residual shape, not just RMSE), (c) data-vs-model trace on one fixture (overlay model prediction against observed sensors timestep-by-timestep and visually identify where it diverges).",
+      "adopt": [
+        "When 17 inverse-problem missions converge on the same RMSE floor with optimizer hitting parameter bounds across multiple formulations, suspect a single shared mis-pinned constant \u2014 not a structural information limit"
+      ],
+      "avoid": [
+        "Pinning alpha at literature molecular value when EDC enthalpy transport dominates effective alpha by 5-7x"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

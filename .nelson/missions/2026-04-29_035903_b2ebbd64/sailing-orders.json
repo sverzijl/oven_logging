@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Resolute M20: take M9 Stefan exactly as-is and free alpha_dough over (5e-7, 1e-5) and delta_T_smear over (3, 10 C). Single-fixture diagnostic on BA3C_0946 first. If main-bake RMSE drops below 4 C, sweep all 5 unlidded fixtures + LOO test. This is the focused targeted fix following M19's RCA finding that alpha_dough was pinned 5-7x too low across all prior Stefan/Luikov missions.",
+  "success_metric": "Single-fixture BA3C_0946: main-bake RMSE less than 4 C with parameters interior. Then sweep BA3C_0946, BA3C_1759_C0/C1/C2, 100098DE_1351, 1000F3C1_0911 (5 unlidded). Target median main-bake RMSE less than 4 C and at least 3/5 with all params interior. LOO subset on T1, T2 of BA3C_0946 with held-out RMSE less than M9 baseline (T1 9.45 K, T2 7.4 K).",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-29T03:59:03Z"
+}

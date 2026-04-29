@@ -1,0 +1,142 @@
+{
+  "mission": "M20 HMS Resolute",
+  "bounds": {
+    "x_core_normalised": [
+      -0.1,
+      0.5
+    ],
+    "alpha_dough": [
+      0.00019999999999999996,
+      0.004
+    ],
+    "alpha_crust": [
+      3.999999999999999e-05,
+      0.002
+    ],
+    "rhoL_eff": [
+      10.0,
+      1000.0
+    ],
+    "delta_T_smear": [
+      3.0,
+      10.0
+    ]
+  },
+  "init": {
+    "x_core": 0.0,
+    "alpha_dough": 0.0003199999999999999,
+    "alpha_crust": 0.00019999999999999996,
+    "rhoL_eff": 100.0,
+    "delta_T_smear": 5.0
+  },
+  "downsample_factor": 4,
+  "n_spatial": 30,
+  "max_iter": 600,
+  "phase1": {
+    "smear_1_final_core_T": 25.0,
+    "smear_5_final_core_T": 25.0,
+    "smear_1_finite": true,
+    "smear_5_finite": true,
+    "pass": true
+  },
+  "phase2": {
+    "fit": {
+      "x_core": 0.0004372730489533279,
+      "alpha_dough": 0.00032135427230184577,
+      "alpha_crust": 4.76677359830618e-05,
+      "rhoL_eff": 10.118217805537096,
+      "delta_T_smear": 5.02303531979082,
+      "x_core_se": 0.008047665268527954,
+      "alpha_dough_se": 6.144093674574903e-06,
+      "alpha_crust_se": 6.675145282188857e-06,
+      "rhoL_eff_se": 1.4423137511888118,
+      "delta_T_smear_se": 0.14162640887284125,
+      "full_correlation_matrix": [
+        [
+          1.0000000000000002,
+          -0.483280738862764,
+          -0.0029091688643850177,
+          -0.019858133132379992,
+          0.010433601054107448
+        ],
+        [
+          -0.48328073886276407,
+          1.0000000000000002,
+          0.0008351103990930259,
+          -0.0038898658120588383,
+          -0.007143414640310685
+        ],
+        [
+          -0.0029091688643850594,
+          0.0008351103990931338,
+          1.0,
+          -0.0001828726314110837,
+          -0.000758572228714582
+        ],
+        [
+          -0.01985813313238105,
+          -0.003889865812056963,
+          -0.00018287263141012806,
+          1.0,
+          0.16129881195301254
+        ],
+        [
+          0.0104336010541085,
+          -0.007143414640312574,
+          -0.0007585722287141067,
+          0.16129881195301268,
+          1.0000000000000002
+        ]
+      ],
+      "max_abs_off_diag_correlation": 0.48328073886276407,
+      "param_at_bound": {
+        "x_core_normalised": "interior",
+        "alpha_dough": "interior",
+        "alpha_crust": "lo",
+        "rhoL_eff": "lo",
+        "delta_T_smear": "interior"
+      },
+      "n_at_bound": 2,
+      "param_names": [
+        "x_core_normalised",
+        "alpha_dough",
+        "alpha_crust",
+        "rhoL_eff",
+        "delta_T_smear"
+      ],
+      "sse": 13286.368675153006,
+      "rmse_per_sensor": 6.117711225142441,
+      "n_obs": 355,
+      "converged": true,
+      "n_iter": 241,
+      "T_initial": 29.3,
+      "x_surface_continuous": 0.6786994367639527,
+      "extrapolated": false,
+      "bc_source": "interpolated_v2",
+      "variant": "stefan_v2_5param",
+      "in_dough": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "fixture_label": "BA3C_0946",
+      "fixture_name": "real_1000BA3C_0946",
+      "expected_curve_idx": 0,
+      "fit_seconds": 51.14317297935486,
+      "rmse_full_recomputed": 6.117711225142441,
+      "rmse_main_bake": 5.73352830797108,
+      "m9_main_bake_rmse": 5.76
+    },
+    "main_pass": false,
+    "rmse_main_bar_C": 4.0,
+    "n_at_bound_max_allowed": 2
+  },
+  "verdict": "GO-WITH-CAVEATS",
+  "rationale": [
+    "Phase 2 single-fixture BA3C_0946 main-bake RMSE = 5.73 \u00b0C (M9 baseline 5.76; bar 4.0).",
+    "Phase 2 n_at_bound = 2 of 5 (max allowed 2)."
+  ],
+  "wall_seconds": 51.251858949661255
+}

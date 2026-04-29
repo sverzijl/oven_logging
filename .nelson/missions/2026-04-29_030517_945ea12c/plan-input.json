@@ -1,0 +1,72 @@
+{
+  "squadron": {
+    "mode": "agent-team",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Audacious", "ship_class": "submarine", "model": "sonnet", "task_id": 1},
+      {"ship_name": "HMS Active", "ship_class": "frigate", "model": "sonnet", "task_id": 2},
+      {"ship_name": "HMS Diamond", "ship_class": "destroyer", "model": "sonnet", "task_id": 3},
+      {"ship_name": "HMS Kent", "ship_class": "frigate", "model": "sonnet", "task_id": 4}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Bake-time-to-physics audit",
+      "owner": "HMS Audacious",
+      "deliverable": "Working backwards from the user-stated 22-25 min bake time and probe geometry: derive the implied effective thermal diffusivity alpha_eff for typical bread baking, the Biot number range, the Stefan number for the 100 C latent-heat plateau. Compare against (a) the alpha_pre values our 17 missions have used (1.4e-7 pinned, 1e-6 pinned, 5e-6 free upper bound) and (b) the optimizer-found alpha values across missions. Identify whether our assumed physical timescale is fundamentally wrong by an order of magnitude or whether the issue is something else. Report: derivation, comparison table, verdict on whether mis-pinned alpha was the gating problem.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_030517_945ea12c/audacious-baketime-audit.md"
+      ],
+      "validation_required": "Explicit math (alpha = L^2 / t_bake_typical, with proper L choice). Comparison table of our pinnings vs derived. Single actionable next-step recommendation.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "M9 Stefan deep diagnostic — residual shape and where it diverges",
+      "owner": "HMS Active",
+      "deliverable": "Take M9 Stefan's best fit on BA3C_0946 (cached in tests/baselines/stefan_inverse_research.json; fitted alpha, x_core, etc.). Re-run the forward solver at those parameters and produce a TIMESTEP-BY-TIMESTEP residual trace per in-dough sensor: residual vs time, model vs observed overlay, location of largest residuals, residual auto-correlation per phase (startup/main/tail). Identify WHEN and WHERE the model diverges from data. If residuals are flat-ish and small, real RMSE is sensor-noise-dominated. If residuals are structured (e.g. sinusoidal or step-function), they encode missing physics; characterise the missing-physics signature.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_030517_945ea12c/active-m9-residual-shape.md",
+        ".nelson/missions/2026-04-29_030517_945ea12c/active-m9-residual-traces.png"
+      ],
+      "validation_required": "Per-sensor residual plot (visual + numerical summary). Identification of dominant residual frequency / phase / time range. Verdict on whether residual is noise or structured signal.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Data sanity check — what does the BA3C raw data look like vs typical bake?",
+      "owner": "HMS Diamond",
+      "deliverable": "On BA3C_0946: extract observed bake duration (start to peak to clip), surface temp range, ambient temp range, in-dough sensor temperature trajectories. Compare against the user-stated 22-25 min bake time. Is BA3C actually a 22-25 min bake or something different (commercial multi-zone? lab oven? incomplete?). If the actual bake duration is e.g. 18 min vs an implicit assumption of 60 min in any model, that explains everything. Generate a single annotated time-series PNG showing all 8 sensors + key landmarks (probe insertion, peak, oven exit, clip).",
+      "dependencies": [],
+      "station_tier": 0,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_030517_945ea12c/diamond-bake-data-sanity.md",
+        ".nelson/missions/2026-04-29_030517_945ea12c/diamond-bake-trace.png"
+      ],
+      "validation_required": "Numerical bake duration on each of 7 fixtures. Identification of whether bake durations are 22-25 min as user stated or something else.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "RCA synthesis and actionable next step",
+      "owner": "HMS Kent",
+      "deliverable": "Read all three damage reports (Audacious, Active, Diamond) once they land. Write a concise RCA at .nelson/missions/2026-04-29_030517_945ea12c/kent-rca-synthesis.md identifying the SINGLE most likely root cause with evidence from each report. Recommend ONE concrete next mission OR a stand-down with sharpened final verdict. Update the project memory accordingly.",
+      "dependencies": [1, 2, 3],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_030517_945ea12c/kent-rca-synthesis.md"
+      ],
+      "validation_required": "Synthesis names a single root cause hypothesis backed by evidence from at least 2 of the 3 prior reports. The recommended next step is concrete (specific code change, mission scope, or stand-down rationale).",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ]
+}
