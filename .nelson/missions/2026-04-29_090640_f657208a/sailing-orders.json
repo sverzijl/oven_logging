@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Drake M23: classify_temporal() wrapper over existing M2a/Stefan classifier; per-timestep classification + Savitzky-Golay smoothing produces time-evolving moisture-front, surface-position, core-position traces. Single empirical test on BA3C_0946 validating monotonicity (front moves inward) and continuity (no jumps). Output 3-trace plot.",
+  "success_metric": "src/data/spatial_reconstruction/temporal.py with classify_temporal() function. tests/test_temporal_classifier.py with synthetic + real-CSV smoke. Empirical test on BA3C_0946 produces a smooth time-evolving moisture-front trace with monotone-inward property (front position decreases over bake duration), and stable core-position trace.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-29T09:06:40Z"
+}

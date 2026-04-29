@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-29T08:40:04Z",
-  "pattern_count": 56,
+  "updated_at": "2026-04-29T09:06:24Z",
+  "pattern_count": 57,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -1116,6 +1116,24 @@
       "avoid": [
         "Adding new free parameters that capture real physics but are statistically degenerate with existing parameters; 8 in-dough sensors have ~1 degree of freedom for cumulative-heat-into-dough effects"
       ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_085437_3a2809ee",
+      "completed_at": "2026-04-29T09:06:24Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Deep research: evaluate cellular-with-sensor-grounding architecture. 3 research ships + 1 synthesis. Final verdict: BUILD / HYBRID / STAND-DOWN with key risk identified.",
+      "adopt": [
+        "Re-frame inverse-problem questions through user's actual goal (derived quantities, not training-sensor RMSE) before architecture choice"
+      ],
+      "avoid": [],
       "standing_order_violations": [],
       "damage_control_events": 0,
       "quality": {

@@ -15,6 +15,7 @@ from .profile import ProfileFit, extract_features, compute_oven_proxy
 from .geometry import PROBE_GEOMETRIES, lookup_geometry
 from .piecewise import fit_piecewise
 from .stefan import fit_stefan
+from .temporal import classify_temporal, TemporalAssignment
 from .comparison import (
     ModelComparison,
     benchmark_fixture,
@@ -33,6 +34,8 @@ __all__ = [
     "lookup_geometry",
     "fit_piecewise",
     "fit_stefan",
+    "classify_temporal",
+    "TemporalAssignment",
     "ModelComparison",
     "benchmark_fixture",
     "benchmark_all_cases",

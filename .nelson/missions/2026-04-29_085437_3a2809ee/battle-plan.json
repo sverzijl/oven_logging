@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Literature survey: data-assimilation for spatially-distributed inverse heat-transfer",
+      "owner": "HMS Astute",
+      "deliverable": "Search the literature for: 4DVar, Kalman filter for PDEs (KF-PDE), Ensemble Kalman Filter (EnKF), Bayesian inversion of distributed thermal parameters, FEM-based inverse heat conduction (IHCP), data-assimilation in food-processing or baking. Specifically: are there published methods that take sparse sensor observations + a PDE forward model + smoothness priors and produce a temperature field T(x,t) plus distributed parameter fields (alpha(x,t), source(x,t))? What does the published accuracy look like compared to parametric fitting? Are there any direct bread-baking applications? Identify the closest 2-3 published methods to the user's proposal. Write to .nelson/missions/2026-04-29_085437_3a2809ee/astute-literature.md",
+      "dependencies": [],
+      "dependents": [
+        4
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_085437_3a2809ee/astute-literature.md"
+      ],
+      "validation_required": "At least 5 literature references with citations. Identify whether sensor-grounded distributed-parameter inversion is a known approach with published accuracy data. Verdict on whether the user's idea has precedent.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Mathematical viability analysis",
+      "owner": "HMS Audacious",
+      "deliverable": "Analyse the user's proposal mathematically. With 8 sensor groundings (Dirichlet boundary conditions on 8 cells across the bake duration), a cellular FEM mesh of e.g. 50-100 cells, and smoothness priors on (alpha, moisture, source) fields evolving in time: (a) is the inverse problem well-posed in the Tikhonov sense? (b) what's the effective number of independent observations vs free parameters? (c) does this break the M13 deep-end information limit, or just push the failure to a different parameter? (d) what regularization (smoothness penalty) is needed? Specifically, the M13 LOO finding was that the model fits well near sensors and fails far from them. With sensor grounding, does the deep-loaf prediction get better (because we don't compete with the sensors there) or worse (because we have no observations there)? Write to .nelson/missions/2026-04-29_085437_3a2809ee/audacious-viability.md",
+      "dependencies": [],
+      "dependents": [
+        4
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_085437_3a2809ee/audacious-viability.md"
+      ],
+      "validation_required": "Explicit identifiability analysis. Comparison vs parametric fitting in terms of degrees of freedom and degeneracies. Verdict: does sensor grounding break the information limit?",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 3,
+      "name": "Practical complexity and implementation scoping",
+      "owner": "HMS Defender",
+      "deliverable": "Practical engineering assessment. (a) implementation cost \u2014 Python implementation using FEniCS / dolfin / scipy.sparse / handwritten FDM grid \u2014 pros and cons of each. Estimate LOC and dev time. (b) computational cost \u2014 how long does a single forward solve take on 2D 50x50 cells over 280 timesteps? Joint inverse fit on 7 fixtures? Within session budget? (c) what existing modules in our codebase can be reused? Reuse opportunities for stefan_inverse, profile.py, etc. (d) Is there a smaller-scope pilot (e.g. 1D-cellular as an intermediate step) that would test the core hypothesis with less effort? (e) what does success look like \u2014 what RMSE drop on BA3C_0946 main-bake would justify the build cost? Write to .nelson/missions/2026-04-29_085437_3a2809ee/defender-complexity.md",
+      "dependencies": [],
+      "dependents": [
+        4
+      ],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_085437_3a2809ee/defender-complexity.md"
+      ],
+      "validation_required": "LOC estimate + dev time + computational cost. Identify smaller pilot if applicable. Define success metric.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 4,
+      "name": "Synthesis and BUILD/HYBRID/STAND-DOWN verdict",
+      "owner": "HMS Kent",
+      "deliverable": "Read all three reports. Synthesize: BUILD if literature precedent + viability + complexity all positive; HYBRID if some are positive but caveats apply; STAND-DOWN if the architecture won't break the M13 information limit OR cost is excessive. Specify the key risk and the smallest test that would prove or refute viability. Recommend M23 mission scope (BUILD), M23-pilot scope (HYBRID), or affirm M18 Method 1 + Method 4 stub as the production path (STAND-DOWN). Write to .nelson/missions/2026-04-29_085437_3a2809ee/kent-synthesis.md",
+      "dependencies": [
+        1,
+        2,
+        3
+      ],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_085437_3a2809ee/kent-synthesis.md"
+      ],
+      "validation_required": "Single explicit verdict (BUILD / HYBRID / STAND-DOWN) with rationale citing all three prior reports. Concrete next-step recommendation.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Astute",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 1
+      },
+      {
+        "ship_name": "HMS Audacious",
+        "ship_class": "submarine",
+        "model": "sonnet",
+        "task_id": 2
+      },
+      {
+        "ship_name": "HMS Defender",
+        "ship_class": "destroyer",
+        "model": "sonnet",
+        "task_id": 3
+      },
+      {
+        "ship_name": "HMS Kent",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 4
+      }
+    ]
+  },
+  "created_at": "2026-04-29T08:55:25Z",
+  "amended_at": null
+}
