@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Onslaught M21: extend M20 Stefan v2 with a distributed side-heat source term S(x,t) representing heat conducted in from tin sidewalls. 6-param fit (M20's 5 + new Q_side magnitude). Single-fixture decision gate on BA3C_0946 with bar main-bake RMSE less than 4 C and at least 4/6 params interior. Tests the 1D-vs-effective-2D assumption shared by all 18 prior inverse-problem missions.",
+    "status": "underway",
+    "phase": "UNDERWAY",
+    "started_at": "2026-04-29T04:53:31Z",
+    "checkpoint_number": 0
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Onslaught",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-29T04:53:58Z"
+}

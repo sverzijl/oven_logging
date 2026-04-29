@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "M21 \u2014 Stefan v2 + distributed side-heat source S(x,t); single-fixture decision gate",
+      "owner": "HMS Onslaught",
+      "deliverable": "src/data/spatial_reconstruction/stefan_inverse_v3.py: extends stefan_inverse_v2.py with a distributed side-source term S(x,t) = Q_side * w(x) * f(t) representing heat conducted in from tin sidewalls. 6-param Nelder-Mead fit (5 from v2 + Q_side). tests/test_stefan_inverse_v3.py: forward solver sanity (S=0 reduces to M20), synthetic recovery, single-fixture validation on BA3C_0946 with decision gate (RMSE less than 4 C AND at least 4/6 params interior). tests/_driver_stefan_v3.py: 3-phase driver \u2014 sanity, single-fixture gate, optional sweep. tests/baselines/stefan_v3_research.md: report. NOT wired into runtime classifier.",
+      "dependencies": [],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/stefan_inverse_v3.py",
+        "oven_logging/tests/test_stefan_inverse_v3.py",
+        "oven_logging/tests/_driver_stefan_v3.py",
+        "oven_logging/tests/baselines/stefan_v3_research.md",
+        "oven_logging/tests/baselines/stefan_v3_research.json",
+        ".nelson/missions/2026-04-29_045331_a3129104/"
+      ],
+      "validation_required": "Forward sanity passes (S=0 case reproduces M20 within 0.01 K). Synthetic recovery: known Q_side recovered within 30 percent on at least 1 seed. Single-fixture BA3C_0946 fit converges; decision gate honoured (no sweep if gate failed). Existing M1-M20 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Onslaught",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 1
+      }
+    ]
+  },
+  "created_at": "2026-04-29T04:53:56Z",
+  "amended_at": null
+}
