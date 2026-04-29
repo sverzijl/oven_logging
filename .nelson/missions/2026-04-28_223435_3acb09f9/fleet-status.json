@@ -1,10 +1,10 @@
 {
   "version": 1,
   "mission": {
-    "outcome": "Land HMS Daring: reformulate Luikov-tin with observed T_air(t) and h_eff(t) extracted from sensors (replacing fitted T_oven_eff and Bi_top); add oven-spring alpha(T) piecewise profile (alpha_post/alpha_pre as free parameter or pinned at 0.4); per-fixture diagnostics for steam phase and oven spring window; reduced free parameters from M15's 8 down to 4-5.",
+    "outcome": "Land HMS Endeavour: hybrid Luikov inverse combining M9 surface-Dirichlet BC (proven best top BC) with M15 asymmetric-tin bottom BC + alpha(T) oven-spring profile. Tests whether stacking the proven-best BC choice with the additional physics layers identified in M11-M16 finally drops main-bake RMSE below 4 deg C. 5 free parameters: L, D, Lu, q_bottom_eff, alpha_ratio.",
     "status": "complete",
     "phase": "STAND_DOWN",
-    "started_at": "2026-04-28T14:54:44Z",
+    "started_at": "2026-04-28T22:34:35Z",
     "checkpoint_number": 1
   },
   "progress": {
@@ -22,8 +22,8 @@
   },
   "squadron": [
     {
-      "ship_name": "HMS Daring",
-      "ship_class": "destroyer",
+      "ship_name": "HMS Endeavour",
+      "ship_class": "frigate",
       "role": "captain",
       "hull_integrity_pct": 100,
       "hull_integrity_status": "Green",
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-28T16:25:55Z"
+  "last_updated": "2026-04-29T02:56:21Z"
 }

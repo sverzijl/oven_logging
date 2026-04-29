@@ -1,0 +1,30 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Endeavour", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Hybrid Luikov inverse: M9-Dirichlet top + M15-tin bottom + alpha(T)",
+      "owner": "HMS Endeavour",
+      "deliverable": "src/data/spatial_reconstruction/luikov_dirichlet_hybrid.py: forward solver with M9-style Dirichlet top BC (T(x_surface, t) = T_observed_at_M2a_surface_position(t) directly anchored to observation, no h_top or T_oven_eff parameters), M15-style asymmetric-tin bottom BC with q_bottom_eff coupling, alpha(T) piecewise profile with alpha_ratio free parameter, real probe geometry. 5 free params: L, D, Lu, q_bottom_eff, alpha_ratio. tests/test_luikov_dirichlet_hybrid_research.py: forward sanity, synthetic recovery, real-CSV viability, LOO subset. tests/_driver_luikov_dirichlet_hybrid.py: end-to-end driver. tests/baselines/luikov_dirichlet_hybrid_research.md: report with comparison vs M9 (5-11 deg C), M15 (6.1 deg C), M16 (37 deg C). NOT wired into runtime classifier.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/luikov_dirichlet_hybrid.py",
+        "oven_logging/tests/test_luikov_dirichlet_hybrid_research.py",
+        "oven_logging/tests/_driver_luikov_dirichlet_hybrid.py",
+        "oven_logging/tests/baselines/luikov_dirichlet_hybrid_research.md",
+        "oven_logging/tests/baselines/luikov_dirichlet_hybrid_research.json",
+        ".nelson/missions/2026-04-28_223435_3acb09f9/"
+      ],
+      "validation_required": "Forward sanity passes (Dirichlet @ surface, asymmetric tin bottom, alpha(T) transition). Synthetic recovery within 30 percent on at least 1 case. Real-CSV joint inverse converges on at least 5 of 7 fixtures with at least 3 of 5 parameters interior. LOO subset includes T1 and T2 held-out RMSE. Existing M1-M16 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

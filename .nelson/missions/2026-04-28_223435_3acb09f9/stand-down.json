@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Endeavour: hybrid Luikov inverse combining M9 surface-Dirichlet BC (proven best top BC) with M15 asymmetric-tin bottom BC + alpha(T) oven-spring profile. Tests whether stacking the proven-best BC choice with the additional physics layers identified in M11-M16 finally drops main-bake RMSE below 4 deg C. 5 free parameters: L, D, Lu, q_bottom_eff, alpha_ratio.",
+  "actual_outcome": "M17 hybrid Luikov Dirichlet+tin+alpha(T) tested. v1 with alpha_pre pinned at molecular value 1.4e-7 gave broken fits (heat propagation 5x too slow). v2 with alpha_pre bumped to effective 1e-6 gave 30K RMSE on early fixtures (still bound-hitting). v3 with alpha_pre fully free gave 10.3K RMSE on BA3C_0946 single fit \u2014 better than v1 but worse than M9 Stefan 5.76K. Optimizer found pathological local minimum: L=D=65mm collapsed geometry, q_bottom_eff at lower bound, alpha_pre at upper bound (5e-6). 17 inverse-problem missions across 5 model classes and 6 BC formulations all converge: M9 Stefan 5-11K is the empirical floor; deep-end information limit is structural. Pivoting to Method 1 (parabolic clamp with confidence flag) + Method 4 stub (metadata capture) for production wiring.",
+  "success_metric_result": "Single-fit validation: RMSE 10.3K vs M9 5.76K (worse). Optimizer converged=False (max_iter hit) with 4/6 params interior. Pathological geometry (L=D=65mm). 6-param Nelder-Mead on 7-zone-loss-surface finds local minima not physically meaningful.",
+  "duration_minutes": 261,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "When 17 inverse-problem experiments across 5 model classes give the same ~6K RMSE floor, that floor is structural \u2014 stop adding model complexity"
+    ],
+    "avoid": [
+      "6-param Nelder-Mead on Luikov-class problems without strong physical priors finds pathological geometric minima"
+    ]
+  },
+  "created_at": "2026-04-29T02:56:21Z"
+}

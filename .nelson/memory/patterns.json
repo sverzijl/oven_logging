@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28T16:25:55Z",
-  "pattern_count": 52,
+  "updated_at": "2026-04-29T02:56:21Z",
+  "pattern_count": 53,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -1035,6 +1035,26 @@
       ],
       "avoid": [
         "Treating M2a's 'ambient' classification as equivalent to 'bulk oven temperature'; the boundary layer matters"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_223435_3acb09f9",
+      "completed_at": "2026-04-29T02:56:21Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Endeavour: hybrid Luikov inverse combining M9 surface-Dirichlet BC (proven best top BC) with M15 asymmetric-tin bottom BC + alpha(T) oven-spring profile. Tests whether stacking the proven-best BC choice with the additional physics layers identified in M11-M16 finally drops main-bake RMSE below 4 deg C. 5 free parameters: L, D, Lu, q_bottom_eff, alpha_ratio.",
+      "adopt": [
+        "When 17 inverse-problem experiments across 5 model classes give the same ~6K RMSE floor, that floor is structural \u2014 stop adding model complexity"
+      ],
+      "avoid": [
+        "6-param Nelder-Mead on Luikov-class problems without strong physical priors finds pathological geometric minima"
       ],
       "standing_order_violations": [],
       "damage_control_events": 0,

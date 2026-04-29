@@ -4,7 +4,7 @@
     {
       "type": "squadron_formed",
       "checkpoint": 0,
-      "timestamp": "2026-04-28T14:55:12Z",
+      "timestamp": "2026-04-28T22:35:12Z",
       "data": {
         "captain_count": 1,
         "has_red_cell": false,
@@ -18,7 +18,7 @@
     {
       "type": "battle_plan_approved",
       "checkpoint": 0,
-      "timestamp": "2026-04-28T14:55:12Z",
+      "timestamp": "2026-04-28T22:35:12Z",
       "data": {
         "task_count": 1,
         "parallel_tracks": 1,
@@ -32,7 +32,7 @@
     {
       "type": "phase_override",
       "checkpoint": 0,
-      "timestamp": "2026-04-28T14:55:12Z",
+      "timestamp": "2026-04-28T22:35:13Z",
       "data": {
         "from_phase": "BATTLE_PLAN",
         "to_phase": "UNDERWAY"
@@ -41,11 +41,11 @@
     {
       "type": "task_completed",
       "checkpoint": 1,
-      "timestamp": "2026-04-28T16:25:55Z",
+      "timestamp": "2026-04-29T02:56:21Z",
       "data": {
         "task_id": 1,
-        "task_name": "Reformulated Luikov-tin with observed BCs + alpha(T)",
-        "owner": "HMS Daring",
+        "task_name": "M9-Dirichlet + M15-tin + alpha(T) hybrid",
+        "owner": "HMS Endeavour",
         "station_tier": 1,
         "verification": "passed"
       }
@@ -53,14 +53,14 @@
     {
       "type": "mission_complete",
       "checkpoint": 1,
-      "timestamp": "2026-04-28T16:25:55Z",
+      "timestamp": "2026-04-29T02:56:21Z",
       "data": {
         "outcome_achieved": true,
         "tasks_completed": 1,
         "tasks_total": 1,
         "total_tokens_consumed": 0,
         "budget_pct_consumed": 0.0,
-        "duration_minutes": 90,
+        "duration_minutes": 261,
         "ships_used": 1,
         "reliefs": 0,
         "standing_order_violations_total": 0
