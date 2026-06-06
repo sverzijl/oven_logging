@@ -41,6 +41,9 @@ from .profile import interpolate_temperature_series_at
 
 DEFAULT_ISOTHERMS_C = (60.0, 80.0, 100.0, 110.0)
 
+# Epsilon for the "<= fixed_surface_x" in-bounds test (fix/deep-review #2b).
+_SURFACE_EPS = 1e-6
+
 
 # ---------------------------------------------------------------------------
 # Public dataclass
@@ -93,53 +96,39 @@ class IsothermalAssignment:
 # ---------------------------------------------------------------------------
 
 
-def _find_isotherm_position(
+def _find_isotherm_crossings(
     sensor_positions_norm: np.ndarray,
     sensor_temps_C: np.ndarray,
     target_T_C: float,
-) -> float:
-    """Find x where the spatial T(x) profile crosses ``target_T_C``.
+) -> list[float]:
+    """Return ALL x-positions where the spatial T(x) profile crosses
+    ``target_T_C``, sorted ascending by x.
 
-    fix/deep-review #4 / #16. The old implementation assumed the highest-x
-    sensor is the hottest and the profile is monotone decreasing toward the
-    core. That short-circuited to NaN when ``temps[surface_end] < target`` and
-    snapped to 0.0 when ``min(temps) > target`` — which MIS-LOCATES fronts on
-    INVERTED / non-monotonic profiles (Wonder full-crumb, where the probe-tip
-    sensor T1 is hottest and the array is a shallow, non-monotone U).
-
-    Corrected strategy (the same bracket-scan ``piecewise._crossing_position``
-    and ``stefan._find_100c_crossings`` already use): order the sensors by
-    position, then scan EVERY adjacent pair for a bracket
-    ``min(t0, t1) <= target <= max(t0, t1)`` and linearly interpolate the
-    crossing position within that pair.
-
-    * No pair brackets the target → return NaN (the front is genuinely not
-      sampled by the probe). We do NOT snap to 0.0 — fabricating a probe-tip
-      position is exactly the inverted-profile bug.
-    * Multiple crossings (e.g. a through-loaf U has two) → return the crossing
-      nearest the surface (the highest-x crossing). The moisture/Stefan front
-      advances inward from the surface, so the surface-side crossing is the
-      physically relevant front position.
+    Bracket-scan (the same pattern ``piecewise._crossing_position`` and
+    ``stefan._find_100c_crossings`` use): order the sensors by position, then
+    scan EVERY adjacent pair for a bracket ``min(t0,t1) <= target <= max(t0,t1)``
+    and linearly interpolate the crossing position within that pair. A
+    non-monotonic / U-shaped profile (Wonder full-crumb) yields multiple
+    crossings; the caller decides which to report.
 
     NaN sensor temperatures are dropped before the scan (defensive).
+    Returns an empty list when no pair brackets the target.
     """
     pos = np.asarray(sensor_positions_norm, dtype=float)
     T = np.asarray(sensor_temps_C, dtype=float)
     if pos.size != T.size or pos.size == 0:
-        return float("nan")
+        return []
     finite_mask = np.isfinite(T)
     if finite_mask.sum() < 2:
-        return float("nan")
+        return []
     pos = pos[finite_mask]
     T = T[finite_mask]
 
-    # Order by position ascending (probe tip x=0 first, surface x=1 last) so we
-    # can return the highest-x (surface-nearest) crossing deterministically.
     sorted_idx = np.argsort(pos)
     positions = pos[sorted_idx]
     temps = T[sorted_idx]
 
-    best_x = float("nan")  # tracks the highest-x crossing found so far
+    crossings: list[float] = []
     for i in range(len(temps) - 1):
         t0 = float(temps[i])
         t1 = float(temps[i + 1])
@@ -157,10 +146,58 @@ def _find_isotherm_position(
                 frac = (target_T_C - t0) / denom
                 frac = float(np.clip(frac, 0.0, 1.0))
                 x_cross = x0 + frac * (x1 - x0)
-            # Keep the highest-x crossing (nearest the surface).
-            if np.isnan(best_x) or x_cross >= best_x:
-                best_x = x_cross
-    return best_x
+            crossings.append(x_cross)
+    crossings.sort()
+    return crossings
+
+
+def _find_isotherm_position(
+    sensor_positions_norm: np.ndarray,
+    sensor_temps_C: np.ndarray,
+    target_T_C: float,
+    max_x: float | None = None,
+    prefer_near: float | None = None,
+) -> float:
+    """Find x where the spatial T(x) profile crosses ``target_T_C``.
+
+    fix/deep-review #4 / #16 / #2b. Wraps :func:`_find_isotherm_crossings` and
+    selects ONE crossing under two well-defined constraints:
+
+    * ``prefer_near`` (fix/deep-review #2b constraint (b)) — when supplied,
+      return the crossing NEAREST this hint (the previous stride's reported
+      position for this isotherm) to enforce front CONTINUITY across strides and
+      eliminate the discontinuous teleport (probe-tip limb -> grazing surface
+      sensor the instant it reaches the target).
+    * ``max_x`` (fix/deep-review #2b constraint (a)) — used only to SEED the
+      first finite stride (``prefer_near is None``): among the crossings, prefer
+      the surface-most one that is still ``<= max_x`` (the inferred surface).
+      The moisture/Stefan front advances inward from the surface, so the
+      surface-side in-bounds crossing is the physically relevant seed. If NO
+      crossing is in-bounds (e.g. a genuine crust front sitting just outside the
+      dough/air interface, as on BA3C's 100 C front), fall back to the
+      surface-most crossing rather than dropping the front — clamping the seed
+      below a genuine crust front would amputate it.
+
+    With neither hint set, behaviour is the legacy "surface-most crossing"; with
+    no bracket at all, returns NaN (never snaps to 0.0).
+    """
+    crossings = _find_isotherm_crossings(
+        sensor_positions_norm, sensor_temps_C, target_T_C
+    )
+    if not crossings:
+        return float("nan")
+    # Constraint (b): front continuity — pick the crossing nearest the hint.
+    # Continuity, not clamping, is what prevents the teleport on a non-monotone
+    # profile, so it takes precedence once a front has been seeded.
+    if prefer_near is not None and np.isfinite(prefer_near):
+        return float(min(crossings, key=lambda x: abs(x - prefer_near)))
+    # Seed (constraint (a)): prefer the surface-most in-bounds crossing.
+    if max_x is not None and np.isfinite(max_x):
+        in_bounds = [x for x in crossings if x <= max_x + _SURFACE_EPS]
+        if in_bounds:
+            return float(in_bounds[-1])
+        # No in-bounds crossing — genuine crust front; keep the surface-most.
+    return float(crossings[-1])
 
 
 def _smooth_savgol_contiguous(
@@ -392,14 +429,30 @@ def track_isothermal(
     )
     sensor_matrix = df[sensor_cols_present].to_numpy(dtype=float)  # (n_rows, n_sensors)
 
+    # fix/deep-review #2b: enforce (a) no front beyond the inferred surface and
+    # (b) front continuity across strides. ``max_x`` clamps to fixed_surface_x;
+    # ``prev_pos`` seeds per-isotherm continuity. The FIRST finite stride for an
+    # isotherm has no previous position, so it picks the surface-most in-bounds
+    # crossing (prefer_near=None); every later finite stride picks the crossing
+    # nearest the previous reported position, killing the teleport from the hot
+    # probe-tip limb to a grazing surface sensor.
+    max_x = float(fixed_surface_x) if np.isfinite(fixed_surface_x) else None
+    prev_pos: dict = {T: None for T in isotherms_C}
     for k, t_c in enumerate(t_grid):
         row_idx = int(round(float(t_c) / period_s))
         row_idx = max(0, min(n_rows - 1, row_idx))
         temps_now = sensor_matrix[row_idx, :]
         for T_target in isotherms_C:
-            isotherm_raw[T_target][k] = _find_isotherm_position(
-                used_pos, temps_now, float(T_target)
+            x = _find_isotherm_position(
+                used_pos,
+                temps_now,
+                float(T_target),
+                max_x=max_x,
+                prefer_near=prev_pos[T_target],
             )
+            isotherm_raw[T_target][k] = x
+            if np.isfinite(x):
+                prev_pos[T_target] = x
 
     # ------------------------------------------------------------------
     # 5) Per-isotherm Savitzky-Golay smoothing.

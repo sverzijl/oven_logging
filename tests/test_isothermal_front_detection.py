@@ -185,6 +185,58 @@ class TestRealWonderInverted:
         )
 
 
+class TestWonderNoTeleportNoOutOfLoaf:
+    """RESIDUAL #2b — on the full-crumb Wonder bake the "pick highest-x
+    crossing" rule (a) teleported the 60/80 C front from the hot probe-tip limb
+    to the cool surface the instant the surface sensor grazed the target, and
+    (b) reported positions OUTSIDE the classifier's ``fixed_surface_x`` (a front
+    located outside the loaf). The fix enforces front CONTINUITY across strides
+    (pick the crossing nearest the previous stride's position, seeded from the
+    surface-most in-bounds crossing), so the 60/80 C fronts stay continuous and
+    in-bounds.
+    """
+
+    @pytest.fixture(scope="class")
+    def wonder_tracked(self):
+        pytest.importorskip("scipy")
+        if not os.path.exists(_WONDER_CSV):
+            pytest.skip(f"fixture missing: {_WONDER_CSV}")
+        from src.data.loader import ThermalProfileLoader
+
+        loader = ThermalProfileLoader()
+        loader.load_csv(file_path=_WONDER_CSV)
+        df = loader.all_curves[0]["data"]
+        return track_isothermal(df, sample_period_ms=5000)
+
+    def test_60c_no_teleport_and_in_bounds(self, wonder_tracked):
+        raw = wonder_tracked.isotherm_positions_raw[60.0]
+        surf = wonder_tracked.fixed_surface_x
+        finite = raw[np.isfinite(raw)]
+        assert finite.size > 0
+        # (a) No finite position beyond the inferred surface.
+        assert np.all(finite <= surf + 1e-6), (
+            f"60 C front escaped the loaf: max={finite.max():.3f} > "
+            f"fixed_surface_x={surf:.3f}"
+        )
+        # (b) No discontinuous single-stride jump (the teleport was ~0.86).
+        diffs = np.abs(np.diff(raw))
+        max_jump = float(np.nanmax(diffs[np.isfinite(diffs)])) if np.any(np.isfinite(diffs)) else 0.0
+        assert max_jump <= 0.5, f"60 C front teleported: max single-stride jump {max_jump:.3f}"
+
+    def test_80c_no_teleport_and_in_bounds(self, wonder_tracked):
+        raw = wonder_tracked.isotherm_positions_raw[80.0]
+        surf = wonder_tracked.fixed_surface_x
+        finite = raw[np.isfinite(raw)]
+        assert finite.size > 0
+        assert np.all(finite <= surf + 1e-6), (
+            f"80 C front escaped the loaf: max={finite.max():.3f} > "
+            f"fixed_surface_x={surf:.3f}"
+        )
+        diffs = np.abs(np.diff(raw))
+        max_jump = float(np.nanmax(diffs[np.isfinite(diffs)])) if np.any(np.isfinite(diffs)) else 0.0
+        assert max_jump <= 0.5, f"80 C front teleported: max single-stride jump {max_jump:.3f}"
+
+
 class TestRealBA3CMonotoneInward:
 
     def test_100c_front_advances_monotone_inward(self):

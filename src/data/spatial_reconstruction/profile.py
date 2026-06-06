@@ -222,6 +222,16 @@ def _xcorr_lag_seconds(
             p_seg = proxy[:-lag]
         if len(s_seg) < 5:
             continue
+        # fix/deep-review #3b: a shifted segment can be ENTIRELY NaN (e.g. a
+        # sensor that dies partway through the bake). np.nanstd over an all-NaN
+        # slice both emits a "Degrees of freedom <= 0 for slice" RuntimeWarning
+        # and returns NaN. Short-circuit BEFORE calling nanstd when either
+        # segment has < 2 finite samples (no usable correlation there anyway).
+        if (
+            np.sum(np.isfinite(s_seg)) < 2
+            or np.sum(np.isfinite(p_seg)) < 2
+        ):
+            continue
         denom = (np.nanstd(s_seg) * np.nanstd(p_seg))
         if not np.isfinite(denom) or denom < 1e-9:
             continue

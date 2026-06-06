@@ -457,7 +457,16 @@ def fit_piecewise(
             ],
             dtype=float,
         )
-        slow_local = int(np.argmax(scores_arr))
+        # nan-aware argmax (fix/deep-review #4b): a DEAD in-dough sensor (no
+        # time_to_60c / time_to_100c AND a NaN terminal) yields a NaN heat-up
+        # score; plain np.argmax picks that NaN index and MIS-PLACES the core on
+        # the dead sensor. Use np.nanargmax so the genuinely-slowest LIVE sensor
+        # wins. Guard the all-NaN region (every in-dough sensor dead) by falling
+        # back to the first index — there is no usable score to rank by.
+        if np.any(np.isfinite(scores_arr)):
+            slow_local = int(np.nanargmax(scores_arr))
+        else:
+            slow_local = 0
         core_idx = int(in_dough_idx[slow_local])
         # Parabolic vertex interpolation across the GLOBAL position axis using
         # the contiguous in-dough scores. We pad the per-sensor score array
@@ -481,11 +490,25 @@ def fit_piecewise(
         # "low_extrapolated"; pre-M18 boundary snap remains "high" for
         # backward compatibility with the test contract.
         core_confidence_label = "high"
+        # nan-aware neighbour guard (fix/deep-review #4b): the parabolic vertex
+        # is undefined when a neighbour's heat-up score is NaN (a DEAD sensor
+        # adjacent to the live core). _three_point_vertex would propagate that
+        # NaN into x_core. Require the window scores to be finite before fitting;
+        # otherwise degrade to the discrete sensor pick.
+        def _finite_score(i: int) -> bool:
+            return bool(np.isfinite(_score_for(i)))
+
         # If the anchor's immediate neighbours are also in-dough, use them;
         # otherwise consider the relaxed-clamp boundary extrapolation when
         # the anchor is the probe tip (T1, index 0) and the next two sensors
         # are also in-dough.
-        if (core_idx - 1) in in_dough_set and (core_idx + 1) in in_dough_set:
+        if (
+            (core_idx - 1) in in_dough_set
+            and (core_idx + 1) in in_dough_set
+            and _finite_score(core_idx - 1)
+            and _finite_score(core_idx)
+            and _finite_score(core_idx + 1)
+        ):
             # Build a 3-point local window (positions and scores at
             # core_idx-1, core_idx, core_idx+1).
             local_x = positions[core_idx - 1 : core_idx + 2]
@@ -500,7 +523,14 @@ def fit_piecewise(
             x_core, _ = parabolic_vertex_with_clamp(
                 local_x, local_y, 1, relaxed_clamp_mode=False
             )
-        elif core_idx == 0 and 1 in in_dough_set and 2 in in_dough_set:
+        elif (
+            core_idx == 0
+            and 1 in in_dough_set
+            and 2 in in_dough_set
+            and _finite_score(0)
+            and _finite_score(1)
+            and _finite_score(2)
+        ):
             # M18 Method 1 — relaxed parabolic clamp for past-T1 core
             # extrapolation. Construct the global score vector aligned with
             # ``positions`` and let ``parabolic_vertex_with_clamp`` decide
@@ -511,7 +541,14 @@ def fit_piecewise(
             x_core, core_confidence_label = parabolic_vertex_with_clamp(
                 positions, scores_global, anchor_idx=0, relaxed_clamp_mode=True
             )
-        elif core_idx == len(sensor_names) - 1 and (core_idx - 1) in in_dough_set and (core_idx - 2) in in_dough_set:
+        elif (
+            core_idx == len(sensor_names) - 1
+            and (core_idx - 1) in in_dough_set
+            and (core_idx - 2) in in_dough_set
+            and _finite_score(core_idx)
+            and _finite_score(core_idx - 1)
+            and _finite_score(core_idx - 2)
+        ):
             # Symmetric upper-boundary case (probe inserted from the far end).
             scores_global = np.array(
                 [_score_for(i) for i in range(len(sensor_names))], dtype=float
@@ -554,9 +591,19 @@ def fit_piecewise(
     # Fit-quality diagnostic.
     # ------------------------------------------------------------------
     if in_dough_idx.size > 0:
-        residual_sse = float(
-            np.sum((temps[in_dough_idx] - np.mean(temps[in_dough_idx])) ** 2)
-        )
+        # nan-aware mean (fix/deep-review #4b): a dead in-dough sensor's NaN
+        # terminal must NOT NaN-poison residual_sse (which feeds comparison.py's
+        # cross-fixture SSE mean/report). Use np.nanmean over the finite dough
+        # terminals and sum squared deviations over the finite subset; guard the
+        # all-NaN region (every dough sensor dead) → 0.0.
+        dough_terminals = temps[in_dough_idx]
+        finite_dough = dough_terminals[np.isfinite(dough_terminals)]
+        if finite_dough.size > 0:
+            residual_sse = float(
+                np.sum((finite_dough - np.nanmean(dough_terminals)) ** 2)
+            )
+        else:
+            residual_sse = 0.0
     else:
         residual_sse = 0.0
     # Air indices = sensors not in the dough region (for ambient classification).

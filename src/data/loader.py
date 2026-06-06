@@ -1755,8 +1755,48 @@ class ThermalProfileLoader:
         # Drop the entry; subsequent _user_added_idx values shift
         # down on the next re-extract because the list index changes.
         if 0 <= added_idx < len(self._added_curves):
+            # fix/deep-review #1b: deleting an earlier added curve decrements
+            # every LATER added curve's ``_user_added_idx`` on the next
+            # re-extract. Per-curve state (``_sensor_overrides`` /
+            # ``_bake_metadata``) is keyed by all_curves POSITION but remapped
+            # across re-extracts via the stable key ``("added", _user_added_idx)``
+            # (see :meth:`_remap_per_curve_state`). Without anticipating the
+            # shift, the survivor's old key ``("added", k)`` no longer matches
+            # its new ``("added", k-1)`` and the entry is silently dropped.
+            #
+            # Align the stable identities NOW by decrementing the live
+            # ``all_curves`` entries' ``_user_added_idx`` for every later added
+            # curve (and dropping the removed curve's own per-curve state). The
+            # subsequent ``_remap_per_curve_state`` inside the re-extract then
+            # computes matching stable keys for the survivors against this
+            # adjusted old list and re-binds their state onto the new positions.
+            self._drop_removed_added_curve_state(added_idx)
+            for c in self.all_curves:
+                a = c.get("_user_added_idx")
+                if a is not None and int(a) > added_idx:
+                    c["_user_added_idx"] = int(a) - 1
             del self._added_curves[added_idx]
             self._reapply_boundary_state()
+
+    def _drop_removed_added_curve_state(self, removed_added_idx: int) -> None:
+        """Drop ``_sensor_overrides`` / ``_bake_metadata`` belonging to the
+        added curve being removed, so its state does not leak onto whatever
+        physical curve later occupies its old position.
+        """
+        if not self.all_curves:
+            return
+        removed_pos = next(
+            (
+                pos
+                for pos, c in enumerate(self.all_curves)
+                if c.get("_user_added_idx") == removed_added_idx
+            ),
+            None,
+        )
+        if removed_pos is None:
+            return
+        self._sensor_overrides.pop(removed_pos, None)
+        self._bake_metadata.pop(removed_pos, None)
 
     def get_sensor_data(self) -> pd.DataFrame:
         """Get only the temperature sensor columns that are actually present.
