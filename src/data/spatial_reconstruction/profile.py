@@ -61,6 +61,31 @@ def _heat_up_score(features: dict, sensor_name: str, terminal_temp: float) -> fl
 # ---------------------------------------------------------------------------
 
 
+class _FitQualityMapping:
+    """Read-only, dict-compatible accessors for the typed fit-quality
+    dataclasses (``piecewise.PiecewiseFitQuality`` / ``stefan.StefanFitQuality``).
+
+    The classifier and comparison harness read fit-quality fields
+    model-agnostically via ``.get(key, default)``. Providing that here lets a
+    fit carry a typed, frozen dataclass while those legacy call sites keep
+    working unchanged — a key absent from one model's dataclass returns the
+    ``.get`` default, exactly as it did when ``fit_quality`` was a free-form
+    dict (M28 M3 consolidation).
+    """
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+    def __getitem__(self, key):
+        try:
+            return getattr(self, key)
+        except AttributeError as exc:
+            raise KeyError(key) from exc
+
+    def __contains__(self, key):
+        return hasattr(self, key)
+
+
 @dataclass(frozen=True)
 class ProfileFit:
     """Result of a per-curve spatial profile fit.
@@ -87,7 +112,11 @@ class ProfileFit:
         Position where T plateau is below cavity proxy by at least
         ``LID_TEMP_BELOW_CAVITY_C``; ``None`` when no lid contact detected.
     fit_quality:
-        Optional diagnostic dict — implementation-specific quality metrics.
+        Typed, frozen, dict-compatible diagnostic — a
+        :class:`piecewise.PiecewiseFitQuality` or
+        :class:`stefan.StefanFitQuality` (both subclass
+        :class:`_FitQualityMapping`, so legacy ``.get(key, default)`` access
+        still works). Defaults to an empty dict for fits built without one.
     """
 
     model: str
@@ -96,7 +125,7 @@ class ProfileFit:
     x_dough_air: Union[float, tuple, None]
     x_core: Optional[float]
     x_lid: Optional[float]
-    fit_quality: dict = field(default_factory=dict)
+    fit_quality: Union[_FitQualityMapping, dict] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

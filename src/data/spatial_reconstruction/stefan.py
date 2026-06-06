@@ -40,12 +40,40 @@ plumbing changes.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from config.constants import ROLE_CLASSIFIER_CONFIG  # noqa: E402
 
 from .extrapolation import parabolic_vertex_with_clamp
-from .profile import ProfileFit, _heat_up_score
+from .profile import ProfileFit, _FitQualityMapping, _heat_up_score
+
+
+@dataclass(frozen=True)
+class StefanFitQuality(_FitQualityMapping):
+    """Typed diagnostic emitted by :func:`fit_stefan` (M28 M3).
+
+    Shares the model-agnostic fields the classifier reads
+    (``in_dough_indices`` / ``air_indices`` / ``is_through_loaf`` /
+    ``lid_bake_mode`` / ``cavity_proxy_T`` / ``n_dough_sensors`` /
+    ``residual_sse``) with :class:`piecewise.PiecewiseFitQuality`, plus the
+    Stefan-specific crust/cavity diagnostics. Frozen and dict-compatible (via
+    :class:`_FitQualityMapping`). Note it has no ``core_confidence_label`` —
+    the classifier's ``.get("core_confidence_label", "high")`` returns the
+    default for Stefan fits, exactly as the old free-form dict did.
+    """
+
+    residual_sse: float
+    n_dough_sensors: int
+    is_through_loaf: bool
+    cavity_proxy_T: float
+    in_dough_indices: list
+    air_indices: list
+    lid_bake_mode: bool
+    alpha_crust: float
+    T_cavity: float
+    n_crossings_100c: int
 
 
 # ---------------------------------------------------------------------------
@@ -448,18 +476,18 @@ def fit_stefan(
         dough_T = temps[in_dough_idx]
         residual_sse += float(np.sum((dough_T - np.mean(dough_T)) ** 2))
 
-    fit_quality = {
-        "residual_sse": residual_sse,
-        "alpha_crust": alpha,
-        "T_cavity": T_cavity,
-        "n_dough_sensors": len(in_dough_idx),
-        "is_through_loaf": is_through_loaf,
-        "cavity_proxy_T": T_cavity,
-        "in_dough_indices": list(in_dough_idx),
-        "air_indices": air_indices,
-        "lid_bake_mode": bool(lid_bake_mode),
-        "n_crossings_100c": len(crossings),
-    }
+    fit_quality = StefanFitQuality(
+        residual_sse=residual_sse,
+        alpha_crust=alpha,
+        T_cavity=T_cavity,
+        n_dough_sensors=len(in_dough_idx),
+        is_through_loaf=is_through_loaf,
+        cavity_proxy_T=T_cavity,
+        in_dough_indices=list(in_dough_idx),
+        air_indices=air_indices,
+        lid_bake_mode=bool(lid_bake_mode),
+        n_crossings_100c=len(crossings),
+    )
 
     return ProfileFit(
         model="stefan",

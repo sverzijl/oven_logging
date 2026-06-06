@@ -20,12 +20,34 @@ x_core is the position of the coldest dough-side sensor.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from config.constants import ROLE_CLASSIFIER_CONFIG  # noqa: E402
 
 from .extrapolation import parabolic_vertex_with_clamp
-from .profile import ProfileFit, _heat_up_score
+from .profile import ProfileFit, _FitQualityMapping, _heat_up_score
+
+
+@dataclass(frozen=True)
+class PiecewiseFitQuality(_FitQualityMapping):
+    """Typed diagnostic emitted by :func:`fit_piecewise` (M28 M3).
+
+    Frozen and dict-compatible (via :class:`_FitQualityMapping`) so the
+    classifier / comparison ``.get(...)`` readers keep working unchanged.
+    """
+
+    residual_sse: float
+    n_dough_sensors: int
+    is_through_loaf: bool
+    cavity_proxy_T: float
+    in_dough_indices: list
+    air_indices: list
+    lid_bake_mode: bool
+    # Method 1 relaxed-clamp core-position confidence label:
+    # "high" | "medium" | "low_extrapolated".
+    core_confidence_label: str
 
 
 def _crossing_position(
@@ -500,20 +522,21 @@ def fit_piecewise(
     # Air indices = sensors not in the dough region (for ambient classification).
     all_idx = set(range(len(sensor_names)))
     air_indices = sorted(all_idx - set(in_dough_idx.tolist()))
-    fit_quality = {
-        "residual_sse": residual_sse,
-        "n_dough_sensors": int(in_dough_idx.size),
-        "is_through_loaf": bool(is_through_loaf),
-        "cavity_proxy_T": cavity_proxy_T,
-        "in_dough_indices": in_dough_idx.tolist(),
-        "air_indices": air_indices,
-        "lid_bake_mode": bool(lid_bake_mode),
+    fit_quality = PiecewiseFitQuality(
+        residual_sse=residual_sse,
+        n_dough_sensors=int(in_dough_idx.size),
+        is_through_loaf=bool(is_through_loaf),
+        cavity_proxy_T=cavity_proxy_T,
+        in_dough_indices=in_dough_idx.tolist(),
+        air_indices=air_indices,
+        lid_bake_mode=bool(lid_bake_mode),
         # M18 HMS Vigilant — Method 1 relaxed-clamp confidence label for the
         # x_core vertex. ``"high"`` for interior parabolic vertex / strict
-        # boundary snap; ``"medium"`` for degenerate fallback; ``"low_extrapolated"``
-        # when the relaxed clamp reports a past-boundary core position.
-        "core_confidence_label": core_confidence_label,
-    }
+        # boundary snap; ``"medium"`` for degenerate fallback;
+        # ``"low_extrapolated"`` when the relaxed clamp reports a past-boundary
+        # core position.
+        core_confidence_label=core_confidence_label,
+    )
 
     return ProfileFit(
         model="piecewise",
