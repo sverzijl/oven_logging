@@ -15,3 +15,6 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# run-skill driver artifacts
+_run_*.html
