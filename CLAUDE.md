@@ -94,11 +94,15 @@ The classifier replacing the old `surface_sensor_detector` + `ThermodynamicSenso
 - `geometry.py` — `PROBE_GEOMETRIES` registry (Combustion Inc. probe normalised positions) and `lookup_geometry`.
 - `profile.py` — `ProfileFit`, `extract_features`, `compute_oven_proxy` (per-curve features: plateau, rise slope, terminal mean, cavity proxy).
 - `piecewise.py` — default `fit_piecewise` model (dough plateau + air-side rise).
+- `extrapolation.py` — Method 1's `parabolic_vertex_with_clamp` (relaxed boundary clamp that emits a `low_extrapolated` confidence when the inferred core falls past the probe tip; consumed by `piecewise.py`).
 - `stefan.py` — opt-in `fit_stefan` Stefan-front physics-constrained model (`STEFAN_FRONT_TEMP_C = 100`).
 - `classifier.py` — `classify`, `SpatialAssignment`, `PositionalAssignment` — the public entry point used by the loader.
+- `isothermal.py` — `track_isothermal`, `IsothermalAssignment` (M24): traces the 60/80/100/110 °C isotherm positions over time (the 100 °C front is the latent-heat / Stefan moisture-front proxy). Consumed by the Spatial Evolution tab via `loader.isothermal_assignment`.
 - `comparison.py` — `ModelComparison`, `benchmark_fixture`, `benchmark_all_cases`, `write_comparison_report`.
 
 The empirical model-comparison and perturbation baselines are at `tests/baselines/spatial_model_comparison.md` and `tests/baselines/role_classifier_flip_rates.md` — regenerate via the comparison harness when adding fixtures.
+
+The 1D inverse-problem research modules (`heat_equation`, the `luikov_*` family, the `stefan_inverse_*` trio, `zurcher`) were **deleted** in M27 after a firm NO-GO verdict (the 8 probe sensors cannot reconstruct the deep interior / moisture field — a structural ~5–6 °C RMSE floor). The M23 `temporal.py` per-snapshot wrapper was **archived** to `research/spatial_reconstruction/` (superseded by `isothermal.py`). See `research/README.md`.
 
 ## Known Fragile Areas
 

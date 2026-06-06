@@ -213,7 +213,7 @@ def _smooth_savgol_contiguous(
 def track_isothermal(
     df: pd.DataFrame,
     sample_period_ms: int = 5000,
-    sensors: tuple = ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"),
+    sensors: tuple = tuple(SENSOR_LIST),
     sensor_positions_normalised: tuple = tuple(i / 7 for i in range(8)),
     isotherms_C: tuple = DEFAULT_ISOTHERMS_C,
     stride_seconds: float = 30.0,
