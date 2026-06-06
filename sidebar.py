@@ -407,6 +407,170 @@ def render():
                         )
                         st.rerun()
 
+            # ----------------------------------------------------------
+            # Bake Metadata expander (M18 HMS Vigilant — Method 4 stub).
+            # ----------------------------------------------------------
+            # When the operator supplies loaf_thickness AND insertion_depth
+            # the loader computes a *geometric* core position from physical
+            # geometry alone — bypassing Method 1's thermal extrapolation.
+            # When metadata is absent, Method 1 (relaxed parabolic clamp
+            # with low-confidence labelling) engages naturally inside the
+            # classifier. Same widget-key scoping pattern as M3b: keys must
+            # include both filename and curve_idx so values entered for one
+            # CSV/curve do not ghost into another.
+            with st.expander(
+                "Bake Metadata (optional — provide for high-accuracy core position)",
+                expanded=False,
+            ):
+                st.markdown(
+                    "When you supply loaf thickness *and* probe insertion "
+                    "depth, the core position is computed from geometry "
+                    "(`loaf_thickness/2 - insertion_depth_below_top`) and "
+                    "interpolated between the bracketing sensors. Without "
+                    "metadata, the classifier falls back to Method 1's "
+                    "relaxed parabolic clamp with a `low_extrapolated` "
+                    "confidence label."
+                )
+
+                curve_idx = st.session_state.current_curve_index
+                file_key = (st.session_state.get('current_file') or 'nofile').replace(' ', '_')
+                loader = st.session_state.loader
+                current_meta = loader.get_bake_metadata(curve_idx) or {}
+
+                loaf_thickness = st.number_input(
+                    "Loaf thickness (mm)",
+                    min_value=0.0,
+                    max_value=300.0,
+                    value=float(current_meta.get('loaf_thickness_mm', 0.0)),
+                    step=5.0,
+                    help=(
+                        "Total loaf height from tin bottom to top crust. "
+                        "Leave at 0 if unknown."
+                    ),
+                    key=f"loaf_thickness_{file_key}_{curve_idx}",
+                )
+                insertion_depth = st.number_input(
+                    "Probe insertion depth from loaf top (mm)",
+                    min_value=0.0,
+                    max_value=200.0,
+                    value=float(current_meta.get('insertion_depth_mm', 0.0)),
+                    step=5.0,
+                    help=(
+                        "Depth of probe tip (T1) below the loaf top surface. "
+                        "Leave at 0 if unknown."
+                    ),
+                    key=f"insertion_depth_{file_key}_{curve_idx}",
+                )
+                oven_setpoint = st.number_input(
+                    "Oven setpoint (°C)",
+                    min_value=0.0,
+                    max_value=400.0,
+                    value=float(current_meta.get('oven_setpoint_C', 0.0)),
+                    step=10.0,
+                    help="Oven control setpoint. Leave at 0 if unknown.",
+                    key=f"oven_setpoint_{file_key}_{curve_idx}",
+                )
+                lid_options = ["unknown", "open", "lidded", "tin"]
+                lid_state_default = current_meta.get('lid_state', 'unknown')
+                if lid_state_default not in lid_options:
+                    lid_state_default = "unknown"
+                lid_state_choice = st.selectbox(
+                    "Lid / tin state",
+                    options=lid_options,
+                    index=lid_options.index(lid_state_default),
+                    key=f"lid_state_{file_key}_{curve_idx}",
+                    help=(
+                        "Open = uncovered loaf; Lidded = baking lid pressed "
+                        "down; Tin = baked in a tin (no lid contact)."
+                    ),
+                )
+                steam_minutes = st.number_input(
+                    "Steam phase duration (min)",
+                    min_value=0.0,
+                    max_value=20.0,
+                    value=float(current_meta.get('steam_phase_minutes', 0.0)),
+                    step=1.0,
+                    help="Duration of steam injection at the start of the bake.",
+                    key=f"steam_minutes_{file_key}_{curve_idx}",
+                )
+
+                col_apply, col_clear = st.columns(2)
+                with col_apply:
+                    if st.button(
+                        "Apply Bake Metadata",
+                        key=f"apply_metadata_{file_key}_{curve_idx}",
+                    ):
+                        new_meta = {}
+                        if loaf_thickness > 0:
+                            new_meta['loaf_thickness_mm'] = float(loaf_thickness)
+                        if insertion_depth > 0:
+                            new_meta['insertion_depth_mm'] = float(insertion_depth)
+                        if oven_setpoint > 0:
+                            new_meta['oven_setpoint_C'] = float(oven_setpoint)
+                        if lid_state_choice != 'unknown':
+                            new_meta['lid_state'] = lid_state_choice
+                        if steam_minutes > 0:
+                            new_meta['steam_phase_minutes'] = float(steam_minutes)
+                        loader.set_bake_metadata(curve_idx, new_meta)
+                        # Recreate analyzers so the geometric core series
+                        # propagates into downstream analytics on the next
+                        # render pass.
+                        st.session_state.analyzer = ThermalAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.session_state.s_curve_analyzer = SCurveAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.rerun()
+                with col_clear:
+                    if st.button(
+                        "Clear Bake Metadata",
+                        key=f"clear_metadata_{file_key}_{curve_idx}",
+                    ):
+                        loader.clear_bake_metadata(curve_idx)
+                        st.session_state.analyzer = ThermalAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.session_state.s_curve_analyzer = SCurveAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.rerun()
+
+                # Show inferred geometric core when metadata is sufficient.
+                geom_pos_mm = loader.get_geometric_core_position_mm_from_tip(
+                    curve_idx
+                )
+                if geom_pos_mm is not None:
+                    if geom_pos_mm > 0:
+                        st.success(
+                            f"**Geometric core**: {geom_pos_mm:.1f} mm above "
+                            "probe tip (interpolated between T-sensors)."
+                        )
+                    elif geom_pos_mm < 0:
+                        st.warning(
+                            f"**Geometric core**: {-geom_pos_mm:.1f} mm BELOW "
+                            "probe tip (probe inserted too shallow; series "
+                            "degrades to T1)."
+                        )
+                    else:
+                        st.success(
+                            "**Geometric core**: at probe tip (T1)."
+                        )
+                else:
+                    st.info(
+                        "Metadata incomplete — provide both loaf thickness "
+                        "and insertion depth to engage geometric core. "
+                        "Method 1 fallback is active."
+                    )
+
         # Analysis settings
         if st.session_state.data is not None:
             st.divider()

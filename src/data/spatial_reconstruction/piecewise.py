@@ -24,6 +24,7 @@ import numpy as np
 
 from config.constants import ROLE_CLASSIFIER_CONFIG  # noqa: E402
 
+from .extrapolation import parabolic_vertex_with_clamp
 from .profile import ProfileFit
 
 
@@ -449,32 +450,62 @@ def fit_piecewise(
         # fall back to the sensor pick (matches the boundary clause in
         # ``_parabolic_vertex``).
         in_dough_set = set(int(i) for i in in_dough_idx.tolist())
+        # Build a per-sensor score lookup we can reuse for both the
+        # interior-anchor parabolic vertex and the M18 relaxed-clamp
+        # boundary path.
+        def _score_for(i: int) -> float:
+            s = sensor_names[i]
+            feats = features.get(s, {})
+            t60 = feats.get("time_to_60c_seconds")
+            if t60 is None:
+                t100 = feats.get("time_to_100c_seconds")
+                return float(t100) if t100 is not None else -float(temps[i])
+            return float(t60)
+
+        # Default confidence label for the core position (M18 HMS Vigilant).
+        # Interior parabolic vertex → "high"; degenerate fallback → "medium";
+        # past-boundary extrapolation under relaxed clamp →
+        # "low_extrapolated"; pre-M18 boundary snap remains "high" for
+        # backward compatibility with the test contract.
+        core_confidence_label = "high"
         # If the anchor's immediate neighbours are also in-dough, use them;
-        # otherwise return the discrete sensor position.
+        # otherwise consider the relaxed-clamp boundary extrapolation when
+        # the anchor is the probe tip (T1, index 0) and the next two sensors
+        # are also in-dough.
         if (core_idx - 1) in in_dough_set and (core_idx + 1) in in_dough_set:
             # Build a 3-point local window (positions and scores at
             # core_idx-1, core_idx, core_idx+1).
             local_x = positions[core_idx - 1 : core_idx + 2]
-            # Look up scores for these three sensors directly.
-            def _score_for(i: int) -> float:
-                s = sensor_names[i]
-                feats = features.get(s, {})
-                t60 = feats.get("time_to_60c_seconds")
-                if t60 is None:
-                    t100 = feats.get("time_to_100c_seconds")
-                    return float(t100) if t100 is not None else -float(temps[i])
-                return float(t60)
-
             local_y = np.array(
                 [_score_for(core_idx - 1), _score_for(core_idx), _score_for(core_idx + 1)],
                 dtype=float,
             )
             # Anchor at local idx 1 (the centre of the 3-point window).
             x_core = _parabolic_vertex(local_x, local_y, 1)
+        elif core_idx == 0 and 1 in in_dough_set and 2 in in_dough_set:
+            # M18 Method 1 — relaxed parabolic clamp for past-T1 core
+            # extrapolation. Construct the global score vector aligned with
+            # ``positions`` and let ``parabolic_vertex_with_clamp`` decide
+            # whether the un-clamped vertex actually escapes the boundary.
+            scores_global = np.array(
+                [_score_for(i) for i in range(len(sensor_names))], dtype=float
+            )
+            x_core, core_confidence_label = parabolic_vertex_with_clamp(
+                positions, scores_global, anchor_idx=0, relaxed_clamp_mode=True
+            )
+        elif core_idx == len(sensor_names) - 1 and (core_idx - 1) in in_dough_set and (core_idx - 2) in in_dough_set:
+            # Symmetric upper-boundary case (probe inserted from the far end).
+            scores_global = np.array(
+                [_score_for(i) for i in range(len(sensor_names))], dtype=float
+            )
+            x_core, core_confidence_label = parabolic_vertex_with_clamp(
+                positions, scores_global, anchor_idx=core_idx, relaxed_clamp_mode=True
+            )
         else:
             x_core = float(positions[core_idx])
     else:
         x_core = None
+        core_confidence_label = "high"
 
     # ------------------------------------------------------------------
     # x_lid: sensor plateauing in the lid window (cavity − [lid_min, lid_max]).
@@ -521,6 +552,11 @@ def fit_piecewise(
         "in_dough_indices": in_dough_idx.tolist(),
         "air_indices": air_indices,
         "lid_bake_mode": bool(lid_bake_mode),
+        # M18 HMS Vigilant — Method 1 relaxed-clamp confidence label for the
+        # x_core vertex. ``"high"`` for interior parabolic vertex / strict
+        # boundary snap; ``"medium"`` for degenerate fallback; ``"low_extrapolated"``
+        # when the relaxed clamp reports a past-boundary core position.
+        "core_confidence_label": core_confidence_label,
     }
 
     return ProfileFit(

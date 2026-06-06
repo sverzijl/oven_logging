@@ -291,14 +291,35 @@ def classify(
 
     # core_assignment ---------------------------------------------------
     if fit.x_core is not None:
+        # M18 HMS Vigilant — Method 1 relaxed-clamp surface: when the
+        # piecewise fitter reports ``core_confidence_label='low_extrapolated'``
+        # (T1-anchored core whose un-clamped parabolic vertex falls past the
+        # probe tip), drop the core PositionalAssignment confidence to
+        # ``"low"`` and tag the reason with the explicit extrapolation
+        # signature so the UI can label it as such.
+        fit_label = fit.fit_quality.get("core_confidence_label", "high")
+        if fit_label == "low_extrapolated":
+            core_confidence = "low"
+            core_reason = (
+                f"extrapolated past probe tip: relaxed parabolic clamp places "
+                f"core at x={fit.x_core:.4f} (normalised), past T1. Method 1 "
+                f"low-confidence label engaged — operator should provide bake "
+                f"metadata for high-accuracy geometric core."
+            )
+        elif fit_label == "medium":
+            core_confidence = "medium"
+            core_reason = "boundary anchor; relaxed clamp inactive (vertex inside probe)"
+        else:
+            core_confidence = "high"
+            core_reason = "coldest dough-side sensor in piecewise fit"
         core_assignment = _build_assignment(
             role="core",
             position=fit.x_core,
             sensor_positions=sensor_positions,
             sensor_names=sensor_names,
             df=working_df,
-            confidence="high",
-            reason="coldest dough-side sensor in piecewise fit",
+            confidence=core_confidence,
+            reason=core_reason,
         )
     else:
         # Fall back to the sensor with the lowest terminal temp.

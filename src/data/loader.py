@@ -75,6 +75,21 @@ class ThermalProfileLoader:
         # Subsequent set_expected_durations / set_curve_boundaries
         # calls leave it untouched.
         self.baseline_curves: list = []
+        # Per-curve bake metadata (M18 HMS Vigilant — Method 4 stub).
+        # Keyed by curve_index. Recognised keys (all optional):
+        #   - loaf_thickness_mm: float
+        #   - insertion_depth_mm: float (probe tip below loaf top surface)
+        #   - oven_setpoint_C: float
+        #   - lid_state: 'unknown' | 'open' | 'lidded' | 'tin'
+        #   - steam_phase_minutes: float
+        # When ``loaf_thickness_mm`` and ``insertion_depth_mm`` are both
+        # present, ``get_geometric_core_position_mm_from_tip`` computes
+        # ``insertion_depth_mm - loaf_thickness_mm/2`` (positive = past tip,
+        # negative = above tip in dough), and ``get_core_temperature_series``
+        # uses linear interpolation between adjacent T-sensors at that
+        # geometric position. When metadata is absent, the classifier path
+        # (Method 1 relaxed clamp) is used unchanged.
+        self._bake_metadata: dict[int, dict] = {}
 
     def load_csv(self, file_path: str = None, file_buffer=None) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -724,6 +739,143 @@ class ThermalProfileLoader:
             self._apply_standard_columns(df_curve, curve_index)
         if curve_index == self.current_curve_index:
             self._regenerate_standard_columns()
+
+    # ------------------------------------------------------------------
+    # M18 HMS Vigilant — Method 4: bake metadata + geometric core
+    # ------------------------------------------------------------------
+    # Probe geometry: T1-T8 span 95 mm; spacing 13.571 mm; T1 at probe tip.
+    PROBE_SPAN_MM: float = 95.0
+    SENSOR_SPACING_MM: float = 95.0 / 7.0  # ≈ 13.571 mm
+
+    def set_bake_metadata(self, curve_index: int, metadata: dict) -> None:
+        """Store partial or full bake metadata for ``curve_index``.
+
+        Recognised keys (all optional):
+          - ``loaf_thickness_mm``: float — total loaf height (tin bottom to top crust).
+          - ``insertion_depth_mm``: float — probe tip below loaf top surface.
+          - ``oven_setpoint_C``: float — oven setpoint.
+          - ``lid_state``: ``'unknown' | 'open' | 'lidded' | 'tin'``.
+          - ``steam_phase_minutes``: float — steam phase duration.
+
+        When both ``loaf_thickness_mm`` and ``insertion_depth_mm`` are
+        provided, :meth:`get_geometric_core_position_mm_from_tip` returns
+        the geometric core position relative to the probe tip and
+        :meth:`get_core_temperature_series` uses spatial interpolation
+        between the bracketing T-sensors at that position.
+        """
+        self._bake_metadata[curve_index] = dict(metadata)
+
+    def clear_bake_metadata(self, curve_index: int) -> None:
+        """Drop all stored bake metadata for ``curve_index`` (no-op if absent)."""
+        self._bake_metadata.pop(curve_index, None)
+
+    def get_bake_metadata(self, curve_index: Optional[int] = None) -> dict:
+        """Return a *copy* of the stored bake metadata for ``curve_index``.
+
+        Defaults to the current curve. Returns ``{}`` when no metadata has
+        been set for the curve.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        return dict(self._bake_metadata.get(curve_index, {}))
+
+    def get_geometric_core_position_mm_from_tip(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[float]:
+        """Return the geometric core position relative to the probe tip.
+
+        Formula::
+
+            geometric_core_depth_below_top = loaf_thickness_mm / 2
+            pos_mm_above_tip = insertion_depth_mm - geometric_core_depth_below_top
+
+        Sign convention (matches :meth:`_geometric_core_series` and the
+        sidebar status display — positive = interpolation, negative =
+        degraded extrapolation):
+          - **Positive** ⇒ the geometric core sits *above* the probe tip,
+            i.e. between T1 (tip) and T8 (stem) along the probe — interpolation
+            between adjacent T-sensors yields a high-accuracy core series.
+            At ``pos_mm = 0`` the core lands exactly on T1; at ``pos_mm = 95``
+            it lands on T8.
+          - **Negative** ⇒ the geometric core is *past/below* the probe tip
+            (the probe is too shallow; the true core is deeper into the loaf
+            than T1 reaches) — extrapolation territory for thermal-only
+            methods (the structural ~5.7 °C floor confirmed across the M21
+            inverse-problem flotilla). The series degrades to T1 in this case.
+
+        Returns ``None`` when either of the required metadata fields is
+        missing (the classifier's Method 1 fallback engages instead).
+        """
+        meta = self.get_bake_metadata(curve_index)
+        L = meta.get("loaf_thickness_mm")
+        D = meta.get("insertion_depth_mm")
+        if L is None or D is None:
+            return None
+        return float(D) - float(L) / 2.0
+
+    def _geometric_core_series(
+        self, curve_index: int
+    ) -> Optional[pd.Series]:
+        """Build the per-timestep core series at the geometric core position.
+
+        Returns ``None`` when bake metadata is incomplete or the per-curve
+        DataFrame does not carry the bracketing T-sensor columns.
+
+        Coordinate convention (M18 HMS Vigilant):
+          - The probe is inserted top-down: T1 sits at the probe TIP (the
+            deepest point in the loaf), T8 sits at the probe STEM end
+            (closest to the loaf top surface). Adjacent sensors are spaced
+            by ``SENSOR_SPACING_MM`` ≈ 13.571 mm; the full span is 95 mm.
+          - ``insertion_depth_mm`` = how far below the loaf top the probe
+            tip (T1) sits.
+          - ``geometric_core_depth_below_top`` = ``loaf_thickness_mm / 2``
+            (the loaf's central plane).
+          - ``pos_mm = insertion_depth_mm - core_depth_below_top``:
+              * ``pos_mm > 0`` ⇒ the core sits ABOVE the probe tip
+                (between T1 and T8 along the probe stem). At ``pos_mm = 0``
+                the core lands exactly on T1; at ``pos_mm = 95`` it lands
+                exactly on T8.
+              * ``pos_mm < 0`` ⇒ the core sits BELOW the probe tip
+                (probe is too shallow; geometric core is in the loaf
+                BELOW T1 with no in-dough sensor coverage). We hold T1's
+                series in this degraded case — Method 1's relaxed
+                parabolic clamp is not invoked here because the user
+                supplied a hard geometric measurement; the position
+                ``pos_mm`` is reported (negative) but the temperature
+                series degrades to T1.
+        """
+        pos_mm = self.get_geometric_core_position_mm_from_tip(curve_index)
+        if pos_mm is None:
+            return None
+        df = self._curve_dataframe(curve_index)
+        if df is None:
+            return None
+        # Past-the-tip degenerate case (pos_mm < 0): hold T1's series.
+        if pos_mm < 0.0:
+            if "T1" in df.columns:
+                return df["T1"].reset_index(drop=True)
+            return None
+        # Clamp to probe span so the bracketing sensors stay inside [T1, T8].
+        offset_from_t1 = float(pos_mm)
+        if offset_from_t1 > self.PROBE_SPAN_MM:
+            offset_from_t1 = self.PROBE_SPAN_MM
+        # Bracketing sensor indices (1-based: T1..T8). ``idx_lower`` is the
+        # 0-based offset of the lower-T-numbered sensor in the bracket; e.g.
+        # ``idx_lower=0`` → bracket is (T1, T2).
+        idx_lower = int(offset_from_t1 // self.SENSOR_SPACING_MM)
+        if idx_lower >= 7:
+            idx_lower = 6
+        sensor_lo = f"T{idx_lower + 1}"
+        sensor_hi = f"T{idx_lower + 2}"
+        if sensor_lo not in df.columns or sensor_hi not in df.columns:
+            return None
+        frac = (offset_from_t1 - idx_lower * self.SENSOR_SPACING_MM) / self.SENSOR_SPACING_MM
+        if frac < 0.0:
+            frac = 0.0
+        elif frac > 1.0:
+            frac = 1.0
+        series = (1.0 - frac) * df[sensor_lo] + frac * df[sensor_hi]
+        return series.reset_index(drop=True)
     
     def get_core_sensors(self, curve_index: Optional[int] = None) -> List[str]:
         """Get list of physical sensors identified as core (with override support)."""
@@ -899,22 +1051,48 @@ class ThermalProfileLoader:
             return overrides['lid']
         return self.curve_sensor_assignments.get(curve_index, {}).get('lid')
 
-    def get_core_temperature_series(
-        self, curve_index: Optional[int] = None
+    def _resolve_core_series(
+        self,
+        curve_index: int,
+        df: Optional[pd.DataFrame],
     ) -> Optional[pd.Series]:
-        """Return the interpolated core-temperature series.
+        """Apply the override → Method 4 → classifier core-series layering.
 
-        Manual override falls back to the raw sensor read; otherwise returns
-        the classifier's interpolated series at the inferred core position.
+        Single source of truth for the *non-fallback* portion of the
+        core-temperature decision, shared by
+        :meth:`get_core_temperature_series` (the public reader) and
+        :meth:`_apply_standard_columns` (the canonical writer that produces
+        ``df['CoreTemperature']``). The two paths previously disagreed when
+        bake metadata was set — the reader honoured Method 4, the writer
+        ignored it — so every Streamlit tab and analyser reading the column
+        saw stale Method 1 output. M26 HMS Bellerophon consolidates the
+        decision here.
+
+        Layering (per ``CLAUDE.md`` "Data transformation pipeline"):
+          1. **Manual sensor override** — ``_sensor_overrides[i]['core']``.
+          2. **Bake metadata (Method 4)** — when ``loaf_thickness_mm`` AND
+             ``insertion_depth_mm`` are both set, the geometric core
+             position drives spatial interpolation between the bracketing
+             T-sensors via :meth:`_geometric_core_series`.
+          3. **Classifier (Method 1)** —
+             ``assignment.core_assignment.temperature_series``.
+
+        Returns the series with ``reset_index(drop=True)`` so callers can
+        rely on positional alignment with ``df``. Returns ``None`` when
+        none of the three layers produces a result; the caller is then
+        responsible for any legacy fallback (the reader returns
+        ``df['CoreTemperature']`` if present; the writer invokes
+        :func:`resolve_core_temperature_series`).
         """
-        if curve_index is None:
-            curve_index = self.current_curve_index
         overrides = self._sensor_overrides.get(curve_index, {})
-        df = self._curve_dataframe(curve_index)
         if 'core' in overrides and df is not None:
             sensor = overrides['core']
             if sensor in df.columns:
                 return df[sensor].reset_index(drop=True)
+        # Method 4 — geometric core from bake metadata.
+        geom_series = self._geometric_core_series(curve_index)
+        if geom_series is not None:
+            return geom_series
         assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
             'assignment'
         )
@@ -922,6 +1100,34 @@ class ThermalProfileLoader:
             return assignment.core_assignment.temperature_series.reset_index(
                 drop=True
             )
+        return None
+
+    def get_core_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the interpolated core-temperature series.
+
+        Layering (M18 HMS Vigilant; consolidated by M26 HMS Bellerophon):
+          1. **Manual sensor override** wins (``_sensor_overrides[i]['core']``).
+          2. **Bake metadata (Method 4)** — when ``loaf_thickness_mm`` AND
+             ``insertion_depth_mm`` are both set, the geometric core position
+             determines the spatial interpolation point and a per-timestep
+             series is built by linear interpolation between the bracketing
+             T-sensors.
+          3. **Classifier (Method 1)** — relaxed parabolic clamp; returns
+             ``assignment.core_assignment.temperature_series``.
+          4. **Final fallback** — the standardised ``CoreTemperature`` column.
+
+        Layers 1-3 delegate to :meth:`_resolve_core_series`; the legacy
+        ``df['CoreTemperature']`` final fallback remains here so the public
+        API behaviour is byte-identical to the pre-M26 reader.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        series = self._resolve_core_series(curve_index, df)
+        if series is not None:
+            return series
         # Final fallback: use whatever CoreTemperature is set to.
         if df is not None and 'CoreTemperature' in df.columns:
             return df['CoreTemperature'].reset_index(drop=True)
@@ -1364,13 +1570,12 @@ class ThermalProfileLoader:
         assignment = curve_assignments.get('assignment')
 
         # --- CoreTemperature -------------------------------------------------
-        core_override = overrides.get('core')
-        if core_override and core_override in df.columns:
-            df['CoreTemperature'] = df[core_override]
-        elif assignment is not None and assignment.core_assignment is not None:
-            df['CoreTemperature'] = self._align_series(
-                assignment.core_assignment.temperature_series, df
-            )
+        # Layer override → Method 4 → classifier through the shared helper
+        # (M26 HMS Bellerophon DRY contract); legacy ``resolve_core_temperature_series``
+        # remains as the final fallback when no layer produces a series.
+        core_series = self._resolve_core_series(curve_index, df)
+        if core_series is not None:
+            df['CoreTemperature'] = self._align_series(core_series, df)
         else:
             try:
                 df['CoreTemperature'] = resolve_core_temperature_series(df)
