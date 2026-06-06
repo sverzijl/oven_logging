@@ -16,7 +16,20 @@ class ThermalAnalyzer:
         self.metadata = metadata
         self.sample_period = metadata.get('sample_period_s', 5.0)
         self.loader = loader
-        
+
+    def _safe_gradient(self, series: pd.Series) -> np.ndarray:
+        """Compute np.gradient with a guard for fewer than 2 samples.
+
+        np.gradient requires at least (edge_order + 1) == 2 elements; on
+        single-sample or empty bakes it raises ValueError. In that degenerate
+        case the heating rate is undefined, so we return zeros of the matching
+        length (rate of an instantaneous bake is treated as 0 °C/s).
+        """
+        arr = np.asarray(series, dtype=float)
+        if arr.shape[0] < 2:
+            return np.zeros_like(arr)
+        return np.gradient(arr, self.sample_period)
+
     def calculate_heating_rates(self, smooth: bool = True) -> pd.DataFrame:
         """
         Calculate heating rates for all sensors with safeguards for extreme values.
@@ -33,27 +46,31 @@ class ThermalAnalyzer:
         
         # Define reasonable rate limits for bread baking
         MAX_REASONABLE_RATE = 1.0  # 60°C/min - absolute maximum for any sensor
-        
+
+        # Assign the smoothing window once, outside the sensor loop, so the
+        # core/surface gradient blocks below still reference a defined name even
+        # when no T1..T8 sensor columns exist (#21 — was a NameError).
+        window = ANALYSIS_PARAMS['smoothing_window']
+
         sensors = list(SENSOR_NAMES)
 
         for sensor in sensors:
             if sensor in self.data.columns:
                 # Apply smoothing if requested
                 if smooth:
-                    window = ANALYSIS_PARAMS['smoothing_window']
                     temp_smooth = self.data[sensor].rolling(window=window, center=True).mean()
                 else:
                     temp_smooth = self.data[sensor]
-                
+
                 # Handle NaN values from rolling mean at edges
                 temp_smooth = temp_smooth.bfill().ffill()
-                
-                # Calculate derivative (heating rate)
-                rate = np.gradient(temp_smooth, self.sample_period)
-                
+
+                # Calculate derivative (heating rate); guarded for <2 samples (#9)
+                rate = self._safe_gradient(temp_smooth)
+
                 # Clip extreme values that are likely sensor errors
                 rate = np.clip(rate, -MAX_REASONABLE_RATE, MAX_REASONABLE_RATE)
-                
+
                 rates[f'{sensor}_rate'] = rate
         
         # Calculate zone-specific rates
@@ -64,7 +81,7 @@ class ThermalAnalyzer:
                 core_smooth = core_smooth.bfill().ffill()
             else:
                 core_smooth = self.data['CoreTemperature']
-            core_rate = np.gradient(core_smooth, self.sample_period)
+            core_rate = self._safe_gradient(core_smooth)
             rates['core_rate'] = np.clip(core_rate, -MAX_REASONABLE_RATE, MAX_REASONABLE_RATE)
         else:
             # Fall back using loader if available
@@ -86,7 +103,7 @@ class ThermalAnalyzer:
                 surface_smooth = surface_smooth.bfill().ffill()
             else:
                 surface_smooth = self.data['SurfaceTemperature']
-            surface_rate = np.gradient(surface_smooth, self.sample_period)
+            surface_rate = self._safe_gradient(surface_smooth)
             rates['surface_rate'] = np.clip(surface_rate, -MAX_REASONABLE_RATE, MAX_REASONABLE_RATE)
         else:
             # Fall back using loader if available
@@ -323,27 +340,36 @@ class ThermalAnalyzer:
     def identify_process_events(self) -> Dict:
         """Identify key events in the baking process."""
         events = {}
-        
+
+        # Nothing to identify on an empty frame.
+        if len(self.data) == 0:
+            return events
+
         # Probe insertion (first significant temperature rise)
         core_col = get_core_temperature_column(self.data)
         temp_diff = self.data[core_col].diff()
-        insertion_idx = temp_diff[temp_diff > 2].index[0] if any(temp_diff > 2) else 0
+        insertion_idx = temp_diff[temp_diff > 2].index[0] if any(temp_diff > 2) else self.data.index[0]
         events['probe_insertion'] = {
             'time_minutes': self.data.loc[insertion_idx, 'TimeMinutes'],
             'temperature': self.data.loc[insertion_idx, core_col]
         }
-        
-        # Maximum heating rate
+
+        # Maximum heating rate.
+        # idxmax raises on an all-NA series, so only emit this event when at
+        # least one valid (non-NaN) core rate exists (#22).
         rates = self.calculate_heating_rates()
-        max_rate_idx = rates['core_rate'].idxmax()
-        events['max_heating_rate'] = {
-            'time_minutes': rates.loc[max_rate_idx, 'TimeMinutes'],
-            'rate': rates.loc[max_rate_idx, 'core_rate'],
-            'temperature': self.data.loc[max_rate_idx, core_col]
-        }
-        
+        if 'core_rate' in rates.columns and rates['core_rate'].notna().any():
+            max_rate_idx = rates['core_rate'].idxmax()
+            events['max_heating_rate'] = {
+                'time_minutes': rates.loc[max_rate_idx, 'TimeMinutes'],
+                'rate': rates.loc[max_rate_idx, 'core_rate'],
+                'temperature': self.data.loc[max_rate_idx, core_col]
+            }
+
         # Temperature plateaus (rate near zero)
         plateau_threshold = 0.05  # °C/s
+        if 'core_rate' not in rates.columns:
+            return events
         plateaus = rates[abs(rates['core_rate']) < plateau_threshold]
         if len(plateaus) > 10:  # Significant plateau
             events['temperature_plateau'] = {

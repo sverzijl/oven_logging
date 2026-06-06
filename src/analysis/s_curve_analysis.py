@@ -34,18 +34,25 @@ class BakeOutAnalysis:
 class SCurveAnalyzer:
     """Analyze S-curve characteristics for bread quality optimization."""
     
-    def __init__(self, data: pd.DataFrame, metadata: Dict, loader=None):
+    def __init__(self, data: pd.DataFrame, metadata: Dict, loader=None,
+                 product_type: str = 'white_pan'):
         self.data = data
         self.metadata = metadata
         self.sample_period = metadata.get('sample_period_s', 5.0)
         self.total_bake_time = len(data) * self.sample_period / 60.0
         self.loader = loader
+        # Default 'white_pan' preserves existing behaviour for callers (tabs/)
+        # that do not yet pass a product type (Wave B wires the sidebar
+        # selector). Per-call product_type arguments override this default.
+        self.product_type = product_type
         
     def identify_landmarks(self) -> Dict[str, SCurveLandmark]:
         """Identify critical landmarks on the S-curve."""
         landmarks = {}
-        # Always use standardized CoreTemperature column
-        core_temp = self.data['CoreTemperature']
+        # Resolve the core column via the shared helper (CoreTemperature →
+        # CoreAverage) like the rest of the class, instead of hardcoding the
+        # standardized name (#23).
+        core_temp = self.data[get_core_temperature_column(self.data)]
         
         # Yeast Kill (56°C)
         yeast_kill_idx = self._find_temperature_crossing(core_temp, 56)
@@ -114,13 +121,18 @@ class SCurveAnalyzer:
             }
         
         # Critical Change Zone (56-93°C)
-        critical = self.data[(core_temp >= 56) & (core_temp < 93)]
+        in_band = (core_temp >= 56) & (core_temp < 93)
+        critical = self.data[in_band]
         if not critical.empty:
             zones['critical_change'] = {
                 'duration_minutes': len(critical) * self.sample_period / 60,
                 'percentage_of_bake': (len(critical) / len(self.data)) * 100,
                 'max_temp_reached': critical[core_col].max(),
-                'avg_heating_rate': critical[core_col].diff().mean() / (self.sample_period / 60),
+                # Compute the heating rate over the FIRST contiguous in-band run
+                # rather than a raw boolean-mask diff(): on non-monotonic bakes
+                # the masked subset is non-adjacent in the original index, so a
+                # naive .diff() bridges the gaps and injects spurious jumps (#10).
+                'avg_heating_rate': self._first_run_heating_rate(in_band, core_temp),
                 'transformations': self._identify_transformations(critical)
             }
         
@@ -136,8 +148,16 @@ class SCurveAnalyzer:
         
         return zones
     
-    def analyze_bake_out(self, product_type: str = 'white_pan') -> BakeOutAnalysis:
-        """Perform detailed bake-out analysis with improved moisture model."""
+    def analyze_bake_out(self, product_type: Optional[str] = None) -> BakeOutAnalysis:
+        """Perform detailed bake-out analysis with improved moisture model.
+
+        Args:
+            product_type: Product key into BAKEOUT_TARGETS / PRODUCT_MOISTURE.
+                Defaults to the analyzer's ``product_type`` (itself 'white_pan'
+                unless set), preserving prior behaviour (#8).
+        """
+        if product_type is None:
+            product_type = self.product_type
         core_col = get_core_temperature_column(self.data)
         core_temp = self.data[core_col]
         bakeout_data = self.data[core_temp >= 93]
@@ -157,17 +177,23 @@ class SCurveAnalyzer:
             )
         
         start_time = bakeout_data.iloc[0]['TimeMinutes']
-        duration = len(bakeout_data) * self.sample_period / 60
+        # Drive duration off the real per-sample TimeMinutes (relative to the
+        # bake-out start) so single-sample bake-outs still register a non-zero
+        # elapsed time instead of collapsing to 0 (#6).
+        duration = self._bakeout_duration_minutes(bakeout_data)
         percentage = (len(bakeout_data) / len(self.data)) * 100
-        
-        # Calculate moisture loss using exponential model with temperature dependency
-        final_moisture, avg_loss_rate = self._calculate_moisture_loss_exponential(
-            bakeout_data, duration, moisture_params
-        )
-        
+
         # Get product-specific targets
         target_range = BAKEOUT_TARGETS.get(product_type, BAKEOUT_TARGETS['white_pan'])
-        
+
+        # Calculate moisture loss. The endpoint is anchored to where bake-out%
+        # sits relative to its target window so the moisture verdict and the
+        # bake-out% verdict stay internally consistent (#5); the exponential
+        # decay shape governs only the relative trajectory / loss-rate report.
+        final_moisture, avg_loss_rate = self._calculate_moisture_loss_exponential(
+            bakeout_data, duration, moisture_params, percentage, target_range
+        )
+
         # Quality assessment
         quality, recommendations = self._assess_bakeout_quality(
             percentage, target_range, final_moisture, moisture_params['target_final']
@@ -183,12 +209,19 @@ class SCurveAnalyzer:
             recommendations=recommendations
         )
     
-    def diagnose_quality_issues(self) -> List[Dict]:
-        """Diagnose quality issues based on S-curve analysis."""
+    def diagnose_quality_issues(self, product_type: Optional[str] = None) -> List[Dict]:
+        """Diagnose quality issues based on S-curve analysis.
+
+        Args:
+            product_type: Product key used for product-aware bake-out thresholds.
+                Defaults to the analyzer's ``product_type`` (#8).
+        """
+        if product_type is None:
+            product_type = self.product_type
         issues = []
         landmarks = self.identify_landmarks()
         zones = self.analyze_zones()
-        bakeout = self.analyze_bake_out()
+        bakeout = self.analyze_bake_out(product_type)
         
         # Check yeast kill timing
         if 'yeast_kill' in landmarks:
@@ -210,22 +243,24 @@ class SCurveAnalyzer:
                     'recommendation': 'Increase initial oven temperature'
                 })
         
-        # Check bake-out percentage
-        if bakeout.percentage_of_bake > 20:
+        # Check bake-out percentage against the product-specific target window
+        # (#7 — was hardcoded 10%/20% literals that ignored product type).
+        bo_min, bo_max = BAKEOUT_TARGETS.get(product_type, BAKEOUT_TARGETS['white_pan'])
+        if bakeout.percentage_of_bake > bo_max:
             issues.append({
                 'issue': 'Excessive Bake-Out',
                 'severity': 'High',
                 'impact': 'Dry, crumbly texture, rapid staling',
-                'cause': f'Bake-out at {bakeout.percentage_of_bake:.1f}% (>20%)',
+                'cause': f'Bake-out at {bakeout.percentage_of_bake:.1f}% (>{bo_max}% for {product_type})',
                 'recommendation': 'Reduce bake time or lower temperature in final zones'
             })
-        elif bakeout.percentage_of_bake < 10:
+        elif bakeout.percentage_of_bake < bo_min:
             issues.append({
                 'issue': 'Insufficient Bake-Out',
                 'severity': 'High',
                 'impact': 'Gummy texture, poor shelf life, mold risk',
-                'cause': f'Bake-out at {bakeout.percentage_of_bake:.1f}% (<10%)',
-                'recommendation': 'Increase bake time by 3-5% or raise final zone temperature'
+                'cause': f'Bake-out at {bakeout.percentage_of_bake:.1f}% (<{bo_min}% for {product_type})',
+                'recommendation': 'Increase bake time or raise final zone temperature'
             })
         
         # Check starch gelatinization
@@ -242,12 +277,19 @@ class SCurveAnalyzer:
         
         return issues
     
-    def generate_optimization_report(self) -> Dict:
-        """Generate comprehensive optimization report."""
+    def generate_optimization_report(self, product_type: Optional[str] = None) -> Dict:
+        """Generate comprehensive optimization report.
+
+        Args:
+            product_type: Product key threaded into the bake-out analysis and
+                quality diagnosis. Defaults to the analyzer's ``product_type`` (#8).
+        """
+        if product_type is None:
+            product_type = self.product_type
         landmarks = self.identify_landmarks()
         zones = self.analyze_zones()
-        bakeout = self.analyze_bake_out()
-        issues = self.diagnose_quality_issues()
+        bakeout = self.analyze_bake_out(product_type)
+        issues = self.diagnose_quality_issues(product_type)
         
         # Calculate overall S-curve quality score
         score = self._calculate_s_curve_score(landmarks, zones, bakeout)
@@ -272,6 +314,40 @@ class SCurveAnalyzer:
             return crossings.idxmax()
         return None
     
+    def _first_run_heating_rate(self, in_band: pd.Series, core_temp: pd.Series) -> float:
+        """Heating rate (°C/min) over the first contiguous in-band run.
+
+        ``in_band`` is a boolean mask (aligned with ``core_temp``) marking the
+        samples inside a temperature band. Computing a rate from the masked
+        subset directly is unsafe on non-monotonic bakes because the selected
+        rows are not adjacent in time. Instead we locate the first maximal run
+        of consecutive True values (by positional order) and take the
+        end-to-end slope across the real elapsed time of that run (#10).
+        """
+        mask = in_band.to_numpy()
+        if not mask.any():
+            return 0.0
+
+        # Identify run boundaries on the positional (time-ordered) mask.
+        idx = np.flatnonzero(mask)
+        # Split where positional index is non-consecutive.
+        breaks = np.flatnonzero(np.diff(idx) > 1)
+        first_run_end = breaks[0] if breaks.size else len(idx) - 1
+        start_pos = idx[0]
+        end_pos = idx[first_run_end]
+
+        if end_pos == start_pos:
+            # Single in-band sample: rate is undefined → 0.
+            return 0.0
+
+        temps = core_temp.to_numpy()
+        delta_temp = temps[end_pos] - temps[start_pos]
+        n_steps = end_pos - start_pos
+        elapsed_minutes = n_steps * self.sample_period / 60.0
+        if elapsed_minutes <= 0:
+            return 0.0
+        return delta_temp / elapsed_minutes
+
     def _calculate_expansion_rate(self, oven_spring_data: pd.DataFrame) -> float:
         """Estimate expansion rate during oven spring."""
         core_col = get_core_temperature_column(oven_spring_data)
@@ -294,48 +370,98 @@ class SCurveAnalyzer:
         
         return transformations
     
-    def _calculate_moisture_loss_exponential(self, bakeout_data: pd.DataFrame, 
-                                           duration: float, 
-                                           moisture_params: Dict) -> Tuple[float, float]:
+    def _bakeout_duration_minutes(self, bakeout_data: pd.DataFrame) -> float:
+        """Elapsed bake-out duration (minutes) from the real per-sample times.
+
+        Uses the actual ``TimeMinutes`` span of the bake-out window rather than
+        ``len * sample_period``; for a single bake-out sample we fall back to one
+        sample period so the duration never collapses to zero (#6).
         """
-        Calculate moisture loss using exponential decay model with crust effect.
-        
+        if bakeout_data.empty:
+            return 0.0
+        if len(bakeout_data) == 1:
+            # One sample at/above 93°C: credit one sample period of elapsed time.
+            return self.sample_period / 60.0
+        times = bakeout_data['TimeMinutes']
+        return float(times.iloc[-1] - times.iloc[0])
+
+    def _calculate_moisture_loss_exponential(self, bakeout_data: pd.DataFrame,
+                                           duration: float,
+                                           moisture_params: Dict,
+                                           bakeout_percentage: float = None,
+                                           target_range: Tuple[float, float] = None
+                                           ) -> Tuple[float, float]:
+        """
+        Estimate final moisture from the bake-out profile.
+
+        IMPORTANT CALIBRATION NOTE
+        --------------------------
+        ``k_factor`` (and the exponential crust-barrier shape below) are NOT
+        physically calibrated — they have no backing from real lab
+        bake-out%→final-moisture measurements. The raw exponential model is
+        retained only as a *relative / directional* trajectory indicator and to
+        derive an average loss rate; it must NOT be presented as a physically
+        accurate moisture figure.
+
+        To keep the moisture verdict INTERNALLY CONSISTENT with the bake-out%
+        verdict (#5), the reported ``final_moisture`` is *anchored* to where the
+        bake-out percentage sits relative to its product target window: a
+        bake-out% at the low edge of the window maps to the wet edge of the
+        product's ``target_final`` window, the high edge maps to the dry edge,
+        with monotonic extrapolation outside. This guarantees that an in-window
+        bake-out% yields an in-window moisture (never "underbaked + excess
+        moisture" simultaneously). Calibrating against real bake-out%→moisture
+        lab data is a future follow-up.
+
         Returns:
             Tuple of (final_moisture, average_loss_rate)
         """
         initial_moisture = moisture_params['initial_moisture']
+        target_final = moisture_params.get('target_final')
+
+        # --- Relative/directional exponential trajectory (uncalibrated) -------
+        # Retained to compute a smooth average loss rate and as a directional
+        # cue; its absolute endpoint is intentionally NOT used as the verdict.
         k_factor = moisture_params['k_factor']
         crust_factor = moisture_params['crust_factor']
-        
-        # Temperature-adjusted k factor
         core_col = get_core_temperature_column(bakeout_data)
         avg_temp = bakeout_data[core_col].mean()
-        temp_adjustment = 1 + (avg_temp - 93) * 0.02  # 2% increase per degree above 93°C
+        temp_adjustment = 1 + (avg_temp - 93) * 0.02  # 2% per °C above 93°C (uncalibrated)
         k_adjusted = k_factor * temp_adjustment
-        
-        # Time-varying crust barrier effect (crust forms progressively)
-        time_points = np.linspace(0, duration, len(bakeout_data))
-        moisture_values = []
-        
-        for i, t in enumerate(time_points):
-            # Crust barrier increases over time (sigmoid function)
-            crust_development = 1 / (1 + np.exp(-0.3 * (t - duration/2)))
+
+        # --- Anchored endpoint (the reported moisture) ------------------------
+        if (bakeout_percentage is not None and target_range is not None
+                and target_final is not None):
+            bo_min, bo_max = target_range
+            tf_min, tf_max = target_final
+            # Map bake-out% → moisture, inverted and monotonic:
+            #   % == bo_min  → moisture == tf_max (wettest acceptable)
+            #   % == bo_max  → moisture == tf_min (driest acceptable)
+            if bo_max > bo_min:
+                frac = (bakeout_percentage - bo_min) / (bo_max - bo_min)
+            else:
+                frac = 0.0
+            final_moisture = tf_max - frac * (tf_max - tf_min)
+            # Clamp to a physically sane band: never wetter than initial, never
+            # below an absolute dryness floor.
+            final_moisture = max(min(final_moisture, initial_moisture), 0.0)
+        else:
+            # Backward-compatible path (e.g. the legacy estimate helper) — use
+            # the uncalibrated exponential endpoint.
+            crust_development = 1 / (1 + np.exp(-0.3 * (duration - duration / 2)))
             effective_crust_factor = 1 - (1 - crust_factor) * crust_development
-            
-            # Exponential decay with crust barrier
-            moisture_lost = initial_moisture * (1 - np.exp(-k_adjusted * t * effective_crust_factor))
-            current_moisture = initial_moisture - moisture_lost
-            moisture_values.append(current_moisture)
-        
-        final_moisture = moisture_values[-1] if moisture_values else initial_moisture
+            moisture_lost = initial_moisture * (
+                1 - np.exp(-k_adjusted * duration * effective_crust_factor))
+            final_moisture = initial_moisture - moisture_lost
+
         total_loss = initial_moisture - final_moisture
         avg_loss_rate = total_loss / duration if duration > 0 else 0
-        
+
         return final_moisture, avg_loss_rate
-    
+
     def _estimate_moisture_loss(self, bakeout_data: pd.DataFrame) -> float:
         """Legacy method - kept for compatibility."""
-        duration = len(bakeout_data) * self.sample_period / 60
+        duration = self._bakeout_duration_minutes(bakeout_data)
         moisture_params = PRODUCT_MOISTURE['white_pan']  # Default
         final_moisture, _ = self._calculate_moisture_loss_exponential(
             bakeout_data, duration, moisture_params
@@ -347,17 +473,31 @@ class SCurveAnalyzer:
         """Assess bake-out quality and generate recommendations."""
         recs = []
         
-        # Assess bake-out percentage
+        # Assess bake-out percentage.
+        # #25: the prior wording presented a percentage-POINT delta on the
+        # bake-out fraction as if it were a directly actionable "extend bake
+        # time by X% of total bake" figure. A %-point of bake-out fraction is
+        # not the same as a bake-time extension, so convert it into an
+        # approximate added time-above-93°C in minutes (delta_pct/100 of the
+        # total bake duration) and flag it as a directional estimate.
         if percentage < target_range[0]:
             quality = "Underbaked"
-            time_increase = target_range[0] - percentage
+            delta_pct = target_range[0] - percentage
+            added_minutes = (delta_pct / 100.0) * self.total_bake_time
             recs.append(f"Increase bake-out to {target_range[0]}% (currently {percentage:.1f}%)")
-            recs.append(f"Extend bake time by approximately {time_increase:.1f}% of total bake")
+            recs.append(
+                f"Approx. {added_minutes:.1f} more min above 93°C needed "
+                f"(directional estimate, not lab-calibrated)"
+            )
         elif percentage > target_range[1]:
             quality = "Overbaked"
-            time_decrease = percentage - target_range[1]
+            delta_pct = percentage - target_range[1]
+            removed_minutes = (delta_pct / 100.0) * self.total_bake_time
             recs.append(f"Reduce bake-out to {target_range[1]}% (currently {percentage:.1f}%)")
-            recs.append(f"Decrease bake time by approximately {time_decrease:.1f}% of total bake")
+            recs.append(
+                f"Approx. {removed_minutes:.1f} fewer min above 93°C needed "
+                f"(directional estimate, not lab-calibrated)"
+            )
         else:
             quality = "Optimal"
         

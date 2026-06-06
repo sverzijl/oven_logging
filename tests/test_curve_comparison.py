@@ -254,13 +254,73 @@ Timestamp,SessionID,SequenceNumber,T1,T2,T3,T4,T5,T6,T7,T8,VirtualCoreTemperatur
         """Test handling of single curve (edge case)."""
         comparison = CurveComparison([sample_curves[0]])
         assert comparison.num_curves == 1
-        
+
         # Should still work but with single curve data
         role_data = comparison.get_role_based_data()
         assert len(role_data['core']) == 1
-        
+
         quality_metrics = comparison.compare_quality_metrics()
         assert len(quality_metrics) == 1
+
+    def test_max_core_temp_uses_core_average_not_raw_t1(self):
+        """#24: compare_quality_metrics must resolve core via the column helper
+        (CoreTemperature → CoreAverage), NOT fall back to raw T1.
+
+        Build a curve with the legacy CoreAverage column (no CoreTemperature)
+        whose peak is 95°C, while T1 peaks at a misleading 200°C. The reported
+        'Max Core Temp' must be ~95°C, not 200°C.
+        """
+        time_minutes = np.linspace(0, 30, 100)
+        core_avg = 20 + 75 * (1 - np.exp(-time_minutes / 10))  # peaks ~95
+        data = pd.DataFrame({
+            'TimeMinutes': time_minutes,
+            'CoreAverage': core_avg,
+            # Sabotage T1 with an implausible spike to detect the wrong fallback.
+            'T1': np.full_like(time_minutes, 200.0),
+            'T2': core_avg,
+            'T3': core_avg,
+            'T4': core_avg,
+        })
+        curve = {
+            'curve_data': {'data': data},
+            'sensor_roles': {},
+            'metadata': {'sample_period_s': 5.0},
+            'filename': 'legacy.csv',
+            'file_curve_index': 0,
+        }
+        comparison = CurveComparison([curve])
+        metrics = comparison.compare_quality_metrics()
+        max_core_str = metrics.iloc[0]['Max Core Temp']
+        max_core_val = float(max_core_str.replace('°C', ''))
+        assert max_core_val == pytest.approx(core_avg.max(), abs=0.5)
+        assert max_core_val < 150  # definitely not the sabotaged T1
+
+    def test_time_to_temp_uses_core_average_not_raw_t1(self):
+        """#24 companion: _get_time_to_temp must also resolve core via the
+        helper so 'Time to 93°C' reflects CoreAverage, not raw T1."""
+        time_minutes = np.linspace(0, 30, 100)
+        core_avg = 20 + 90 * (1 - np.exp(-time_minutes / 10))  # ramps past 93
+        data = pd.DataFrame({
+            'TimeMinutes': time_minutes,
+            'CoreAverage': core_avg,
+            'T1': np.full_like(time_minutes, 200.0),  # would cross 93 instantly
+            'T2': core_avg,
+            'T3': core_avg,
+            'T4': core_avg,
+        })
+        curve = {
+            'curve_data': {'data': data},
+            'sensor_roles': {},
+            'metadata': {'sample_period_s': 5.0},
+            'filename': 'legacy.csv',
+            'file_curve_index': 0,
+        }
+        comparison = CurveComparison([curve])
+        # 93°C crossing time for core_avg must be > 0 (it ramps up), whereas
+        # raw T1 (=200 everywhere) would cross at t=0.
+        t93 = comparison._get_time_to_temp(data, 93)
+        assert t93 is not None
+        assert t93 > 1.0  # raw-T1 fallback would have returned ~0
 
 
 class TestTransformSensorAssignments:
