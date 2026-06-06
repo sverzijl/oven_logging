@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Continuous-position interpolation across piecewise + Stefan + classifier",
+      "owner": "HMS Penelope",
+      "deliverable": "piecewise.py and stefan.py: x_core and x_surface use parabolic interpolation around the chosen anchor sensor (vertex of parabola through anchor and two neighbours) and adjacency-gradient interpolation for surface (linear interpolation between the two sensors with the largest gradient). classifier.py: PositionalAssignment.temperature_series is a true spatial interpolation per timestep at the continuous position_normalised, not the nearest sensor's raw series. profile.py: helper interpolate_temperature_series_at(df, positions, x) -> pd.Series. Existing tests stay green; existing test_classify_returns_position_between_sensors strengthened to assert position_normalised strictly off-sensor. New tests in tests/test_spatial_reconstruction_interpolation.py covering parabolic interpolation, surface adjacency interpolation, and per-timestep series interpolation. Sidebar shows current inferred core position (e.g. 'between T3 and T4 at x=0.42') for the user.",
+      "dependencies": [],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/piecewise.py",
+        "oven_logging/src/data/spatial_reconstruction/stefan.py",
+        "oven_logging/src/data/spatial_reconstruction/classifier.py",
+        "oven_logging/src/data/spatial_reconstruction/profile.py",
+        "oven_logging/sidebar.py",
+        "oven_logging/tests/test_spatial_reconstruction_piecewise.py",
+        "oven_logging/tests/test_spatial_reconstruction_interpolation.py",
+        ".nelson/missions/2026-04-27_131601_97d63fea/"
+      ],
+      "validation_required": "All M1a-M5 + sidebar fix tests still pass. position_normalised demonstrably between sensors on at least one synthetic case. temperature_series differs from df[nearest_sensor] when position is off-sensor. Sidebar shows inferred position.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Penelope",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 1
+      }
+    ]
+  },
+  "created_at": "2026-04-27T13:16:29Z",
+  "amended_at": null
+}

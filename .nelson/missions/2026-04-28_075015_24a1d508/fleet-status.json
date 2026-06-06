@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Tireless: extend Zurcher inverse to free k (thermal conductivity) and c (specific heat) in addition to x_core j_0 T_oven_eff. 5-param fit with rho pinned at 1000 kg/m^3 (most product-stable). Test whether per-product physics calibration drops main-bake RMSE below the M9 Stefan baseline.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-28T07:50:15Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Tireless",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-28T08:31:37Z"
+}

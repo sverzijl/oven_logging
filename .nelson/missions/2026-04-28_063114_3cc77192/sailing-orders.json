@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Diamond: decompose M9 Stefan-fit real-CSV residuals into per-sensor, per-time-segment, and structure components. Determine whether the headline 6-10 deg C RMSE is real model misfit or accounting artefact (startup transient, probe-pull tail, per-sensor calibration bias).",
+  "success_metric": "Per-fixture residual decomposition table: startup-RMSE / main-bake-RMSE / tail-RMSE / per-sensor-RMSE / pooled-RMSE-with-worst-sensor-dropped. Residual auto-correlation per fixture (white-noise vs structured). Conclusion: if main-bake RMSE < 3 deg C across most fixtures the M9 verdict revises to GO; if structured residual persists in main bake the verdict stays NO-GO with sharper diagnosis.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T06:31:14Z"
+}

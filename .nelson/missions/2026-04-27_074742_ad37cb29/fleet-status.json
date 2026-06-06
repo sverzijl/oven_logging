@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Indefatigable (M2a of refactor/role-classification-unified flotilla): build src/data/spatial_reconstruction/ package with geometry, profile, piecewise model, and classifier; add ROLE_CLASSIFIER_CONFIG; satisfy at least 7 of the 9 classifier contract tests M1b left failing; add per-component unit tests.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-27T07:47:42Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Indefatigable",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-27T08:44:08Z"
+}

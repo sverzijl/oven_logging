@@ -32,7 +32,7 @@ flake8 src/ tests/
 mypy src/
 ```
 
-**Project layout note:** `tests/` holds the real pytest suite. The many `test_*.py`, `analyze_*.py`, `debug_*.py`, and `check_*.py` files at the **repo root** are one-off investigation scripts (not pytest tests) kept as historical artifacts — do not assume `pytest` at root picks them up, and be skeptical of them as specs. Two real CSVs (`ProbeData_*.csv`) and one curated sample under `data/sample_profiles/` are used as fixtures by several ad-hoc scripts.
+**Project layout note:** `tests/` holds the real pytest suite. The repo root now holds only the live Streamlit entry points (`app.py`, `sidebar.py`, `session_state.py`, `sensor_naming.py`) — historical investigation scripts (`analyze_*.py`, `debug_*.py`, `check_*.py`) and superseded plan/summary `.md` files have been pruned across recent refactor flotillas. Real probe CSVs live at the repo root and are mapped via `tests/fixtures/curve_boundary_cases.py:_REAL_CSVS`.
 
 ## CSV Input Format
 
@@ -55,22 +55,23 @@ Probe-name labels shown in plots/legends are `{last4-of-S/N}_{HH:MM}[_C{n}]` (e.
 
 ### Data transformation pipeline (the heart of the bugs this project keeps hitting)
 
-Standardised columns `CoreTemperature`, `SurfaceTemperature`, `AmbientTemperature` are produced by layering transformations — they are **not** the same as the raw `Virtual*Temperature` columns, because physics corrections and manual overrides can swap the underlying sensor.
+Standardised columns `CoreTemperature`, `SurfaceTemperature`, `AmbientTemperature` (and conditionally `LidTemperature`) are produced by layering transformations — they are **not** the same as the raw `Virtual*Temperature` columns, because the spatial-reconstruction classifier and manual overrides can swap the underlying sensor.
 
 Order of layers (must be preserved):
-1. **Virtual columns** copied from the CSV's firmware-picked channels.
-2. **Physics-based surface correction** (`src/data/surface_sensor_detector.py`) — overrides the firmware's surface pick when the thermodynamic classifier is more confident. Gated by `config/constants.py: SURFACE_DETECTION_CONFIG`.
-3. **Manual overrides** from the sidebar UI, layered *on top of* physics corrections (never replacing them silently).
+1. **Manual override** from the sidebar UI / `loader.set_sensor_override(curve_index, role, sensor)` — the highest-precedence layer; topology-validated via `_validate_override_topology` before commit.
+2. **Classifier assignment** — `assignment.<role>.temperature_series` from the per-curve `SpatialAssignment` returned by `src.data.spatial_reconstruction.classify`. The interpolated series is assigned to the standard column when it differs from a single sensor; otherwise the underlying `Tn` column is reused verbatim.
+3. **Legacy fallback** — only `resolve_core_temperature_series` remains as a helper for code paths that historically fell back to `VirtualCoreTemperature`. Surface / ambient / lid have no legacy fallback; the classifier is authoritative.
 4. **Backward-compat averages** `CoreAverage` / `SurfaceAverage` — static means of T1–T4 / T5–T8. These **do not update with overrides** on purpose; any analysis that must respect overrides should read `CoreTemperature` / `SurfaceTemperature`.
 
-Two implementations of this pipeline exist side by side:
+Pipeline implementation:
 
-- **`ThermalProfileLoader` (`src/data/loader.py`, ~1,400 lines)** — the live one used by `app.py`. It mutates DataFrames in place and uses a `physics_corrected` flag on `curve_sensor_assignments[curve_index]` to prevent `_regenerate_standard_columns()` / `_generate_standard_columns_for_df()` from clobbering the corrected surface channel. `self.data` tracks the *currently selected* curve and is swapped by `set_current_curve()`.
-- **`TransformationManager` (`src/data/transformation_manager.py`)** — a newer, centralized, state-tracking replacement. **Not yet wired into the loader** — it exists and is tested but `app.py` still goes through the old path. See `TRANSFORMATION_MANAGER_INTEGRATION.md`. Expect to either finish that integration or delete it during the planned refactor.
+- **`ThermalProfileLoader` (`src/data/loader.py`)** — the live one used by `app.py`. It mutates DataFrames in place; `_identify_sensor_roles_for_curve` is a thin wrapper around `spatial_reconstruction.classify` that stores the `SpatialAssignment` plus per-role sensor picks under `curve_sensor_assignments[curve_index]`. `self.data` tracks the *currently selected* curve and is swapped by `set_current_curve()`. Override application calls `_apply_standard_columns(df_curve, curve_index)` which writes `LidTemperature` only when `assignment.lid is not None` and drops it when lid is `None` on the next regeneration.
 
 ### Per-curve sensor identification
 
-A single CSV can contain multiple bakes (the probe is left on across runs). `_extract_all_baking_curves()` splits them; `_identify_sensor_roles_for_curve()` runs independently per curve and stores results in `curve_sensor_assignments[curve_index]`. This matters because the probe may be re-inserted at a different depth between runs, so **role→physical-sensor mapping genuinely differs per curve**. Sensor-aware getters all take an optional `curve_index` (falling back to `current_curve_index`): `get_core_sensor(i)`, `get_surface_sensor(i)`, `get_internal_sensors(i)`, `get_ambient_sensors(i)`, `get_sensor_assignments_with_overrides(i)`. Analysis/viz code should **always pass the index explicitly** when iterating multiple curves.
+A single CSV can contain multiple bakes (the probe is left on across runs). `_extract_all_baking_curves()` splits them; `_identify_sensor_roles_for_curve()` runs independently per curve. Per curve, `_identify_sensor_roles_for_curve` calls `src.data.spatial_reconstruction.classify(df, sample_period_ms, probe_geometry)` which returns a `SpatialAssignment` (dataclass) holding per-role `PositionalAssignment` records (`position_normalised`, `nearest_sensor`, `temperature_series`, `confidence`, `reason`). Roles supported: **core** (always), **surface** (`None` for full-immersion), **ambient** (list, may be empty), **lid** (`None` when no lid contact detected). Manual overrides via `loader.set_sensor_override(curve_index, role, sensor)` win over classifier output; topology validated via `_validate_override_topology` with the **through-loaf exception** (probe pierces the loaf so ambient sensors split into a low-T prefix and a high-T suffix around the surface index).
+
+Probe re-insertion depth genuinely differs per curve, so role→physical-sensor mapping is per-curve. Sensor-aware getters all take an optional `curve_index` (falling back to `current_curve_index`): `get_core_sensor(i)`, `get_surface_sensor(i)`, `get_lid_sensor(i)`, `get_internal_sensors(i)`, `get_ambient_sensors(i)`, `get_sensor_assignments_with_overrides(i)`. Analysis/viz code should **always pass the index explicitly** when iterating multiple curves.
 
 ### Config as source of truth
 
@@ -78,23 +79,44 @@ A single CSV can contain multiple bakes (the probe is left on across runs). `_ex
 
 - `TEMPERATURE_ZONES`, `S_CURVE_ZONES`, `S_CURVE_BENCHMARKS` — bread-chemistry zones (yeast-kill, starch gelatinization, etc.) and their target timings.
 - `BAKEOUT_TARGETS`, `PRODUCT_MOISTURE` — per-product (white_pan, sourdough, baguette, …) bake-out windows and moisture decay parameters.
-- `SURFACE_DETECTION_CONFIG`, `INTERNAL_SENSOR_CONFIG` — tunables for the physics-based classifiers; `INTERNAL_SENSOR_CONFIG.TEMP_THRESHOLD = 103.0` (max temp counted as internal crumb) is deliberately set at 100 °C + 3 °C margin.
+- `ROLE_CLASSIFIER_CONFIG` — the authoritative tuning surface for `spatial_reconstruction.classify` (plateau detection, rise-slope band, oven-proxy tolerance, lid-contact gap, dough/air-interface jump, default model).
+- `INTERNAL_SENSOR_CONFIG` — legacy temperature-threshold filter retained for `loader.get_internal_sensors`; `TEMP_THRESHOLD = 103.0` (100 °C + 3 °C margin). A position-based replacement using `assignment.<role>.position_normalised` is a future follow-up.
+- `CORE_DETECTION_CONFIG` — keys still consumed by `identify_core_sensor_combined_rank` (used by curve-boundary detection's probe-removal-contamination path) and the `_drop_rate_detection` helper.
+- `CURVE_DETECTION_CONFIG` — curve-boundary detector tunables (cliff, plateau, sigmoid refinement).
 - `SENSOR_NAMES` — default labels; the UI overlays dynamic role-based names on top via `app.py: get_dynamic_sensor_names()`.
 
 `src/visualization/visualization_config.py` (`VisualizationConfig`) centralises colors, formatting, and zone-based color mapping used across plots — new plots should route through it rather than re-defining palettes.
 
+### Spatial-reconstruction classifier
+
+The classifier replacing the old `surface_sensor_detector` + `ThermodynamicSensorClassifier` pair lives at `src/data/spatial_reconstruction/`:
+
+- `geometry.py` — `PROBE_GEOMETRIES` registry (Combustion Inc. probe normalised positions) and `lookup_geometry`.
+- `profile.py` — `ProfileFit`, `extract_features`, `compute_oven_proxy` (per-curve features: plateau, rise slope, terminal mean, cavity proxy).
+- `piecewise.py` — default `fit_piecewise` model (dough plateau + air-side rise).
+- `extrapolation.py` — Method 1's `parabolic_vertex_with_clamp` (relaxed boundary clamp that emits a `low_extrapolated` confidence when the inferred core falls past the probe tip; consumed by `piecewise.py`).
+- `stefan.py` — opt-in `fit_stefan` Stefan-front physics-constrained model (`STEFAN_FRONT_TEMP_C = 100`).
+- `classifier.py` — `classify`, `SpatialAssignment`, `PositionalAssignment` — the public entry point used by the loader.
+- `isothermal.py` — `track_isothermal`, `IsothermalAssignment` (M24): traces the 60/80/100/110 °C isotherm positions over time (the 100 °C front is the latent-heat / Stefan moisture-front proxy). Consumed by the Spatial Evolution tab via `loader.isothermal_assignment`.
+- `comparison.py` — `ModelComparison`, `benchmark_fixture`, `benchmark_all_cases`, `write_comparison_report`.
+
+The empirical model-comparison and perturbation baselines are at `tests/baselines/spatial_model_comparison.md` and `tests/baselines/role_classifier_flip_rates.md` — regenerate via the comparison harness when adding fixtures.
+
+The 1D inverse-problem research modules (`heat_equation`, the `luikov_*` family, the `stefan_inverse_*` trio, `zurcher`) were **deleted** in M27 after a firm NO-GO verdict (the 8 probe sensors cannot reconstruct the deep interior / moisture field — a structural ~5–6 °C RMSE floor). The M23 `temporal.py` per-snapshot wrapper was **archived** to `research/spatial_reconstruction/` (superseded by `isothermal.py`). See `research/README.md`.
+
 ## Known Fragile Areas
 
-These are the recurring bug surfaces called out across `REFACTORING_ANALYSIS.md`, `CODE_REVIEW_SUMMARY.md`, and the `*_FIX_*.md` files (the repo has ~25 such docs — they are investigation/plan notes, not authoritative specs):
+These are the recurring bug surfaces:
 
-- **Column regeneration** — any code path that recreates `CoreTemperature` / `SurfaceTemperature` must check the `physics_corrected` flag or it will undo the surface correction. This has bitten the project more than once.
-- **Curve switching** — `set_current_curve()` has hidden side-effects (rewrites `self.data`, triggers regeneration); manual overrides and physics corrections must survive the switch.
-- **Internal-sensor filtering** — `get_internal_sensors()` is recomputed per call with no cache; if called with a stale `data` argument it returns wrong sensors.
-- **`loader.py.backup`** is an old snapshot kept in-tree — do not edit it and do not assume it is current.
+- **`LidTemperature` column lifecycle** — only present when `assignment.lid is not None`. The column is dropped on curve switches when the new curve has no lid (`_apply_standard_columns` is responsible). Any code that sums or iterates standardised columns must treat `LidTemperature` as optional.
+- **Override topology validation** — `_validate_override_topology` enforces `core_idx < surface_idx <= min(ambient_idx) <= max(ambient_idx) <= lid_idx`. The **through-loaf exception** is the one case the strict ordering rule does NOT apply (ambient splits into a contiguous low-T prefix and a contiguous high-T suffix; surface sits between them). A future override rule change must preserve this exception.
+- **Curve switching** — `set_current_curve()` has hidden side-effects (rewrites `self.data`, triggers regeneration); manual overrides and classifier picks must survive the switch.
+- **Internal-sensor filtering** — `get_internal_sensors()` is recomputed per call with no cache; if called with a stale `data` argument it returns wrong sensors. (Position-based replacement is a future follow-up.)
+- **`loader.py.backup`** is an old snapshot kept in-tree (if present) — do not edit it and do not assume it is current.
 
 ## Repo Hygiene Notes
 
-- The repo root is cluttered with ad-hoc `analyze_*.py`, `debug_*.py`, `check_*.py` scripts and ~25 `*_PLAN.md` / `*_SUMMARY.md` / `*_ANALYSIS.md` files. Treat them as historical context, not specs. A documented goal is to clean these up during refactoring.
-- Real CSV probe exports live at the repo root (`ProbeData_*.csv`) — several scripts load them by relative path.
-- Generated artifacts like `zone_comparison_test.html` (4.6 MB) and PNG screenshots are committed; avoid regenerating/committing more unless asked.
+- Historical `analyze_*.py` / `debug_*.py` / `check_*.py` scripts and `*_PLAN.md` / `*_SUMMARY.md` / `*_ANALYSIS.md` files have been pruned across recent refactor flotillas; root-level Python is now `app.py`, `sidebar.py`, `session_state.py`, `sensor_naming.py` only. Treat anything under `.nelson/missions/` as mission archives, not specs.
+- Real CSV probe exports live at the repo root (`ProbeData_*.csv`, `wonder white 10k 13.01.2026.csv`, `Post Wonder Meal 20251017.csv`) — fixtures load them by `_REAL_CSVS` mapping in `tests/fixtures/curve_boundary_cases.py`.
+- Generated artifacts like `zone_comparison_test.html` and PNG screenshots may exist; avoid regenerating/committing more unless asked.
 - `tests/` uses class-based pytest style and injects `sys.path` in each file rather than relying on a `conftest.py` — adding new tests should either follow the same pattern or introduce a real `conftest.py`.

@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:14:52Z",
+      "data": {
+        "captain_count": 1,
+        "has_red_cell": false,
+        "execution_mode": "subagents",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:14:52Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:14:53Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "FORMATION"
+      }
+    },
+    {
+      "type": "permission_granted",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:14:53Z",
+      "data": {}
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:14:54Z",
+      "data": {
+        "from_phase": "FORMATION",
+        "to_phase": "PERMISSION"
+      }
+    },
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:15:12Z",
+      "data": {
+        "captain_count": 1,
+        "has_red_cell": false,
+        "execution_mode": "subagents",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:15:12Z",
+      "data": {
+        "task_count": 2,
+        "parallel_tracks": 2,
+        "critical_path_length": 1,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_override",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T09:15:28Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-27T11:38:58Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Loader integration + LidTemperature + flag deletion",
+        "owner": "HMS Royal Sovereign",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-27T11:38:58Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 1,
+        "tasks_total": 2,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 144,
+        "ships_used": 1,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

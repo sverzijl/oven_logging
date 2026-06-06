@@ -864,52 +864,49 @@ class ThermalPlotter:
     def plot_zone_duration_comparison(self, zone_comparison: pd.DataFrame) -> go.Figure:
         """
         Create grouped bar chart comparing zone durations across curves.
-        Bars are grouped by ZONE (not curve) for better comparison.
-        
+
+        One trace per ZONE — each coloured by its semantic bread-chemistry
+        colour via :meth:`VisualizationConfig.get_zone_color` (unknown zones
+        fall back to the default grey) — grouped across curves on the x-axis.
+        Sharing the zone-colour semantics with :meth:`plot_zone_duration_stacked`
+        means a given zone reads the same colour in both charts.
+
         Args:
             zone_comparison: DataFrame from CurveComparison.compare_zone_durations()
         """
         if zone_comparison.empty:
             return go.Figure()
-        
+
         fig = go.Figure()
-        
+
         # Get unique zones and curves
         zone_cols = [col for col in zone_comparison.columns if col != 'Curve']
         curves = zone_comparison['Curve'].tolist()
-        
-        # Use curve colors for consistency across visualizations
-        curve_colors = self.viz_config.CURVE_COLORS
-        
-        # Create bar traces for each curve (grouped by zone)
-        for idx, curve in enumerate(curves):
-            curve_color = curve_colors[idx % len(curve_colors)]
-            
-            # Get all zone values for this curve
-            zone_values = []
-            zone_names = []
-            for zone_name in zone_cols:
-                zone_values.append(zone_comparison.loc[zone_comparison['Curve'] == curve, zone_name].values[0])
-                zone_names.append(zone_name)
-            
-            # Add bars for this curve across all zones
+
+        # One trace per zone, coloured by the zone's semantic colour so the
+        # grouped and stacked views stay colour-consistent.
+        for zone_name in zone_cols:
+            zone_color = self.viz_config.get_zone_color(zone_name)
             fig.add_trace(go.Bar(
-                name=curve,
-                x=zone_names,
-                y=zone_values,
-                marker_color=curve_color,
+                name=zone_name,
+                x=curves,
+                y=zone_comparison[zone_name].tolist(),
+                marker_color=zone_color,
                 marker_line_color='rgba(0,0,0,0.3)',
                 marker_line_width=1,
-                text=[self.viz_config.format_duration(val) for val in zone_values],
+                text=[
+                    self.viz_config.format_duration(val)
+                    for val in zone_comparison[zone_name]
+                ],
                 textposition='outside',
                 textfont_size=10,
-                hovertemplate='<b>%{x}</b><br>' + curve + ': %{y:.1f} min<extra></extra>'
+                hovertemplate='<b>%{x}</b><br>' + zone_name + ': %{y:.1f} min<extra></extra>'
             ))
-        
+
         # Update layout
         fig.update_layout(
             title='Temperature Zone Duration Comparison (Grouped by Zone)',
-            xaxis_title='Temperature Zone',
+            xaxis_title='Curve',
             yaxis_title='Duration (minutes)',
             barmode='group',
             xaxis_tickangle=-45,
@@ -923,7 +920,7 @@ class ThermalPlotter:
             margin=dict(b=120),  # Increase bottom margin for legend
             **self.default_layout
         )
-        
+
         return fig
     
     def plot_zone_duration_stacked(self, zone_comparison: pd.DataFrame) -> go.Figure:

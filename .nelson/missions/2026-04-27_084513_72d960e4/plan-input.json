@@ -1,0 +1,31 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Vanguard", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Stefan-physics-constrained model + comparison harness + baseline report",
+      "owner": "HMS Vanguard",
+      "deliverable": "src/data/spatial_reconstruction/stefan.py with fit_stefan(...) returning ProfileFit (same dataclass as piecewise). src/data/spatial_reconstruction/comparison.py with benchmark utilities. classify() accepts model='stefan'. tests/baselines/spatial_model_comparison.md committed with per-fixture residual SSE, position-agreement vs ground truth, computational cost. Default model decision documented in the report. Per-component unit tests for Stefan in tests/test_spatial_reconstruction_stefan.py.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/stefan.py",
+        "oven_logging/src/data/spatial_reconstruction/comparison.py",
+        "oven_logging/src/data/spatial_reconstruction/__init__.py",
+        "oven_logging/src/data/spatial_reconstruction/classifier.py",
+        "oven_logging/tests/test_spatial_reconstruction_stefan.py",
+        "oven_logging/tests/baselines/spatial_model_comparison.md",
+        ".nelson/missions/2026-04-27_084513_72d960e4/"
+      ],
+      "validation_required": "Stefan unit tests pass; classify(model='stefan') runs without error on all 9 fixtures; comparison harness produces structured report; piecewise contract tests still 8/9 unchanged.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

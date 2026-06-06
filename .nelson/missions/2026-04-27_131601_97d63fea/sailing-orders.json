@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Penelope: deliver the continuous-position interpolation the spatial reconstruction architecture promised. core/surface position_normalised values must be able to land strictly between sensors; temperature_series must be a true spatial interpolation per timestep, not a copy of the nearest sensor's series; UI surfaces the inferred position.",
+  "success_metric": "x_core and x_surface emit position_normalised values strictly between sensor x-positions when the spatial profile has its extremum off-sensor. temperature_series differs from df[nearest_sensor] when position is off-sensor. Existing 50/50 contract tests + 25 unit tests + 22 finale tests all still pass. New regression test pins the between-sensor behaviour. Sidebar shows inferred position.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-27T13:16:01Z"
+}

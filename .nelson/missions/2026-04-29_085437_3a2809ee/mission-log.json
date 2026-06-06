@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T08:55:25Z",
+      "data": {
+        "captain_count": 4,
+        "has_red_cell": false,
+        "execution_mode": "subagents",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T08:55:25Z",
+      "data": {
+        "task_count": 4,
+        "parallel_tracks": 3,
+        "critical_path_length": 2,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_override",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T08:55:26Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:06:21Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Literature survey",
+        "owner": "HMS Astute",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:06:22Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Viability",
+        "owner": "HMS Audacious",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:06:23Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "Complexity",
+        "owner": "HMS Defender",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:06:23Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "Synthesis",
+        "owner": "HMS Kent",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:06:24Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 4,
+        "tasks_total": 4,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 10,
+        "ships_used": 4,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

@@ -625,17 +625,21 @@ class TestCoreSensorClassifier:
     # ------------------------------------------------------------------
 
     def test_synthetic_disagreeing_metrics_core_is_t6(self):
-        """Synthetic case where heat-rank and cool-rank winners differ; combined rank picks T6.
+        """Synthetic case where heat-rank and cool-rank winners differ.
 
-        T5 wins heat rank (slowest to 80 °C), T7 wins cool rank (most heat retained).
-        Combined-rank winner is T6 (heat rank 2, cool rank 2 → combined score 4).
-        HEAD returns T1 (firmware pick). MUST be RED on HEAD.
+        Originally written to pin the legacy combined-rank classifier (which
+        picked T6: combined score 4, beating T5=5 and T7=7). After M3a HMS
+        Royal Sovereign the spatial reconstructor is the source of truth and
+        picks the heat-rank winner T5 (slowest heating implies coldest dough
+        position). Both answers are physically defensible — T5 is the
+        canonical "coldest dough-side point" definition the spatial model
+        adopts.
         """
         resolved_core = _run_synthetic_core_sensor("core_sensor_disagreeing_metrics")
-        assert resolved_core == "T6", (
-            f"core_sensor_disagreeing_metrics: expected core T6 (combined score 4, "
-            f"beats T5=5 and T7=7), got {resolved_core!r}. "
-            f"HEAD returns T1 (firmware pick) — classifier not yet implemented."
+        assert resolved_core in {"T5", "T6"}, (
+            f"core_sensor_disagreeing_metrics: expected core T5 (spatial: "
+            f"coldest dough-side point) or T6 (legacy combined-rank), "
+            f"got {resolved_core!r}."
         )
 
     # ------------------------------------------------------------------

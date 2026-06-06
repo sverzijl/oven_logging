@@ -1,0 +1,29 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Triumph", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "1D Stefan moving-boundary inverse problem viability study",
+      "owner": "HMS Triumph",
+      "deliverable": "src/data/spatial_reconstruction/stefan_inverse.py: enthalpy-method 1D Stefan forward solver, joint 4-parameter inverse fitter (x_core, alpha_dough, alpha_crust, rhoL_eff), Hessian-based confidence + correlation matrix, plus a literature-pinned 1-parameter variant. tests/test_stefan_inverse_research.py: forward-solver classical-Stefan-Neumann analytical sanity test, synthetic ground-truth recovery (DON'T self-test), real-CSV viability sweep (joint + pinned modes). tests/_driver_stefan_inverse.py: end-to-end driver. tests/baselines/stefan_inverse_research.md: report with per-fixture RMSE comparison (Stefan-joint vs Stefan-pinned vs M7 heat-eq baseline), parameter correlation matrix table, free-fit alpha values vs literature, and verdict. NOT wired into runtime classifier.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/stefan_inverse.py",
+        "oven_logging/tests/test_stefan_inverse_research.py",
+        "oven_logging/tests/_driver_stefan_inverse.py",
+        "oven_logging/tests/baselines/stefan_inverse_research.md",
+        ".nelson/missions/2026-04-28_044720_1c1b7857/"
+      ],
+      "validation_required": "Forward solver matches classical Stefan-Neumann analytical solution within 1 deg C on a textbook synthetic. Joint inverse runs to convergence on at least 5 of 7 real CSVs. Pinned 1-parameter fit runs on all 7. Driver completes within 30 min wall-clock at downsample_factor=4. Existing M1-M8 tests untouched (stefan_inverse.py is research-only).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

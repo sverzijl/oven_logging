@@ -1,0 +1,43 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Foxhound", "ship_class": "frigate", "model": "sonnet", "task_id": 1},
+      {"ship_name": "HMS Astute", "ship_class": "submarine", "model": "sonnet", "task_id": 2}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Implement isothermal-tracking temporal wrapper + BA3C_0946 empirical PNG",
+      "owner": "HMS Foxhound",
+      "deliverable": "src/data/spatial_reconstruction/isothermal.py: track_isothermal() function returning time-evolving positions of T crosses for given target temperatures (default 60, 80, 100, 110 C, plus the surface and core positions from one-time classify() call on the full bake). Per-timestep linear interpolation across sensors at their normalised positions. Per-isotherm Savitzky-Golay smoothing. Returns IsothermalAssignment dataclass: t_grid_s, fixed_core_x, fixed_surface_x, isotherm_positions (dict {temp_C: array}), T_at_fixed_core_t. tests/test_isothermal_tracker.py: 4 tests (synthetic monotone-front, synthetic stationary core, BA3C_0946 ordering, BA3C_0946 100C front advances inward). tests/_diagnose_isothermal_BA3C.py: standalone empirical script generating updated 4-panel PNG. Output PNG at .nelson/missions/2026-04-29_092737_9b83d7ba/isothermal-traces-BA3C_0946.png.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/isothermal.py",
+        "oven_logging/tests/test_isothermal_tracker.py",
+        "oven_logging/tests/_diagnose_isothermal_BA3C.py",
+        ".nelson/missions/2026-04-29_092737_9b83d7ba/"
+      ],
+      "validation_required": "4 tests pass. PNG generated. BA3C_0946: 100C front advances monotone-inward; isotherm ordering 60>80>100>110 (deepest to surface) holds throughout the active phase; core position is FIXED (single value, not time-varying); T_at_fixed_core climbs monotonically to ~95C and stops. Existing M1-M23 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    },
+    {
+      "id": 2,
+      "name": "Red-cell physical sanity check on Foxhound traces",
+      "owner": "HMS Astute",
+      "deliverable": "Read Foxhound's PNG at .nelson/missions/2026-04-29_092737_9b83d7ba/isothermal-traces-BA3C_0946.png and the underlying isothermal data (saved as JSON by Foxhound). Verify: (a) is the 100C front monotone-inward as it should be? (b) do the four isotherms maintain physical ordering (60C deepest, 110C nearest surface)? (c) does T_at_fixed_core show the expected sigmoidal climb to ~95C plateau? (d) are there any physically-impossible artefacts (e.g. isotherm crossings, jumps, off-probe extrapolation)? Write damage report at .nelson/missions/2026-04-29_092737_9b83d7ba/damage-reports/HMS-Astute.md with explicit verdict (APPROVE / DISPUTE) and listed concerns.",
+      "dependencies": [1],
+      "station_tier": 1,
+      "file_ownership": [
+        ".nelson/missions/2026-04-29_092737_9b83d7ba/damage-reports/HMS-Astute.md"
+      ],
+      "validation_required": "Verdict (APPROVE/DISPUTE) with specific physical reasoning citing PNG features.",
+      "rollback_note_required": false,
+      "admiralty_action_required": false
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Lively: Luikov 1D coupled heat-mass transfer model with 3 dimensionless free parameters (Lu Ko Bi) plus x_core and T_oven_eff. Solve the inverse problem from temperature data alone via Levenberg-Marquardt per published methodology. Test whether explicit moisture-transport physics finally addresses the deep-end information limit M13 surfaced.",
+  "actual_outcome": "Luikov 1D coupled heat+mass forward solver implemented; uncoupled-limit and steady-state sanity pass. Synthetic recovery with different-class generator: RMSE 0.5 deg C, Lu and Bi recover within 30 percent on 4/5 runs. Real-CSV 5-param inverse: median main-bake RMSE 20 deg C, all fixtures hit param bounds (Lu=0.01, Bi=50). 6/7 converge but parameters non-physical. LOO deep-end T1 RMSE median 26.75 deg C \u2014 WORSE than M9 Stefan T1 LOO of 9-21 deg C. Adding moisture transport made the inverse harder, not easier. Verdict CONFIRM-information-limit: full physics-class hierarchy (heat eq + Stefan + Zurcher 2-state + Luikov coupled) exhausted; in-dough thermometry alone fundamentally cannot constrain x_core deep-region behaviour. Method 4 is the final path.",
+  "success_metric_result": "Luikov 5-param real-CSV main-bake RMSE 20 deg C (worse than M9 Stefan 5-11 deg C); LOO deep-end RMSE 26 deg C (worse than M9 Stefan 9-21 deg C); 0/7 fixtures with params in literature ranges; 4 model classes now exhausted.",
+  "duration_minutes": 43,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Test forward-solver sanity in TWO regimes \u2014 both an uncoupled limit and a long-time steady-state \u2014 to catch implementation bugs in coupled-PDE solvers"
+    ],
+    "avoid": [
+      "Adding more model complexity (more parameters, coupled state vars) when the previous LOO test already showed information-limit; complexity makes the inverse harder when data is information-limited"
+    ]
+  },
+  "created_at": "2026-04-28T13:35:09Z"
+}

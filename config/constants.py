@@ -212,15 +212,11 @@ PRODUCT_MOISTURE = {
     }
 }
 
-# Physics-based surface detection configuration
-SURFACE_DETECTION_CONFIG = {
-    "USE_PHYSICS_BASED_DETECTION": True,  # Enable physics-based surface sensor detection
-    "CONFIDENCE_THRESHOLD": 60,  # Minimum confidence % to apply correction
-    "LOG_CORRECTIONS": True,  # Log when corrections are applied
-    "SHOW_IN_UI": True  # Show detection status in UI
-}
-
-# Internal sensor detection configuration
+# Internal sensor detection configuration.
+# Legacy temperature-threshold filter retained only for ``loader.get_internal_sensors``;
+# a position-based replacement using ``SpatialAssignment.<role>.position_normalised``
+# is a future follow-up. The new spatial-reconstruction classifier (M2a-M3a) does
+# not consume any of these keys — see ``ROLE_CLASSIFIER_CONFIG`` below.
 INTERNAL_SENSOR_CONFIG = {
     "TEMP_THRESHOLD": 103.0,  # Max temperature for internal crumb (100°C + 3°C margin)
     "TIME_THRESHOLD": 0.1,  # Max fraction of time above 100°C (10%)
@@ -316,53 +312,27 @@ CURVE_DETECTION_CONFIG = {
     "EXPECTED_DURATION_MAX_START_SHIFT_SECONDS": 30.0,
 }
 
-# Physics-based core-sensor classifier configuration.
-# Combined-rank detector: the true core sensor should be slowest BOTH to heat
-# and to cool. Single-metric heuristics fail when the two signals disagree
-# (e.g. wonder-white lidded bake: slowest heat = T5/T6, slowest cool = T8).
-# Combined rank requires consistency across both signals before overriding the
-# firmware VirtualCoreSensor pick. Anchor case: wonder white 10k 13.01.2026.csv
-# (firmware returns T1; true core is T5/T6). Mission 2026-04-23_231637_4ed7fcd1.
+# Combined-rank core helper still used by curve-boundary detection's
+# probe-removal-contamination path (``identify_core_sensor_combined_rank``
+# in ``src/data/thermodynamic_sensor_classifier.py``) and by the shared
+# ``_drop_rate_detection`` helper. The class-level ``ThermodynamicSensorClassifier``
+# was deleted in M3b HMS Bellerophon — ``spatial_reconstruction.classify`` is the
+# canonical role classifier — but the combined-rank function and its tunables
+# below remain part of the curve-boundary contamination detector.
+#
+# CONFIDENCE_GAP_MIN / ENABLED / COOL_REFERENCE_MODE entries were dropped in the
+# M5 finale (mission 2026-04-27_123109_e0029555) — they belonged to the deleted
+# class and had no readers in src/. The probe-noise calibration story for the
+# old gap-of-4 threshold lives in mission 2026-04-23_231637_4ed7fcd1.
 CORE_DETECTION_CONFIG = {
     # Heating-side anchor. All sensors spend less time below 80 °C than above
     # under a typical oven profile, so time-to-reach-80 °C is the most reliable
     # "slower = deeper" signal during active heating.
     "HEAT_THRESHOLD_C": 80.0,
-    # Documentation value: cooling is measured from a SHARED reference point
-    # (the latest peak across T1..T8) rather than each sensor's own peak.
-    # Per-sensor peaks bias the rank toward early-peaking (surface-like)
-    # sensors because their cooling has a head start.
-    "COOL_REFERENCE_MODE": "common_post_oven_exit",
+    # Cool window: cooling is measured from a SHARED reference point (the
+    # latest peak across T1..T8) over this many seconds. Used by
+    # identify_core_sensor_combined_rank.
     "COOL_WINDOW_SECONDS": 60,
-    # With 8 sensors ranked 1..8 on two metrics, combined score ranges 2..16.
-    # A gap of 4 is calibrated as 1 point above the empirical noise floor
-    # observed on identical-physics synthetic fixtures.
-    #
-    # Empirical noise-floor calibration: Monte-Carlo 200 seeds, identical-
-    # physics-with-noise at σ=0.5 °C.
-    #   4-sensor path:  gap-to-runner-up p95 = 3, max = 4
-    #   8-sensor production path: gap-to-runner-up p95 = 4, max = 5
-    # The 8-sensor production path has a THINNER margin than the 4-sensor
-    # calibration implies: the margin-of-1 reasoning does not straightforwardly
-    # extend — at p95 the noise floor already reaches the threshold.
-    #
-    # Mitigation: real-CSV perturbation (probe_noise_real.py, mission
-    # 2026-04-23_231637_4ed7fcd1) at σ=1.0 °C shows 0/100 flips on all 3
-    # real CSVs; at σ=2.0 °C only 5/100 flips on real_100098DE_1351 (a
-    # near-coin-flip between T3/T4 at that noise level). Threshold 4 is safe
-    # in practice on the known real CSVs but optimistic in theory for the
-    # production 8-sensor path. For replay see probe_monte_carlo.py and
-    # probe_noise_real.py in the mission directory.
-    #
-    # Threshold still fires correctly on target cases:
-    #   - wonder-white lidded (gap 7, target flip)
-    #   - synthetic unambiguous (gap 12, target flip)
-    #   - synthetic disagreeing metrics (gap 10, target flip)
-    # Real unlidded CSVs have firmware gaps 0, 0, 1 and do NOT flip.
-    # Smaller gap = firmware stays (conservative): only override when physics
-    # is unambiguously louder than noise.
-    "CONFIDENCE_GAP_MIN": 4,
-    "ENABLED": True,
     # Probe-removal contamination detection in the cool-rank window
     # (mission 2026-04-24_015052_25705c7a, HMS Vanguard).
     # Physics: when the operator pulls the probe out of the loaf shortly after
@@ -395,3 +365,143 @@ CORE_DETECTION_CONFIG = {
 # Canonical list of physical sensor channels on a Combustion Inc. probe.
 # Ordered T1..T8 from probe tip toward probe stem.
 SENSOR_LIST = ('T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8')
+
+# Terminal-temperature tolerance (°C) for grouping lid-contact sensors into a
+# "lid plateau" cluster. A genuine lid touches multiple adjacent sensors at
+# similar plateaued temperatures; the spatial_reconstruction classifier
+# requires >= 2 candidate sensors whose terminal temperatures fall within this
+# band of each other before accepting a lid. Lifted from the inline 15.0 magic
+# constant that previously appeared in both the lid pre-pass and lid-selection
+# blocks of classifier.py (M28 H3 consolidation).
+LID_CLUSTER_TOLERANCE_C = 15.0
+
+
+# ---------------------------------------------------------------------------
+# Spatial-reconstruction role classifier (M2a HMS Indefatigable, mission
+# 2026-04-27_074742_ad37cb29).
+#
+# Replaces the discrete-sensor heuristics in SURFACE_DETECTION_CONFIG /
+# CORE_DETECTION_CONFIG / INTERNAL_SENSOR_CONFIG. The new module
+# (src/data/spatial_reconstruction) treats T(x_1..x_8) as samples of a 1D
+# temperature profile and infers role positions, not sensor labels.
+#
+# Each constant carries a calibration story in the spirit of
+# CORE_DETECTION_CONFIG['CONFIDENCE_GAP_MIN'].
+# ---------------------------------------------------------------------------
+ROLE_CLASSIFIER_CONFIG = {
+    # ------------------------------------------------------------------
+    # Plateau-near-100°C detection (latent-heat signature)
+    # ------------------------------------------------------------------
+    # Water in the dough boils/evaporates at 100 °C; the strongest in-dough
+    # physics signature is a temperature plateau in this band. Tight 95–105
+    # window matches INTERNAL_SENSOR_CONFIG.TEMP_THRESHOLD's 100 °C + 3 °C
+    # margin spirit; the lower 95 °C floor accepts pre-boil approach since
+    # real probes never sit exactly on 100 °C.
+    "PLATEAU_NEAR_100_LOWER_C": 95.0,
+    "PLATEAU_NEAR_100_UPPER_C": 105.0,
+    # Slope below which a sample is plateau-like. 0.05 °C/s = 0.25 °C/sample
+    # at 5 s/sample — well below noise floor on real CSVs (σ < 0.5 °C
+    # observed on 1000BA3C plateau samples). Also well below typical heating
+    # rates of 0.3–1.5 °C/s in dough.
+    "PLATEAU_RATE_THRESHOLD_C_PER_S": 0.05,
+    # Minimum dwell to *count* as a plateau-bounded curve. 60 s = 12 samples
+    # at 5 s/sample. Below this an apparent "plateau" is likely an
+    # inflection point rather than a latent-heat signature.
+    "PLATEAU_MIN_DWELL_SECONDS": 60,
+
+    # ------------------------------------------------------------------
+    # Rise-slope feature
+    # ------------------------------------------------------------------
+    # Band over which the pre-plateau heating slope is measured. 30–80 °C
+    # covers the linear conduction phase before 100 °C boundary effects
+    # dominate. Air-side sensors clear this band quickly (high slope);
+    # dough sensors traverse it slowly (low slope).
+    "RISE_SLOPE_LOWER_C": 30.0,
+    "RISE_SLOPE_UPPER_C": 80.0,
+
+    # ------------------------------------------------------------------
+    # Terminal-temperature window
+    # ------------------------------------------------------------------
+    # Robust mean of last X% of curve. 5% gives ~6 samples on a 130-sample
+    # synthetic and ~17 samples on a 340-sample real bake — enough for the
+    # 5–95 percentile clip to remove probe-pull spikes without losing all
+    # signal. Mirrors the spirit of CORE_DETECTION_CONFIG's
+    # COOL_WINDOW_SECONDS (60 s = ~5% of typical bake duration).
+    "TERMINAL_WINDOW_FRACTION": 0.05,
+
+    # ------------------------------------------------------------------
+    # Oven-proxy / ambient classification
+    # ------------------------------------------------------------------
+    # Tolerance band around the cavity proxy max(T1..T8). Sensors whose
+    # terminal temperature lies within this many °C of the proxy terminal
+    # value are considered to be in oven air. 5 °C is large enough to
+    # tolerate noise + small spatial gradient between adjacent air-side
+    # sensors but smaller than typical core-vs-air gap (~30+ °C).
+    "OVEN_PROXY_TOLERANCE_C": 5.0,
+
+    # ------------------------------------------------------------------
+    # Lid-contact detection
+    # ------------------------------------------------------------------
+    # Minimum gap between lid plateau and cavity setpoint to flag lid
+    # contact. 20 °C calibrated against synthetic_lid_touch fixture: cavity
+    # proxy ~220 °C, lid plateau ~150 °C → 70 °C gap. Below 20 °C the lid
+    # signal is indistinguishable from cavity-air noise / position effects.
+    "LID_TEMP_BELOW_CAVITY_C": 20.0,
+    # Sanity upper bound — gap larger than this likely indicates a sensor
+    # that is in dough, not lid contact. 60 °C empirically distinguishes
+    # lid-contact (~30–70 °C below cavity in synthetic data) from dough
+    # plateau (cavity − 100 °C+ when oven setpoint is ~220 °C).
+    "LID_TEMP_BELOW_CAVITY_MAX_C": 80.0,
+
+    # ------------------------------------------------------------------
+    # Dough/air interface detection
+    # ------------------------------------------------------------------
+    # Minimum adjacent-sensor terminal-temperature jump to flag a dough/
+    # air interface. 15 °C: real CSVs show jumps of 25–30 °C across the
+    # interface (T6→T7 in 1000BA3C, T7→T8 in 100098DE); 15 is the smallest
+    # observed jump on lidded fixtures. Below this we suppress to avoid
+    # false interfaces from noise within a single region.
+    "MONOTONIC_GRADIENT_MIN_JUMP_C": 15.0,
+
+    # ------------------------------------------------------------------
+    # Confidence reporting
+    # ------------------------------------------------------------------
+    # Score gap (as fraction of max score) below which a role's confidence
+    # is downgraded from "high" to "medium". 0.15 mirrors the
+    # ENABLED-with-margin pattern of CORE_DETECTION_CONFIG['CONFIDENCE_GAP_MIN']
+    # (gap of 4 on a 16-point scale = 0.25; 0.15 is a tighter floor since
+    # the spatial fit reduces noise relative to discrete rank-summing).
+    "CONFIDENCE_GAP_MIN_FRACTION": 0.15,
+
+    # ------------------------------------------------------------------
+    # Multi-curve / segmentation handling
+    # ------------------------------------------------------------------
+    # When the input DataFrame is longer than this many samples AND
+    # contains multiple bakes, classify() will run CurveBoundaryDetector
+    # to extract the longest curve before fitting. 500 samples ≈ 40 min
+    # at 5 s/sample, which exceeds any single bake we have seen.
+    "MULTI_CURVE_SEGMENT_THRESHOLD_SAMPLES": 500,
+
+    # ------------------------------------------------------------------
+    # Default spatial-fit model (M2b HMS Vanguard)
+    # ------------------------------------------------------------------
+    # Set by the empirical comparison in
+    # tests/baselines/spatial_model_comparison.md. Loader (M3a) passes this
+    # through to classify(model=...). "piecewise" is the M2a default; M2b's
+    # comparison harness can flip this to "stefan" if it wins on
+    # role-pass count + position-error metrics.
+    "DEFAULT_MODEL": "piecewise",
+
+    # Stefan-physics-constrained model — minimum α (per-unit-x) below
+    # which the air-region rise is considered ill-determined and the fit
+    # falls back to the proxy asymptote. 0.05 is the floor used by
+    # _fit_alpha_crust to clamp pathological fits.
+    "STEFAN_ALPHA_MIN": 0.05,
+    # Maximum α — clamps overfit on noisy fixtures.
+    "STEFAN_ALPHA_MAX": 100.0,
+    # Stefan front pin temperature (latent-heat plateau). Pinned at exactly
+    # 100 °C; the constant is exposed for testability and future probe-
+    # specific calibration (e.g. high-altitude oven where the boil point
+    # shifts).
+    "STEFAN_FRONT_TEMP_C": 100.0,
+}

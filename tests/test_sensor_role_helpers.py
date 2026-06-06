@@ -200,20 +200,31 @@ class TestBuildSensorLabelMap:
                 assert labels[sensor] == expected, f"Expected {expected!r}, got {labels[sensor]!r}"
 
     def test_build_sensor_label_map_unknown_has_no_suffix(self):
-        """Sensors with role 'unknown' map to plain sensor name with no parenthetical."""
-        loader = make_loader(SINGLE_CURVE_CSV)
-        curve_idx = loader.current_curve_index
+        """Sensors with role 'unknown' map to plain sensor name with no parenthetical.
 
-        role_map = build_sensor_role_map(loader, curve_idx)
-        labels = build_sensor_label_map(loader, curve_idx)
+        After M3a HMS Royal Sovereign the spatial classifier assigns *every*
+        sensor a role on real CSVs, so we exercise the unknown-suffix
+        contract via a synthetic loader rather than a real file.
+        """
+        from src.ui.sensor_role_helpers import format_sensor_label
 
-        unknown_sensors = [s for s, r in role_map.items() if r == 'unknown']
-        assert len(unknown_sensors) > 0, (
-            "No 'unknown' sensors found — adjust fixture or use a loader with fewer assignments"
-        )
-        for sensor in unknown_sensors:
+        # Direct unit test of format_sensor_label — guarantees the
+        # unknown-role contract regardless of fixture.
+        assert format_sensor_label('T9', 'unknown') == 'T9'
+        # And via build_sensor_label_map with a contrived loader.
+        class _StubLoader:
+            def get_sensor_assignments_with_overrides(self, curve_index=None):
+                return {
+                    'core_sensor': 'T1',
+                    'surface_sensor': 'T7',
+                    'internal_sensors': ['T1'],
+                    'ambient_sensors': ['T8'],
+                }
+        labels = build_sensor_label_map(_StubLoader())
+        # T2..T6 get role 'unknown' under this stub — labels are plain.
+        for sensor in ('T2', 'T3', 'T4', 'T5', 'T6'):
             assert labels[sensor] == sensor, (
-                f"Expected plain '{sensor}' for unknown role, got {labels[sensor]!r}"
+                f"Expected plain {sensor!r} for unknown role, got {labels[sensor]!r}"
             )
 
     def test_build_sensor_label_map_custom_format(self):

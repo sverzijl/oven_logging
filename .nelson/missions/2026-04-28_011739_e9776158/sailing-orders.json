@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Ambush research mission: empirically test whether Method 3 (1D heat-equation inverse problem) can extrapolate x_core past the probe tip on the existing real CSVs, characterise its parameter confidence (Hessian + bootstrap), and quantify robustness under sigma=0.5/1.0/2.0 deg C noise. Output is a research report with a clear go/no-go recommendation; no production wiring.",
+  "success_metric": "Synthetic ground-truth recovery: known x_core_true=-0.15 recovered within 95 percent Hessian CI in at least 90 of 100 seeds. On real CSVs: report median x_core, 95 percent CI, alpha-x_core correlation, residual SSE. Robustness: x_core spread under sigma=1.0 noise, compared against parabolic-extrapolation spread on the same fixtures. Report committed at tests/baselines/heat_equation_extrapolation_research.md.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T01:17:39Z"
+}

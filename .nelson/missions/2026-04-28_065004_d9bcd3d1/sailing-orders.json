@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Bellona: implement Zurcher 2014 two-state bread-baking model with radiative outer boundary condition; 3-parameter inverse fit (x_core, j_0, T_oven_eff); test whether main-bake RMSE drops below the M9 Stefan baseline (median 7.5 deg C) when the model has both correct physics class AND correct boundary conditions (radiative not Dirichlet).",
+  "success_metric": "Forward solver matches Zurcher Figs 4-6 numerically. 3-param joint inverse runs to convergence on at least 5 of 7 real CSVs. Main-bake RMSE comparison (Bellona vs M9 Stefan vs M7 heat-eq baseline). Lid bakes specifically: do they finally fit cleanly when T_oven_eff is free? If main-bake RMSE less than 3 deg C on most fixtures, verdict GO and we proceed to production wiring; if 3-6 deg C, GO-WITH-CAVEATS; if greater than 6 deg C residual structure persists, CONFIRM information-limit and pivot to Method 4.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T06:50:04Z"
+}

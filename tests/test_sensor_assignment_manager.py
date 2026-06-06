@@ -122,31 +122,23 @@ class TestAutomaticAmbientSensors:
 
 
 class TestCoreInfoAllSensors:
-    """_get_automatic_core_sensors prefers core_info.all_sensors when present."""
+    """After M3a HMS Royal Sovereign the manager is a thin adapter over
+    ``curve_sensor_assignments[i]['core']``; the legacy ``core_info``
+    histogram and comma-separated multi-sensor strings are gone.
+    """
 
-    def test_uses_all_sensors_keys_when_core_info_present(self):
+    def test_returns_single_classifier_pick(self):
         loader = ThermalProfileLoader()
-        loader.curve_sensor_assignments = {
-            0: {
-                'core': 'T2',
-                'core_info': {
-                    'primary': 'T2',
-                    'percentage': 90.0,
-                    'all_sensors': {'T1': 10, 'T2': 100, 'T3': 5},
-                },
-            },
-        }
+        loader.curve_sensor_assignments = {0: {'core': 'T2'}}
         result = loader._get_automatic_core_sensors(0)
-        # Implementation returns list(all_sensors.keys()) — order preserved.
-        assert set(result) == {'T1', 'T2', 'T3'}
+        assert result == ['T2']
 
-    def test_comma_separated_assignment_parsed(self):
+    def test_falls_back_when_unknown(self):
         loader = ThermalProfileLoader()
-        loader.curve_sensor_assignments = {
-            0: {'core': 'T1, T2, T3'},
-        }
+        loader.curve_sensor_assignments = {0: {'core': 'Unknown'}}
         result = loader._get_automatic_core_sensors(0)
-        assert result == ['T1', 'T2', 'T3']
+        # Default neutral fallback when classifier returned nothing useful.
+        assert result == ['T1', 'T2', 'T3', 'T4']
 
 
 class TestValidateSensorAssignments:

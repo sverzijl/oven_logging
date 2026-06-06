@@ -1,0 +1,30 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Lively", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Luikov coupled heat+mass transfer inverse problem",
+      "owner": "HMS Lively",
+      "deliverable": "src/data/spatial_reconstruction/luikov.py: 1D Luikov coupled heat+mass forward solver (T and moisture u as state variables) with 3 dimensionless parameters (Luikov number Lu, Kossovitch number Ko, Biot number Bi). fit_luikov_inverse: 5-param inverse fit (x_core, Lu, Ko, Bi, T_oven_eff) using Levenberg-Marquardt or Nelder-Mead; Hessian-based correlation matrix. tests/test_luikov_research.py: forward sanity vs published Luikov reference, synthetic recovery, real-CSV viability sweep, LOO subset on 3 representative fixtures. tests/_driver_luikov.py: end-to-end driver. tests/baselines/luikov_inverse_research.md: report with comparison vs M9 Stefan, M12 Zurcher, and M13 LOO baseline. NOT wired into runtime classifier.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/luikov.py",
+        "oven_logging/tests/test_luikov_research.py",
+        "oven_logging/tests/_driver_luikov.py",
+        "oven_logging/tests/baselines/luikov_inverse_research.md",
+        "oven_logging/tests/baselines/luikov_inverse_research.json",
+        ".nelson/missions/2026-04-28_125109_7db8fefb/"
+      ],
+      "validation_required": "Forward solver passes a Luikov-equation analytical sanity (e.g. uncoupled limit reduces to heat equation; small-Lu limit recovers slow-moisture quasi-steady-state). Synthetic recovery: known (Lu, Ko, Bi, x_core) recovered within 30%. Real-CSV joint inverse converges on at least 5 of 7 fixtures. LOO subset (3 fixtures) reports held-out RMSE per held-out sensor. Existing M1-M13 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

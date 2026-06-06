@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "classify_temporal() wrapper + Savitzky-Golay smoothing + BA3C_0946 empirical validation",
+      "owner": "HMS Drake",
+      "deliverable": "src/data/spatial_reconstruction/temporal.py: classify_temporal(df, sample_period_ms, stride_seconds=30, smoothing_window_seconds=120) function. Internally runs the existing classify() per stride, collects per-snapshot (x_core, x_surface, x_stefan_front, T_core, T_surface) traces. Applies Savitzky-Golay smoothing for continuity. Returns TemporalAssignment dataclass: x_core_t, x_surface_t, x_stefan_front_t, T_core_t, T_surface_t (all numpy arrays of length len(stride_grid)). tests/test_temporal_classifier.py: synthetic smoke + BA3C_0946 empirical validation (monotone front + stable core). tests/_diagnose_temporal_BA3C.py: standalone empirical test producing trace plot. Output PNG at .nelson/missions/2026-04-29_090640_f657208a/temporal-traces-BA3C_0946.png. NOT wired into runtime classifier yet (M24 wires it).",
+      "dependencies": [],
+      "dependents": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/src/data/spatial_reconstruction/temporal.py",
+        "oven_logging/tests/test_temporal_classifier.py",
+        "oven_logging/tests/_diagnose_temporal_BA3C.py",
+        ".nelson/missions/2026-04-29_090640_f657208a/"
+      ],
+      "validation_required": "Forward smoke passes (synthetic 280-timestep data produces smooth traces). BA3C_0946 empirical: x_stefan_front_t is monotone-decreasing within tolerance (front advances inward through the bake; small backsteps from noise OK if smoothed length \u2264 5 mm); x_core_t is stable (std < 5 mm across the bake duration); plot shows all 3 traces over bake time with annotations for steam/spring windows. Existing M1-M22 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ],
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {
+      "ship_name": "HMS Admiralty",
+      "model": "opus"
+    },
+    "captains": [
+      {
+        "ship_name": "HMS Drake",
+        "ship_class": "frigate",
+        "model": "sonnet",
+        "task_id": 1
+      }
+    ]
+  },
+  "created_at": "2026-04-29T09:07:12Z",
+  "amended_at": null
+}

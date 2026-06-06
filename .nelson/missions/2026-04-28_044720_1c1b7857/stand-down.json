@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Triumph: 1D Stefan moving-boundary inverse problem with latent-heat phase change. Forward solver via enthalpy method; joint 4-parameter inverse (x_core alpha_dough alpha_crust rhoL_eff) + comparison against literature-pinned 1-parameter fit. Viability study with honest verdict on whether Stefan physics fits real bread bakes.",
+  "actual_outcome": "1D Stefan-front inverse problem with enthalpy-method forward solver delivered. Forward solver matches Stefan-Neumann analytical within 2.82 deg C (PASS). Synthetic recovery clean: 10/10 converged, bias 0.05 (smearing-mismatch artefact), RMSE 1.0-1.5 deg C. Real-CSV joint 4-param fits well-conditioned: max |rho| 0.30 (vs M7's 0.91 \u2014 degeneracy GONE). 6 of 7 BA3C cases extrapolated past T1 (x_core in -0.05 to -0.06). BUT real-CSV RMSE = 6-10 deg C, identical to M7 heat-equation baseline. Driver auto-verdict NO-GO; admiral assessment is more nuanced \u2014 see admiral note in commit.",
+  "success_metric_result": "Forward solver passes analytical sanity. Synthetic recovery RMSE 1.4 deg C (vs M7's 6 deg C). Real-CSV joint RMSE median 6.91 deg C (M7 6.48 deg C). Inverse well-conditioned at max |rho| 0.30 (vs M7 0.91). 4/7 BA3C cases extrapolated past T1.",
+  "duration_minutes": 87,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Enthalpy method (effective Cp with smearing window) for moving-boundary problems \u2014 non-stiff, uses standard ODE solvers, well-suited to inverse problems",
+      "Generate synthetic test data via DIFFERENT numerical realisation than the inverse-fitter (different smearing dT) to avoid self-test tautology"
+    ],
+    "avoid": [
+      "Treating headline RMSE alone as the verdict \u2014 Stefan vs heat-eq RMSE were similar but well-conditioning, x_core extrapolation, and physical interpretability all differ"
+    ]
+  },
+  "created_at": "2026-04-28T06:15:06Z"
+}

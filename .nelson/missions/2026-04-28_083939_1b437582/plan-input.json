@@ -1,0 +1,29 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Hermione", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Leave-one-sensor-out cross-validation + calibration floor",
+      "owner": "HMS Hermione",
+      "deliverable": "tests/_diagnose_loo_cross_validation.py: standalone diagnostic. For each of the 7 real-CSV fixtures and each of two models (M9 Stefan PDE 4-param, M12 Zurcher 5-param), refit using all-but-one in-dough sensor and predict the held-out sensor's time series. Compute held-out RMSE per sensor; aggregate. Also compute sensor calibration floor: spread of T1-T8 readings at t=0 (room temperature, before bake start) per fixture. Append a 'Round 2 — leave-one-sensor-out cross-validation (HMS Hermione)' section to tests/baselines/stefan_inverse_research.md AND tests/baselines/zurcher_two_state_research.md. Output JSON dump at tests/baselines/loo_cross_validation.json with raw per-(fixture, held-out-sensor) RMSE numbers. Revised verdict: GO (LOO-RMSE < 2 °C, model genuinely captures field) / GO-WITH-CAVEATS / CONFIRM-information-limit (LOO matches in-sample).",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/tests/_diagnose_loo_cross_validation.py",
+        "oven_logging/tests/baselines/stefan_inverse_research.md",
+        "oven_logging/tests/baselines/zurcher_two_state_research.md",
+        "oven_logging/tests/baselines/loo_cross_validation.json",
+        ".nelson/missions/2026-04-28_083939_1b437582/"
+      ],
+      "validation_required": "Driver runs end-to-end without crashes (~30-60 min wall-clock; LOO requires N-1 fits per fixture × 7 fixtures × 2 models). Per-fixture LOO-RMSE table appended to both research reports. Calibration floor table per fixture. Existing M1-M12 tests untouched.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

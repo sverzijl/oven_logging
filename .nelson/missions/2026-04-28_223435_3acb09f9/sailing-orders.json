@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Endeavour: hybrid Luikov inverse combining M9 surface-Dirichlet BC (proven best top BC) with M15 asymmetric-tin bottom BC + alpha(T) oven-spring profile. Tests whether stacking the proven-best BC choice with the additional physics layers identified in M11-M16 finally drops main-bake RMSE below 4 deg C. 5 free parameters: L, D, Lu, q_bottom_eff, alpha_ratio.",
+  "success_metric": "Forward solver passes Dirichlet-BC sanity (constant surface temp gives expected steady-state). Synthetic recovery passes within 30 percent on at least 1 case. Real-CSV joint inverse converges on at least 5 of 7 fixtures with at least 3 of 5 parameters interior. Main-bake RMSE comparison vs M9 (5-11 deg C), M15 (6.1 deg C). LOO deep-end T1 test on 3 fixtures vs M15 baseline. If main-bake RMSE under 4 deg C verdict GO and we proceed to production wiring; otherwise the information limit is final across the full hierarchy of formulations.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T22:34:35Z"
+}

@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T05:03:20Z",
+      "data": {
+        "from_phase": "SAILING_ORDERS",
+        "to_phase": "BATTLE_PLAN"
+      }
+    },
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T05:05:45Z",
+      "data": {
+        "captain_count": 2,
+        "has_red_cell": false,
+        "execution_mode": "subagents",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T05:05:45Z",
+      "data": {
+        "task_count": 4,
+        "parallel_tracks": 2,
+        "critical_path_length": 2,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T05:06:15Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "FORMATION"
+      }
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T05:06:15Z",
+      "data": {
+        "from_phase": "FORMATION",
+        "to_phase": "PERMISSION"
+      }
+    },
+    {
+      "type": "permission_granted",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T05:06:16Z",
+      "data": {}
+    },
+    {
+      "type": "phase_transition",
+      "checkpoint": 0,
+      "timestamp": "2026-04-27T05:06:17Z",
+      "data": {
+        "from_phase": "PERMISSION",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-27T06:43:12Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Annotation tooling + ground-truth pass + failing tests",
+        "owner": "HMS Truculent",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "checkpoint",
+      "checkpoint": 1,
+      "timestamp": "2026-04-27T06:43:54Z",
+      "data": {
+        "progress": {
+          "pending": 1,
+          "in_progress": 0,
+          "completed": 1,
+          "blocked": 0
+        },
+        "budget": {
+          "tokens_spent": 0,
+          "tokens_remaining": 200000,
+          "pct_consumed": 0.0,
+          "burn_rate_per_checkpoint": 0
+        },
+        "hull_summary": {
+          "green": 1,
+          "amber": 0,
+          "red": 0,
+          "critical": 0
+        },
+        "blockers": [],
+        "standing_order_violations": [],
+        "admiral_decision": "continue",
+        "admiral_rationale": "M1a Truculent landed cleanly: 5 real-CSV cases annotated; 7/7 new tests pass; full suite has 8 pre-existing failures unchanged by additive-only edits. Dispatching HMS Astute for red-cell."
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 2,
+      "timestamp": "2026-04-27T06:50:28Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Independent red-cell annotation verification",
+        "owner": "HMS Astute",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 2,
+      "timestamp": "2026-04-27T06:50:29Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 2,
+        "tasks_total": 4,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 107,
+        "ships_used": 2,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

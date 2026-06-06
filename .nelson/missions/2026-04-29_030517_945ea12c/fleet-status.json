@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Deep RCA: why does no physics model fit below the ~6 deg C floor across 17 missions, given that real bake time is 22-25 minutes (much shorter than the 60+ min we may have implicitly modelled). Find the actual root cause via parallel investigation: (a) bake-time-to-physics audit (does the 22-25 min target imply specific alpha/Bi we're missing?), (b) M9-Stefan deep diagnostic (the best result we have \u2014 characterise its residual shape, not just RMSE), (c) data-vs-model trace on one fixture (overlay model prediction against observed sensors timestep-by-timestep and visually identify where it diverges).",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-29T03:05:17Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 4,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 4
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Audacious",
+      "ship_class": "submarine",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Active",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 2,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Diamond",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 3,
+      "task_name": null,
+      "task_status": "pending"
+    },
+    {
+      "ship_name": "HMS Kent",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 4,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 4 captains"
+  ],
+  "last_updated": "2026-04-29T03:58:45Z"
+}

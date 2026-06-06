@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T03:06:04Z",
+      "data": {
+        "captain_count": 4,
+        "has_red_cell": false,
+        "execution_mode": "agent-team",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T03:06:04Z",
+      "data": {
+        "task_count": 4,
+        "parallel_tracks": 3,
+        "critical_path_length": 2,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_override",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T03:06:05Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T03:58:43Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Bake-time-to-physics audit",
+        "owner": "HMS Audacious",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T03:58:43Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "M9 residual shape",
+        "owner": "HMS Active",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T03:58:44Z",
+      "data": {
+        "task_id": 3,
+        "task_name": "Bake-data sanity",
+        "owner": "HMS Diamond",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T03:58:44Z",
+      "data": {
+        "task_id": 4,
+        "task_name": "RCA synthesis",
+        "owner": "HMS Kent",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T03:58:45Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 4,
+        "tasks_total": 4,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 52,
+        "ships_used": 4,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

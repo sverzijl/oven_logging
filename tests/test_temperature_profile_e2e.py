@@ -96,6 +96,118 @@ render()
 """
 
 
+def _build_apptest_script_with_metadata(
+    csv_path: pathlib.Path,
+    curve_index: int,
+    loaf_thickness_mm: float,
+    insertion_depth_mm: float,
+) -> str:
+    """AppTest script that engages Method 4 via bake metadata before render."""
+    return f"""
+import streamlit as st
+import sys
+sys.path.insert(0, r"{PROJECT_ROOT}")
+
+from src.data.loader import ThermalProfileLoader
+
+loader = ThermalProfileLoader()
+loader.load_csv(r"{csv_path}")
+loader.set_current_curve({curve_index})
+loader.set_bake_metadata({curve_index}, {{
+    "loaf_thickness_mm": {loaf_thickness_mm},
+    "insertion_depth_mm": {insertion_depth_mm},
+}})
+
+if "loader" not in st.session_state:
+    st.session_state.loader = loader
+    st.session_state.data = loader.data
+    st.session_state.current_curve_index = {curve_index}
+    st.session_state.show_zones = True
+
+from tabs.temperature_profile import render
+render()
+"""
+
+
+# ---------------------------------------------------------------------------
+# M29 — core-confidence banner (shared helper) on the Temperature Profile tab
+# ---------------------------------------------------------------------------
+
+
+class TestE2ECoreConfidenceBanner:
+    """The shared M29 banner renders on the Temperature Profile tab and
+    clears when Method 4 (bake metadata) supplies a deterministic core.
+    """
+
+    def test_banner_presence_matches_loader_confidence(self):
+        try:
+            from streamlit.testing.v1 import AppTest
+        except ImportError:
+            pytest.skip("streamlit.testing not available")
+        pytest.importorskip("scipy")
+
+        from src.ui.core_confidence_banner import core_confidence_banner_text
+
+        # Compute the expected banner level independently of the render.
+        loader = _make_loader(SINGLE_CURVE_CSV)
+        loader.set_current_curve(0)
+        conf, reason = loader.get_core_confidence(0)
+        expected_level, _ = core_confidence_banner_text(conf, reason)
+
+        script_path = PROJECT_ROOT / "_e2e_confidence_banner.py"
+        try:
+            script_path.write_text(
+                _build_apptest_script(SINGLE_CURVE_CSV, 0), encoding="utf-8"
+            )
+            at = AppTest.from_file(str(script_path), default_timeout=30)
+            at.run()
+            assert not at.exception, f"AppTest raised: {at.exception}"
+
+            conf_warnings = [
+                w for w in at.warning if "confidence" in str(w.value).lower()
+            ]
+            if expected_level == "warning":
+                assert conf_warnings, "expected a low-confidence warning banner"
+            else:
+                assert not conf_warnings, (
+                    f"unexpected confidence warning for level={expected_level!r}"
+                )
+        finally:
+            if script_path.exists():
+                script_path.unlink()
+
+    def test_bake_metadata_clears_confidence_warning(self):
+        try:
+            from streamlit.testing.v1 import AppTest
+        except ImportError:
+            pytest.skip("streamlit.testing not available")
+        pytest.importorskip("scipy")
+
+        script_path = PROJECT_ROOT / "_e2e_confidence_banner_metadata.py"
+        try:
+            # pos = 70 - 60 = +10 mm (core in-probe) -> Method 4 high -> no banner.
+            script_path.write_text(
+                _build_apptest_script_with_metadata(
+                    SINGLE_CURVE_CSV, 0,
+                    loaf_thickness_mm=120.0, insertion_depth_mm=70.0,
+                ),
+                encoding="utf-8",
+            )
+            at = AppTest.from_file(str(script_path), default_timeout=30)
+            at.run()
+            assert not at.exception, f"AppTest raised: {at.exception}"
+
+            conf_warnings = [
+                w for w in at.warning if "confidence" in str(w.value).lower()
+            ]
+            assert not conf_warnings, (
+                "Method 4 metadata should clear the low-confidence banner"
+            )
+        finally:
+            if script_path.exists():
+                script_path.unlink()
+
+
 # ---------------------------------------------------------------------------
 # a. test_e2e_render_single_curve_default
 # ---------------------------------------------------------------------------

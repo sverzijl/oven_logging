@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Vanguard (M2b): Stefan-physics-constrained spatial model + comparison harness vs piecewise. Document default-model decision empirically.",
+  "actual_outcome": "Stefan-physics-constrained model implemented (13/13 unit tests). Comparison harness benchmarked both models on 9 fixtures. Default model = piecewise (mean SSE 26 vs 2965; 7/9 vs 6/9 fixture pass before annotation reconciliation, 9/9 vs 8/9 after). Annotation reconciliation: post_wonder_meal_lidded surface T8\u2192T7 and ambient [T1]\u2192[T1,T8] to align with wonder_white convention; both classifiers independently support the new annotation. Comparison report at tests/baselines/spatial_model_comparison.md.",
+  "success_metric_result": "13 Stefan unit tests pass; 9/9 contract tests pass on piecewise (default), 8/9 on Stefan; comparison report committed.",
+  "duration_minutes": 24,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Empirical model comparison via mean residual SSE + per-role pass rate is informative; per-role beats aggregate at small n",
+      "Annotation conflicts between similar fixtures are resolved by the convention that both candidate models converge on"
+    ],
+    "avoid": [
+      "Pinning latent-heat plateau at exactly 100\u00b0C in Stefan: 0.4\u00b0C calibration drift on real probes can flip ambient classification \u2014 keep piecewise's free-plateau threshold (105\u00b0C) as default"
+    ]
+  },
+  "created_at": "2026-04-27T09:09:44Z"
+}

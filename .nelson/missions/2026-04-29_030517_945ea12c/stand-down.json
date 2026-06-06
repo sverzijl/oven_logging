@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Deep RCA: why does no physics model fit below the ~6 deg C floor across 17 missions, given that real bake time is 22-25 minutes (much shorter than the 60+ min we may have implicitly modelled). Find the actual root cause via parallel investigation: (a) bake-time-to-physics audit (does the 22-25 min target imply specific alpha/Bi we're missing?), (b) M9-Stefan deep diagnostic (the best result we have \u2014 characterise its residual shape, not just RMSE), (c) data-vs-model trace on one fixture (overlay model prediction against observed sensors timestep-by-timestep and visually identify where it diverges).",
+  "actual_outcome": "RCA identified single primary root cause: alpha_dough pinned 5-7x too low across M9/M11/M12/M14/M15. Three independent investigations converged: Audacious dimensional analysis says alpha_eff ~6-8e-7 m2/s required for 22-25 min bake; Active M9 residual lag-1 0.99 with depth-dependent sign flip implicates alpha + Stefan smear width; Diamond confirmed bake durations are 22-28 min as user expects, no incomplete bakes. Recommend M20 HMS Resolute single-fixture diagnostic on BA3C_0946 with alpha_dough free over 5e-7..1e-5 and delta_T_smear free over 3..10 C. If main-bake RMSE drops below 4 C verdict GO; otherwise final pivot to Method 4 metadata capture.",
+  "success_metric_result": "Three reports cross-referenced; primary RCA: alpha_dough mis-pinned by 5-7x; secondary: delta_T_smear too narrow; tertiary: lidded-cohort BC heterogeneity (split for fitting).",
+  "duration_minutes": 52,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 4,
+    "total": 4,
+    "by_station_tier": {
+      "0": 1,
+      "1": 3,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "When 17 inverse-problem missions converge on the same RMSE floor with optimizer hitting parameter bounds across multiple formulations, suspect a single shared mis-pinned constant \u2014 not a structural information limit"
+    ],
+    "avoid": [
+      "Pinning alpha at literature molecular value when EDC enthalpy transport dominates effective alpha by 5-7x"
+    ]
+  },
+  "created_at": "2026-04-29T03:58:45Z"
+}

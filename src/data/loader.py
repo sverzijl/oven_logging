@@ -10,7 +10,6 @@ import io
 
 _log = logging.getLogger(__name__)
 from config.constants import (
-    CORE_DETECTION_CONFIG,
     CURVE_DETECTION_CONFIG,
     INTERNAL_SENSOR_CONFIG,
     SENSOR_LIST,
@@ -21,6 +20,7 @@ from src.data.column_helpers import (
     resolve_core_temperature_series,
 )
 from src.data.curve_boundary_detector import CurveBoundaryDetector
+from src.data.spatial_reconstruction import classify, lookup_geometry
 
 
 class ThermalProfileLoader:
@@ -75,6 +75,27 @@ class ThermalProfileLoader:
         # Subsequent set_expected_durations / set_curve_boundaries
         # calls leave it untouched.
         self.baseline_curves: list = []
+        # Per-curve bake metadata (M18 HMS Vigilant — Method 4 stub).
+        # Keyed by curve_index. Recognised keys (all optional):
+        #   - loaf_thickness_mm: float
+        #   - insertion_depth_mm: float (probe tip below loaf top surface)
+        #   - oven_setpoint_C: float
+        #   - lid_state: 'unknown' | 'open' | 'lidded' | 'tin'
+        #   - steam_phase_minutes: float
+        # When ``loaf_thickness_mm`` and ``insertion_depth_mm`` are both
+        # present, ``get_geometric_core_position_mm_from_tip`` computes
+        # ``insertion_depth_mm - loaf_thickness_mm/2`` (positive = core above
+        # the probe tip, between T1 and T8 -> interpolation; negative = core
+        # past/below the tip -> degraded to T1), and
+        # ``get_core_temperature_series`` uses linear interpolation between
+        # adjacent T-sensors at that geometric position. When metadata is
+        # absent, the classifier path (Method 1 relaxed clamp) is used
+        # unchanged.
+        self._bake_metadata: dict[int, dict] = {}
+        # Per-curve memoised IsothermalAssignment (M30 Spatial Evolution tab).
+        # Keyed by curve_index; populated lazily by ``isothermal_assignment``
+        # and invalidated by the override / boundary / manual-curve mutators.
+        self._isothermal_cache: dict = {}
 
     def load_csv(self, file_path: str = None, file_buffer=None) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -328,207 +349,102 @@ class ThermalProfileLoader:
                 to_sensors(ambient_nums))
     
     def _identify_sensor_roles_for_curve(self, df: pd.DataFrame, curve_index: int) -> pd.DataFrame:
-        """
-        Identify which sensors represent core, surface, and ambient temperatures.
-        
-        Uses the probe's built-in virtual sensor assignments when available,
-        or falls back to dynamic classification based on temperature patterns.
-        """
-        # Method 1: Use virtual sensor assignments from CSV (preferred)
-        virtual_cols = ['VirtualCoreTemperature', 'VirtualSurfaceTemperature', 
-                       'VirtualAmbientTemperature']
-        assignment_cols = ['VirtualCoreSensor', 'VirtualSurfaceSensor', 
-                          'VirtualAmbientSensor']
-        
-        used_virtual_path = all(col in df.columns for col in virtual_cols + assignment_cols)
-        if used_virtual_path:
-            # Track most common sensor assignments for each role
-            if len(df) > 0:
-                curve_assignments = {
-                    'core': df['VirtualCoreSensor'].mode().iloc[0] if not df['VirtualCoreSensor'].mode().empty else 'Unknown',
-                    'surface': df['VirtualSurfaceSensor'].mode().iloc[0] if not df['VirtualSurfaceSensor'].mode().empty else 'Unknown',
-                    'ambient': df['VirtualAmbientSensor'].mode().iloc[0] if not df['VirtualAmbientSensor'].mode().empty else 'Unknown'
-                }
-                
-                # Add assignment frequency info
-                for role, col in zip(['core', 'surface', 'ambient'], assignment_cols):
-                    if col in df.columns:
-                        counts = df[col].value_counts()
-                        if len(counts) > 0:
-                            primary = counts.index[0]
-                            percentage = (counts.iloc[0] / len(df)) * 100
-                            curve_assignments[f'{role}_info'] = {
-                                'primary': primary,
-                                'percentage': percentage,
-                                'all_sensors': counts.to_dict()
-                            }
-                
-                # Store per-curve
-                self.curve_sensor_assignments[curve_index] = curve_assignments
-                
-                # Also update deprecated sensor_assignments for backward compatibility
-                self.sensor_assignments = curve_assignments
-            
-            print(f"Curve {curve_index + 1}: Using virtual sensor assignments from CSV:")
-            print(f"  Core: {curve_assignments.get('core', 'Unknown')} ({curve_assignments.get('core_info', {}).get('percentage', 0):.1f}% of readings)")
-            print(f"  Surface: {curve_assignments.get('surface', 'Unknown')} ({curve_assignments.get('surface_info', {}).get('percentage', 0):.1f}% of readings)")
-            print(f"  Ambient: {curve_assignments.get('ambient', 'Unknown')} ({curve_assignments.get('ambient_info', {}).get('percentage', 0):.1f}% of readings)")
-            
-            # Validate assignments using thermodynamic principles
-            self._validate_sensor_assignments(df)
-            
-            # Apply physics-based surface sensor correction if enabled
-            from config.constants import SURFACE_DETECTION_CONFIG
-            if SURFACE_DETECTION_CONFIG['USE_PHYSICS_BASED_DETECTION']:
-                df = self._apply_physics_based_surface_correction(df, curve_index)
+        """Identify per-role sensors for ``df`` via the spatial reconstructor.
 
-            # Apply physics-based core sensor correction AFTER surface correction
-            # so role-order matches the surface pattern (physics > firmware).
-            if CORE_DETECTION_CONFIG['ENABLED']:
-                df = self._apply_physics_based_core_correction(df, curve_index)
+        After M3a HMS Royal Sovereign this is a single call to
+        :func:`src.data.spatial_reconstruction.classify`; the legacy
+        firmware-mode-pick + physics-correction layering is gone. The
+        classifier IS the source of truth.
+        """
+        sample_period_ms = self.metadata.get('sample_period_ms', 5000)
+        probe_geometry = lookup_geometry(
+            probe_sn=self.metadata.get('Probe S/N'),
+            probe_model=self.metadata.get('Probe HW revision'),
+        )
+        try:
+            assignment = classify(
+                df,
+                sample_period_ms=sample_period_ms,
+                probe_geometry=probe_geometry,
+            )
+            self.curve_sensor_assignments[curve_index] = (
+                self._spatial_assignment_to_dict(assignment)
+            )
+        except Exception as exc:
+            # Defensive: never crash curve extraction on a classifier failure.
+            _log.warning(
+                "Curve %d: spatial classifier failed (%s); using degraded "
+                "fallback assignments.", curve_index + 1, exc,
+            )
+            self.curve_sensor_assignments[curve_index] = {
+                'core': None,
+                'surface': None,
+                'ambient': [],
+                'lid': None,
+                'firmware_diagnostic': None,
+                'core_position_normalised': None,
+                'surface_position_normalised': None,
+                'ambient_position_normalised': [],
+                'lid_position_normalised': None,
+                'model_used': 'piecewise',
+                'assignment': None,
+            }
+        # Backward-compat alias for the deprecated single-curve view.
+        self.sensor_assignments = self.curve_sensor_assignments[curve_index]
 
-        else:
-            # Method 2: Enhanced dynamic classification using thermodynamic principles
-            print(f"Curve {curve_index + 1}: Virtual sensor data not available, using thermodynamic classification")
-            df = self._classify_sensors_dynamically(df, curve_index)
-        
-        # For backward compatibility, also create the old average columns
-        # but mark them as deprecated
+        # Backward-compat averages stay for legacy consumers (e.g. plots
+        # that pre-date the standardised columns).
         if all(col in df.columns for col in ['T1', 'T2', 'T3', 'T4']):
             df['CoreAverage'] = df[['T1', 'T2', 'T3', 'T4']].mean(axis=1)
         if all(col in df.columns for col in ['T7', 'T8']):
             df['SurfaceAverage'] = df[['T7', 'T8']].mean(axis=1)
-        
-        # Generate standardized columns via the single canonical writer.
-        # Only run on the virtual-path branch: the dynamic-classification branch
-        # below already wrote Core/Surface/Ambient from thermodynamically-chosen
-        # sensors and has no Virtual* columns to fall back on, so re-running the
-        # helper there would wipe its assignment.
-        if used_virtual_path:
-            self._apply_standard_columns(df, curve_index)
 
-        return df
-    
-    def _apply_physics_based_surface_correction(self, df: pd.DataFrame, curve_index: int) -> pd.DataFrame:
-        """Apply physics-based surface sensor correction to fix firmware misidentification."""
-        from ..data.surface_sensor_detector import identify_surface_sensor_advanced
-        from config.constants import SURFACE_DETECTION_CONFIG
-        
-        # Get sample period from metadata
-        sample_period_ms = self.metadata.get('sample_period_ms', 5000)
-        
-        # Run detection algorithm
-        result = identify_surface_sensor_advanced(df, sample_period_ms)
-        
-        if result and result['confidence'] >= SURFACE_DETECTION_CONFIG['CONFIDENCE_THRESHOLD']:
-            # Store original firmware selection for comparison
-            curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
-            firmware_surface_sensor = curve_assignments.get('surface', 'Unknown')
-            firmware_surface_max_temp = df['VirtualSurfaceTemperature'].max() if 'VirtualSurfaceTemperature' in df.columns else 0
-            
-            # Apply correction
-            surface_sensor = result['sensor']
-            df['SurfaceTemperature'] = df[surface_sensor]
-            df['PhysicsBasedSurfaceDetection'] = True
-            
-            # Update sensor assignments for this curve
-            curve_assignments['surface'] = surface_sensor
-            curve_assignments['surface_detection'] = result
-            curve_assignments['physics_corrected'] = True
-            curve_assignments['firmware_surface_sensor'] = firmware_surface_sensor
-            curve_assignments['firmware_surface_max_temp'] = firmware_surface_max_temp
-            self.curve_sensor_assignments[curve_index] = curve_assignments
-            
-            # Update deprecated sensor_assignments for backward compatibility
-            self.sensor_assignments = curve_assignments
-            
-            # Log the correction if enabled
-            if SURFACE_DETECTION_CONFIG['LOG_CORRECTIONS']:
-                print(f"\n✅ Curve {curve_index + 1}: Physics-based surface sensor correction applied:")
-                print(f"   Firmware selected: {firmware_surface_sensor} (max {firmware_surface_max_temp:.1f}°C)")
-                print(f"   Corrected to: {surface_sensor} (max {result['max_temp']:.1f}°C)")
-                print(f"   Confidence: {result['confidence']}%")
-                print(f"   Reasoning: {result['reasoning']}")
-                print(f"   Browning time: {result['browning_time']:.1f} minutes")
-        else:
-            # Mark that physics detection was attempted but not applied
-            df['PhysicsBasedSurfaceDetection'] = False
-            curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
-            curve_assignments['physics_corrected'] = False
-            self.curve_sensor_assignments[curve_index] = curve_assignments
-            
-            # Update deprecated sensor_assignments
-            self.sensor_assignments = curve_assignments
-            
-            if result:
-                print(f"\n⚠️  Curve {curve_index + 1}: Physics-based detection confidence too low ({result.get('confidence', 0)}%)")
-            else:
-                print(f"\n⚠️  Curve {curve_index + 1}: Physics-based surface detection failed - using firmware selection")
-
+        # Drive the standardised columns from the new assignment.
+        self._apply_standard_columns(df, curve_index)
         return df
 
-    def _apply_physics_based_core_correction(
-        self, df: pd.DataFrame, curve_index: int
-    ) -> pd.DataFrame:
-        """Override firmware VirtualCoreSensor pick when combined-rank physics disagrees.
+    def _spatial_assignment_to_dict(self, assignment) -> dict:
+        """Flatten a :class:`SpatialAssignment` into the curve-assignment dict
+        shape consumed by ``curve_sensor_assignments[curve_index]``.
 
-        Gate: CORE_DETECTION_CONFIG['ENABLED'].
-        Override triggers only when the physics winner beats firmware by
-        CONFIDENCE_GAP_MIN combined-rank points — firmware stays otherwise.
-        Manual overrides (_sensor_overrides) are respected downstream by
-        _apply_standard_columns; this method only changes the curve
-        assignment and sets core_physics_corrected=True.
+        Keys (M3a contract):
+        * ``core``: nearest sensor for the core role (str or None).
+        * ``surface``: nearest sensor for the surface role (str or None).
+        * ``ambient``: list of nearest sensors for the ambient role.
+        * ``lid``: nearest sensor for lid role (str or None).
+        * ``firmware_diagnostic``: dict of firmware mode picks (diagnostic only).
+        * ``*_position_normalised``: inferred per-role positions in [0, 1] for
+          downstream visualisation.
+        * ``model_used``: name of the spatial model used.
+        * ``assignment``: the full SpatialAssignment object (for getters).
         """
-        from src.data.thermodynamic_sensor_classifier import (
-            identify_core_sensor_combined_rank,
-        )
-
-        sensor_columns = [s for s in SENSOR_LIST if s in df.columns]
-        if len(sensor_columns) < 2:
-            return df
-
-        candidate_core, diagnostics = identify_core_sensor_combined_rank(
-            df, sensor_columns
-        )
-
-        curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
-        firmware_core = curve_assignments.get("core")
-
-        # Initialise flag (false until override confirmed).
-        curve_assignments["core_physics_corrected"] = False
-        curve_assignments["core_detection_diagnostics"] = diagnostics
-        self.curve_sensor_assignments[curve_index] = curve_assignments
-
-        if candidate_core is None or not diagnostics:
-            return df
-
-        if firmware_core not in diagnostics:
-            # Firmware pick not in the ranked set (e.g. 'Unknown'); cannot
-            # measure a confidence gap — leave firmware alone.
-            return df
-
-        firmware_score = diagnostics[firmware_core]["combined_score"]
-        candidate_score = diagnostics[candidate_core]["combined_score"]
-        gap = firmware_score - candidate_score
-
-        if gap < CORE_DETECTION_CONFIG["CONFIDENCE_GAP_MIN"]:
-            return df
-
-        curve_assignments["core"] = candidate_core
-        curve_assignments["core_physics_corrected"] = True
-        curve_assignments["firmware_core_sensor"] = firmware_core
-        curve_assignments["firmware_core_combined_score"] = firmware_score
-        curve_assignments["candidate_core_combined_score"] = candidate_score
-        self.curve_sensor_assignments[curve_index] = curve_assignments
-        self.sensor_assignments = curve_assignments
-
-        print(
-            f"\n✅ Curve {curve_index + 1}: Physics-based core sensor correction applied:"
-        )
-        print(f"   Firmware selected: {firmware_core} (combined score {firmware_score})")
-        print(f"   Corrected to: {candidate_core} (combined score {candidate_score})")
-        print(f"   Confidence gap: {gap}")
-        return df
+        return {
+            'core': assignment.core,
+            'surface': assignment.surface,
+            'ambient': list(assignment.ambient),
+            'lid': assignment.lid,
+            'firmware_diagnostic': assignment.firmware_diagnostic,
+            'core_position_normalised': (
+                assignment.core_assignment.position_normalised
+                if assignment.core_assignment is not None
+                else None
+            ),
+            'surface_position_normalised': (
+                assignment.surface_assignment.position_normalised
+                if assignment.surface_assignment is not None
+                else None
+            ),
+            'ambient_position_normalised': [
+                p.position_normalised for p in assignment.ambient_assignments
+            ],
+            'lid_position_normalised': (
+                assignment.lid_assignment.position_normalised
+                if assignment.lid_assignment is not None
+                else None
+            ),
+            'model_used': assignment.model_used,
+            'assignment': assignment,
+        }
 
     def get_sensor_assignments(self) -> dict:
         """
@@ -571,6 +487,8 @@ class ThermalProfileLoader:
                 # Preserve current_curve_index when valid; otherwise reset.
                 if self.current_curve_index >= len(self.all_curves):
                     self.current_curve_index = 0
+            # Curve list re-detected — drop stale isothermal assignments.
+            self._invalidate_isothermal_cache()
 
     def set_curve_boundaries(
         self, curve_index: int, start_idx: int, end_idx: int
@@ -646,33 +564,385 @@ class ThermalProfileLoader:
         self.all_curves = self._extract_all_baking_curves(self.raw_data.copy())
         if self.all_curves and self.current_curve_index >= len(self.all_curves):
             self.current_curve_index = 0
+        # Curve list re-indexed — every cached isothermal assignment is stale.
+        self._invalidate_isothermal_cache()
 
-    def set_sensor_override(self, curve_index: int, role: str, sensor: str):
-        """
-        Allow user to override sensor assignments for a specific curve.
-        
+    def set_sensor_override(self, curve_index: int, role: str, sensor):
+        """Allow user to override sensor assignments for a specific curve.
+
         Args:
             curve_index: Index of the curve
-            role: 'core', 'surface', or 'ambient'
-            sensor: Single sensor name (e.g., 'T2')
+            role: ``'core'``, ``'surface'``, ``'ambient'``, or ``'lid'``
+            sensor:
+                - For ``'core'`` and ``'surface'``: a single sensor name (str), e.g. ``'T2'``.
+                - For ``'ambient'``: a list of sensor names (or a single str for
+                  backward compatibility); the AmbientTemperature column will be
+                  the row-wise mean across these sensors.
+                - For ``'lid'``: a single sensor name (str), or ``None`` to
+                  explicitly clear a previously-set lid override (drops the
+                  ``LidTemperature`` column).
+
+        Raises:
+            ValueError: if the resulting role-to-sensor mapping violates the
+                physical topology of the probe (see
+                :meth:`_validate_override_topology`).
         """
+        if role not in ('core', 'surface', 'ambient', 'lid'):
+            raise ValueError(
+                f"Unknown override role {role!r}; expected one of "
+                "'core', 'surface', 'ambient', 'lid'."
+            )
+
+        # Build the prospective override dict and topology-check before mutating.
+        existing = self._sensor_overrides.get(curve_index, {})
+        prospective = dict(existing)
+        prospective[role] = sensor
+        self._validate_override_topology(prospective)
+
+        # Topology OK — commit the mutation.
         if curve_index not in self._sensor_overrides:
             self._sensor_overrides[curve_index] = {}
         self._sensor_overrides[curve_index][role] = sensor
-        
-        # Regenerate standard columns for this curve if it's the current one
+
+        # Regenerate standard columns for this curve if it's the current one,
+        # AND for the per-curve DataFrame in all_curves so LidTemperature is
+        # written/dropped consistently.
+        df_curve = self._curve_dataframe(curve_index)
+        if df_curve is not None:
+            self._apply_standard_columns(df_curve, curve_index)
         if curve_index == self.current_curve_index:
             self._regenerate_standard_columns()
-    
+        # The override changes the classifier's core/surface picks, so any
+        # cached isothermal assignment for this curve is stale.
+        self._invalidate_isothermal_cache(curve_index)
+
+    @staticmethod
+    def _sensor_index(name) -> Optional[int]:
+        """Return the int index for ``'T<n>'`` sensor names, else ``None``."""
+        if not isinstance(name, str) or len(name) < 2 or name[0] != 'T':
+            return None
+        try:
+            return int(name[1:])
+        except ValueError:
+            return None
+
+    @classmethod
+    def _validate_override_topology(cls, overrides: Dict) -> None:
+        """Enforce probe topology on a prospective override dict.
+
+        Topology rule (numbers refer to the integer suffix of T1..T8):
+
+            core_idx < surface_idx <= min(ambient_idx) <=
+            max(ambient_idx) <= lid_idx
+
+        Constraints involving roles NOT present in ``overrides`` are skipped
+        (partial overrides are valid mid-edit).
+
+        **Through-loaf exception**: when the operator inserts the probe so it
+        passes through the loaf and emerges out the far side, ambient sensors
+        appear on BOTH ends of the probe (e.g. T1 in oven air below, T8 in oven
+        air above) and the surface sensor sits between them.  We accept this
+        when:
+
+          * ambient sensor indices form two non-empty contiguous groups
+            (lower group is a prefix starting at T1, upper group is a suffix
+            ending at the highest used T-index, no ambient indices between
+            them); and
+          * surface_idx lies strictly between max(lower group) and min(upper group).
+
+        Raises ``ValueError`` with a role-named message on the first
+        violation found.
+        """
+        # Filter to recognised roles whose value translates to at least one
+        # sensor name. ``lid=None`` is the explicit-clear sentinel and skips
+        # validation of the lid relation.
+        core = overrides.get('core')
+        surface = overrides.get('surface')
+        ambient_raw = overrides.get('ambient')
+        lid = overrides.get('lid')
+
+        core_idx = cls._sensor_index(core) if core else None
+        surface_idx = cls._sensor_index(surface) if surface else None
+        if isinstance(ambient_raw, str):
+            ambient_list = [ambient_raw]
+        elif ambient_raw is None:
+            ambient_list = []
+        else:
+            ambient_list = list(ambient_raw)
+        ambient_idxs = sorted(
+            i for i in (cls._sensor_index(s) for s in ambient_list) if i is not None
+        )
+        lid_idx = cls._sensor_index(lid) if lid else None
+
+        # Core vs Surface
+        if core_idx is not None and surface_idx is not None:
+            if core_idx == surface_idx:
+                raise ValueError(
+                    "Override topology: core and surface sensors must differ "
+                    f"(both set to T{core_idx})."
+                )
+            if core_idx >= surface_idx:
+                raise ValueError(
+                    "Override topology: core sensor must be deeper "
+                    f"(lower index) than surface sensor "
+                    f"(got core=T{core_idx}, surface=T{surface_idx})."
+                )
+
+        # Ambient vs Surface (with through-loaf exception)
+        if surface_idx is not None and ambient_idxs:
+            min_amb = ambient_idxs[0]
+            max_amb = ambient_idxs[-1]
+            if min_amb < surface_idx:
+                # Possible through-loaf: lower group must be a contiguous prefix
+                # starting at T1, upper group must be a contiguous suffix; the
+                # surface index sits strictly between the two groups.
+                lower = [i for i in ambient_idxs if i < surface_idx]
+                upper = [i for i in ambient_idxs if i > surface_idx]
+                # surface itself is never in ambient — earlier core/surface
+                # check already forbids overlap with core; ambient overlapping
+                # surface should also fail:
+                if surface_idx in ambient_idxs:
+                    raise ValueError(
+                        "Override topology: ambient list may not include the "
+                        f"surface sensor (T{surface_idx})."
+                    )
+                lower_is_prefix = (
+                    bool(lower)
+                    and lower[0] == 1
+                    and lower == list(range(lower[0], lower[-1] + 1))
+                )
+                upper_is_contiguous = (
+                    bool(upper)
+                    and upper == list(range(upper[0], upper[-1] + 1))
+                )
+                if not (lower_is_prefix and upper_is_contiguous):
+                    raise ValueError(
+                        "Override topology: ambient sensors must lie at or above "
+                        f"the surface sensor (got ambient={ambient_list}, "
+                        f"surface=T{surface_idx}). Through-loaf exception "
+                        "requires the lower group to start at T1 and the upper "
+                        "group to be contiguous on the far side."
+                    )
+                # Through-loaf accepted.
+
+        # Lid vs Ambient
+        if lid_idx is not None and ambient_idxs:
+            if lid_idx < ambient_idxs[-1]:
+                raise ValueError(
+                    "Override topology: lid sensor index must be >= max(ambient) "
+                    f"(got lid=T{lid_idx}, max ambient=T{ambient_idxs[-1]})."
+                )
+
+        # Lid vs Surface (when no ambient override is present)
+        if lid_idx is not None and surface_idx is not None and not ambient_idxs:
+            if lid_idx <= surface_idx:
+                raise ValueError(
+                    "Override topology: lid sensor must be above the surface "
+                    f"(got lid=T{lid_idx}, surface=T{surface_idx})."
+                )
+
     def clear_sensor_overrides(self, curve_index: int):
         """Clear all user overrides for a curve, reverting to automatic detection."""
         if curve_index in self._sensor_overrides:
             del self._sensor_overrides[curve_index]
-            
+
         # Regenerate columns if this is the current curve
+        df_curve = self._curve_dataframe(curve_index)
+        if df_curve is not None:
+            self._apply_standard_columns(df_curve, curve_index)
         if curve_index == self.current_curve_index:
             self._regenerate_standard_columns()
-    
+        self._invalidate_isothermal_cache(curve_index)
+
+    # ------------------------------------------------------------------
+    # M18 HMS Vigilant — Method 4: bake metadata + geometric core
+    # ------------------------------------------------------------------
+    # Probe geometry: T1-T8 span 95 mm; spacing 13.571 mm; T1 at probe tip.
+    PROBE_SPAN_MM: float = 95.0
+    SENSOR_SPACING_MM: float = 95.0 / 7.0  # ≈ 13.571 mm
+
+    def set_bake_metadata(self, curve_index: int, metadata: dict) -> None:
+        """Store partial or full bake metadata for ``curve_index``.
+
+        Recognised keys (all optional):
+          - ``loaf_thickness_mm``: float — total loaf height (tin bottom to top crust).
+          - ``insertion_depth_mm``: float — probe tip below loaf top surface.
+          - ``oven_setpoint_C``: float — oven setpoint.
+          - ``lid_state``: ``'unknown' | 'open' | 'lidded' | 'tin'``.
+          - ``steam_phase_minutes``: float — steam phase duration.
+
+        When both ``loaf_thickness_mm`` and ``insertion_depth_mm`` are
+        provided, :meth:`get_geometric_core_position_mm_from_tip` returns
+        the geometric core position relative to the probe tip and
+        :meth:`get_core_temperature_series` uses spatial interpolation
+        between the bracketing T-sensors at that position.
+        """
+        self._bake_metadata[curve_index] = dict(metadata)
+
+    def clear_bake_metadata(self, curve_index: int) -> None:
+        """Drop all stored bake metadata for ``curve_index`` (no-op if absent)."""
+        self._bake_metadata.pop(curve_index, None)
+
+    def get_bake_metadata(self, curve_index: Optional[int] = None) -> dict:
+        """Return a *copy* of the stored bake metadata for ``curve_index``.
+
+        Defaults to the current curve. Returns ``{}`` when no metadata has
+        been set for the curve.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        return dict(self._bake_metadata.get(curve_index, {}))
+
+    def get_geometric_core_position_mm_from_tip(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[float]:
+        """Return the geometric core position relative to the probe tip.
+
+        Formula::
+
+            geometric_core_depth_below_top = loaf_thickness_mm / 2
+            pos_mm_above_tip = insertion_depth_mm - geometric_core_depth_below_top
+
+        Sign convention (matches :meth:`_geometric_core_series` and the
+        sidebar status display — positive = interpolation, negative =
+        degraded extrapolation):
+          - **Positive** ⇒ the geometric core sits *above* the probe tip,
+            i.e. between T1 (tip) and T8 (stem) along the probe — interpolation
+            between adjacent T-sensors yields a high-accuracy core series.
+            At ``pos_mm = 0`` the core lands exactly on T1; at ``pos_mm = 95``
+            it lands on T8.
+          - **Negative** ⇒ the geometric core is *past/below* the probe tip
+            (the probe is too shallow; the true core is deeper into the loaf
+            than T1 reaches) — extrapolation territory for thermal-only
+            methods (the structural ~5.7 °C floor confirmed across the M21
+            inverse-problem flotilla). The series degrades to T1 in this case.
+
+        Returns ``None`` when either of the required metadata fields is
+        missing (the classifier's Method 1 fallback engages instead).
+        """
+        meta = self.get_bake_metadata(curve_index)
+        L = meta.get("loaf_thickness_mm")
+        D = meta.get("insertion_depth_mm")
+        if L is None or D is None:
+            return None
+        return float(D) - float(L) / 2.0
+
+    def _geometric_core_series(
+        self, curve_index: int
+    ) -> Optional[pd.Series]:
+        """Build the per-timestep core series at the geometric core position.
+
+        Returns ``None`` when bake metadata is incomplete or the per-curve
+        DataFrame does not carry the bracketing T-sensor columns.
+
+        Coordinate convention (M18 HMS Vigilant):
+          - The probe is inserted top-down: T1 sits at the probe TIP (the
+            deepest point in the loaf), T8 sits at the probe STEM end
+            (closest to the loaf top surface). Adjacent sensors are spaced
+            by ``SENSOR_SPACING_MM`` ≈ 13.571 mm; the full span is 95 mm.
+          - ``insertion_depth_mm`` = how far below the loaf top the probe
+            tip (T1) sits.
+          - ``geometric_core_depth_below_top`` = ``loaf_thickness_mm / 2``
+            (the loaf's central plane).
+          - ``pos_mm = insertion_depth_mm - core_depth_below_top``:
+              * ``pos_mm > 0`` ⇒ the core sits ABOVE the probe tip
+                (between T1 and T8 along the probe stem). At ``pos_mm = 0``
+                the core lands exactly on T1; at ``pos_mm = 95`` it lands
+                exactly on T8.
+              * ``pos_mm < 0`` ⇒ the core sits BELOW the probe tip
+                (probe is too shallow; geometric core is in the loaf
+                BELOW T1 with no in-dough sensor coverage). We hold T1's
+                series in this degraded case — Method 1's relaxed
+                parabolic clamp is not invoked here because the user
+                supplied a hard geometric measurement; the position
+                ``pos_mm`` is reported (negative) but the temperature
+                series degrades to T1.
+        """
+        pos_mm = self.get_geometric_core_position_mm_from_tip(curve_index)
+        if pos_mm is None:
+            return None
+        df = self._curve_dataframe(curve_index)
+        if df is None:
+            return None
+        # Past-the-tip degenerate case (pos_mm < 0): hold T1's series.
+        if pos_mm < 0.0:
+            if "T1" in df.columns:
+                return df["T1"].reset_index(drop=True)
+            return None
+        # Clamp to probe span so the bracketing sensors stay inside [T1, T8].
+        offset_from_t1 = float(pos_mm)
+        if offset_from_t1 > self.PROBE_SPAN_MM:
+            offset_from_t1 = self.PROBE_SPAN_MM
+        # Bracketing sensor indices (1-based: T1..T8). ``idx_lower`` is the
+        # 0-based offset of the lower-T-numbered sensor in the bracket; e.g.
+        # ``idx_lower=0`` → bracket is (T1, T2).
+        idx_lower = int(offset_from_t1 // self.SENSOR_SPACING_MM)
+        if idx_lower >= 7:
+            idx_lower = 6
+        sensor_lo = f"T{idx_lower + 1}"
+        sensor_hi = f"T{idx_lower + 2}"
+        if sensor_lo not in df.columns or sensor_hi not in df.columns:
+            return None
+        frac = (offset_from_t1 - idx_lower * self.SENSOR_SPACING_MM) / self.SENSOR_SPACING_MM
+        if frac < 0.0:
+            frac = 0.0
+        elif frac > 1.0:
+            frac = 1.0
+        series = (1.0 - frac) * df[sensor_lo] + frac * df[sensor_hi]
+        return series.reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    # M30 Spatial Evolution — memoised isothermal-front assignment
+    # ------------------------------------------------------------------
+    def isothermal_assignment(self, curve_index: Optional[int] = None):
+        """Return the memoised :class:`IsothermalAssignment` for a curve.
+
+        Wraps :func:`src.data.spatial_reconstruction.track_isothermal`, which
+        traces the 60/80/100/110 °C isotherm positions through the dough over
+        time (the 100 °C front is the latent-heat / Stefan moisture-front
+        proxy). The result is cached per ``curve_index`` because
+        ``track_isothermal`` runs the full-bake classifier once (~1-2 s on a
+        single bake) and the UI re-renders on every unrelated widget change.
+
+        The cache is invalidated by the sensor-override mutators
+        (:meth:`set_sensor_override`, :meth:`clear_sensor_overrides`) for the
+        affected curve, and cleared wholesale by the boundary / manual-curve
+        mutators (:meth:`set_curve_boundaries`, :meth:`clear_curve_boundaries`,
+        :meth:`add_manual_curve`, :meth:`remove_manual_curve`) because those
+        re-index the curve list.
+
+        Returns ``None`` when the curve has no DataFrame.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        cache = self._isothermal_cache
+        if curve_index in cache:
+            return cache[curve_index]
+        df = self._curve_dataframe(curve_index)
+        if df is None:
+            return None
+        # Local import keeps the spatial_reconstruction package off the
+        # loader's import-time critical path (and avoids any import cycle).
+        from src.data.spatial_reconstruction import track_isothermal
+
+        sample_period_ms = 5000
+        if isinstance(self.metadata, dict):
+            sample_period_ms = int(self.metadata.get("sample_period_ms", 5000))
+        result = track_isothermal(df, sample_period_ms=sample_period_ms)
+        cache[curve_index] = result
+        return result
+
+    def _invalidate_isothermal_cache(self, curve_index: Optional[int] = None) -> None:
+        """Drop cached isothermal assignments.
+
+        ``curve_index=None`` clears the whole cache (used when the curve list
+        is re-indexed); otherwise only the named curve's entry is dropped.
+        """
+        if curve_index is None:
+            self._isothermal_cache.clear()
+        else:
+            self._isothermal_cache.pop(curve_index, None)
+
     def get_core_sensors(self, curve_index: Optional[int] = None) -> List[str]:
         """Get list of physical sensors identified as core (with override support)."""
         if curve_index is None:
@@ -698,24 +968,26 @@ class ThermalProfileLoader:
         return self._get_automatic_surface_sensors(curve_index)
     
     def get_ambient_sensors(self, curve_index: Optional[int] = None) -> List[str]:
-        """Get list of physical sensors identified as ambient (with override support)."""
+        """Get list of physical sensors identified as ambient (with override support).
+
+        After M3a HMS Royal Sovereign the canonical source is
+        ``assignment.ambient_assignments`` from the spatial classifier.
+        Manual ambient overrides win; if a surface-only override is in place
+        (no explicit ambient override), we pass through the classifier's
+        ambient list — geometry topology is the classifier's job.
+        """
         if curve_index is None:
             curve_index = self.current_curve_index
-            
-        # If we have overrides, infer ambient sensors based on surface position
-        if curve_index in self._sensor_overrides and 'surface' in self._sensor_overrides[curve_index]:
-            surface_sensor = self._sensor_overrides[curve_index]['surface']
-            if surface_sensor and len(surface_sensor) >= 2:
-                surface_num = int(surface_sensor[1])
-                # Return all sensors with numbers greater than surface
-                ambient_sensors = []
-                for i in range(surface_num + 1, 9):  # T1-T8, so max is 8
-                    sensor = f'T{i}'
-                    if sensor in self.data.columns:
-                        ambient_sensors.append(sensor)
-                return ambient_sensors
-            
-        # Otherwise return automatic detection
+
+        # Manual ambient override (single sensor or list).
+        overrides = self._sensor_overrides.get(curve_index, {})
+        ambient_override = overrides.get('ambient')
+        if ambient_override:
+            if isinstance(ambient_override, str):
+                return [ambient_override]
+            return list(ambient_override)
+
+        # Classifier source of truth.
         return self._get_automatic_ambient_sensors(curve_index)
     
     def get_core_sensor(self, curve_index: Optional[int] = None) -> Optional[str]:
@@ -830,7 +1102,265 @@ class ThermalProfileLoader:
         if ambient_sensors:
             return 'AmbientTemperature'
         return None
-    
+
+    def get_lid_sensor(self, curve_index: Optional[int] = None) -> Optional[str]:
+        """Return the nearest sensor for the lid role.
+
+        Manual override (``_sensor_overrides[curve_index]['lid']``) wins; else
+        the classifier's ``assignment.lid`` is returned; else ``None``.
+        Introduced by M3a HMS Royal Sovereign.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        overrides = self._sensor_overrides.get(curve_index, {})
+        if 'lid' in overrides:
+            return overrides['lid']
+        return self.curve_sensor_assignments.get(curve_index, {}).get('lid')
+
+    def _resolve_core(
+        self,
+        curve_index: int,
+        df: Optional[pd.DataFrame],
+    ) -> tuple:
+        """Resolve the active core series AND which method produced it.
+
+        Single source of truth for the override → Method 4 → classifier
+        layering *decision*, shared by :meth:`_resolve_core_series` (which
+        wants the series), :meth:`get_core_confidence` (which wants the
+        confidence), and ``src.ui.core_confidence_banner._bake_metadata_status_line``
+        (which wants the active-model label). Keeping the decision in one
+        place means the trace, the banner, and the sidebar status can never
+        disagree about which model is feeding the core curve.
+
+        Returns ``(series, method_tag)`` where ``series`` is
+        ``reset_index(drop=True)`` (or ``None`` when no layer produces one)
+        and ``method_tag`` is one of:
+
+          * ``"override"``         — manual sensor override on the core role.
+          * ``"method4"``          — geometric core in-probe (``pos_mm >= 0``;
+            spatial interpolation between the bracketing T-sensors).
+          * ``"method4_degraded"`` — geometric core past/below the probe tip
+            (``pos_mm < 0``; the series is held at T1, lower accuracy).
+          * ``"classifier"``       — Method 1 classifier assignment.
+          * ``"fallback"``         — no layer produced a series (``None``).
+        """
+        overrides = self._sensor_overrides.get(curve_index, {})
+        if 'core' in overrides and df is not None:
+            sensor = overrides['core']
+            if sensor in df.columns:
+                return df[sensor].reset_index(drop=True), "override"
+        # Method 4 — geometric core from bake metadata.
+        geom_series = self._geometric_core_series(curve_index)
+        if geom_series is not None:
+            pos_mm = self.get_geometric_core_position_mm_from_tip(curve_index)
+            tag = "method4_degraded" if (pos_mm is not None and pos_mm < 0.0) else "method4"
+            return geom_series, tag
+        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+            'assignment'
+        )
+        if assignment is not None and assignment.core_assignment is not None:
+            return assignment.core_assignment.temperature_series.reset_index(
+                drop=True
+            ), "classifier"
+        return None, "fallback"
+
+    def _resolve_core_series(
+        self,
+        curve_index: int,
+        df: Optional[pd.DataFrame],
+    ) -> Optional[pd.Series]:
+        """Apply the override → Method 4 → classifier core-series layering.
+
+        Thin wrapper over :meth:`_resolve_core` that discards the method tag.
+        Shared by :meth:`get_core_temperature_series` (the public reader) and
+        :meth:`_apply_standard_columns` (the canonical writer that produces
+        ``df['CoreTemperature']``). The two paths previously disagreed when
+        bake metadata was set — the reader honoured Method 4, the writer
+        ignored it — so every Streamlit tab and analyser reading the column
+        saw stale Method 1 output. M26 HMS Bellerophon consolidated the
+        decision; M29 lifts it into :meth:`_resolve_core` so the confidence
+        and sidebar surfaces reuse the same branch order.
+
+        Returns the series with ``reset_index(drop=True)`` so callers can
+        rely on positional alignment with ``df``. Returns ``None`` when
+        none of the three layers produces a result; the caller is then
+        responsible for any legacy fallback (the reader returns
+        ``df['CoreTemperature']`` if present; the writer invokes
+        :func:`resolve_core_temperature_series`).
+        """
+        series, _ = self._resolve_core(curve_index, df)
+        return series
+
+    def get_core_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the interpolated core-temperature series.
+
+        Layering (M18 HMS Vigilant; consolidated by M26 HMS Bellerophon):
+          1. **Manual sensor override** wins (``_sensor_overrides[i]['core']``).
+          2. **Bake metadata (Method 4)** — when ``loaf_thickness_mm`` AND
+             ``insertion_depth_mm`` are both set, the geometric core position
+             determines the spatial interpolation point and a per-timestep
+             series is built by linear interpolation between the bracketing
+             T-sensors.
+          3. **Classifier (Method 1)** — relaxed parabolic clamp; returns
+             ``assignment.core_assignment.temperature_series``.
+          4. **Final fallback** — the standardised ``CoreTemperature`` column.
+
+        Layers 1-3 delegate to :meth:`_resolve_core_series`; the legacy
+        ``df['CoreTemperature']`` final fallback remains here so the public
+        API behaviour is byte-identical to the pre-M26 reader.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        series = self._resolve_core_series(curve_index, df)
+        if series is not None:
+            return series
+        # Final fallback: use whatever CoreTemperature is set to.
+        if df is not None and 'CoreTemperature' in df.columns:
+            return df['CoreTemperature'].reset_index(drop=True)
+        return None
+
+    def get_core_confidence(
+        self, curve_index: Optional[int] = None
+    ) -> tuple:
+        """Return ``(confidence, reason)`` for the core-temperature series.
+
+        ``confidence`` is one of ``"high"`` / ``"medium"`` / ``"low"`` and
+        drives the banner colour; ``reason`` is the human-readable
+        justification (banner copy / tooltip). The layering mirrors
+        :meth:`get_core_temperature_series` exactly — both read the active
+        method from :meth:`_resolve_core`:
+
+          1. **Manual override** → ``("high", "manual override: core = T{n}")``.
+          2. **Bake metadata (Method 4), core in-probe** (``pos_mm >= 0``) →
+             ``("high", "geometric core at {pos_mm:.1f} mm from tip via bake metadata")``.
+             **Method 4 trumps Method 1's confidence** here: a deterministic
+             operator-supplied geometry is high-confidence even when the
+             classifier extrapolated and reported ``"low"``.
+          3. **Bake metadata (Method 4), core past tip** (``pos_mm < 0``) →
+             ``("low", "geometric core sits below probe tip; series degraded to T1")``.
+          4. **Classifier (Method 1)** →
+             ``(core_assignment.confidence, core_assignment.reason)``.
+          5. **Final fallback** →
+             ``("low", "no classifier assignment; using legacy CoreTemperature column")``.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        _, tag = self._resolve_core(curve_index, df)
+
+        if tag == "override":
+            sensor = self._sensor_overrides.get(curve_index, {}).get('core')
+            return "high", f"manual override: core = {sensor}"
+        if tag == "method4":
+            pos_mm = self.get_geometric_core_position_mm_from_tip(curve_index)
+            pos_txt = f"{pos_mm:.1f}" if pos_mm is not None else "?"
+            return (
+                "high",
+                f"geometric core at {pos_txt} mm from tip via bake metadata",
+            )
+        if tag == "method4_degraded":
+            return (
+                "low",
+                "geometric core sits below probe tip; series degraded to T1",
+            )
+        if tag == "classifier":
+            assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+                'assignment'
+            )
+            core = assignment.core_assignment
+            return (
+                getattr(core, "confidence", "medium") or "medium",
+                getattr(core, "reason", "") or "",
+            )
+        return (
+            "low",
+            "no classifier assignment; using legacy CoreTemperature column",
+        )
+
+    def active_core_method(self, curve_index: Optional[int] = None) -> str:
+        """Return the method tag feeding the core series for ``curve_index``.
+
+        One of ``"override"`` / ``"method4"`` / ``"method4_degraded"`` /
+        ``"classifier"`` / ``"fallback"`` (see :meth:`_resolve_core`). Public
+        so UI surfaces (the sidebar Bake Metadata status line) can label the
+        active model without reaching into loader internals.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        _, tag = self._resolve_core(curve_index, df)
+        return tag
+
+    def get_surface_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the interpolated surface-temperature series, or ``None``."""
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        overrides = self._sensor_overrides.get(curve_index, {})
+        df = self._curve_dataframe(curve_index)
+        if 'surface' in overrides and df is not None:
+            sensor = overrides['surface']
+            if sensor in df.columns:
+                return df[sensor].reset_index(drop=True)
+        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+            'assignment'
+        )
+        if assignment is not None and assignment.surface_assignment is not None:
+            return assignment.surface_assignment.temperature_series.reset_index(
+                drop=True
+            )
+        if df is not None and 'SurfaceTemperature' in df.columns:
+            return df['SurfaceTemperature'].reset_index(drop=True)
+        return None
+
+    def get_ambient_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the mean of ambient sensor series, or ``None``."""
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        if df is None:
+            return None
+        sensors = self.get_ambient_sensors(curve_index)
+        available = [s for s in sensors if s in df.columns]
+        if available:
+            return df[available].mean(axis=1).reset_index(drop=True)
+        if 'AmbientTemperature' in df.columns:
+            return df['AmbientTemperature'].reset_index(drop=True)
+        return None
+
+    def get_lid_temperature_series(
+        self, curve_index: Optional[int] = None
+    ) -> Optional[pd.Series]:
+        """Return the lid temperature series, or ``None`` when no lid contact."""
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        overrides = self._sensor_overrides.get(curve_index, {})
+        df = self._curve_dataframe(curve_index)
+        if 'lid' in overrides and df is not None:
+            sensor = overrides['lid']
+            if sensor and sensor in df.columns:
+                return df[sensor].reset_index(drop=True)
+        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+            'assignment'
+        )
+        if assignment is not None and assignment.lid_assignment is not None:
+            return assignment.lid_assignment.temperature_series.reset_index(
+                drop=True
+            )
+        return None
+
+    def _curve_dataframe(self, curve_index: int) -> Optional[pd.DataFrame]:
+        """Return the per-curve DataFrame, or fall back to ``self.data``."""
+        if 0 <= curve_index < len(self.all_curves):
+            return self.all_curves[curve_index].get('data')
+        return self.data
+
     def get_sensor_assignments_with_overrides(self, curve_index: Optional[int] = None) -> Dict:
         """Get sensor assignments including override status."""
         if curve_index is None:
@@ -856,114 +1386,6 @@ class ThermalProfileLoader:
             assignments['has_overrides'] = False
             
         return assignments
-    
-    def _classify_sensors_dynamically(self, df: pd.DataFrame, curve_index: int) -> pd.DataFrame:
-        """
-        Dynamically classify sensors using thermodynamic principles.
-        
-        This is a fallback method when virtual sensor data is not available.
-        """
-        sensor_cols = list(SENSOR_LIST)
-        available_sensors = [col for col in sensor_cols if col in df.columns]
-        
-        if len(available_sensors) < 3:
-            print("Warning: Not enough sensors for dynamic classification")
-            # Fall back to old hardcoded method
-            try:
-                df['CoreTemperature'] = resolve_core_temperature_series(df)
-            except KeyError:
-                pass
-            if all(col in df.columns for col in ['T7', 'T8']):
-                df['SurfaceTemperature'] = df[['T7', 'T8']].mean(axis=1)
-            df['AmbientTemperature'] = df[available_sensors].max(axis=1) if available_sensors else 0
-            return df
-        
-        # Try thermodynamic classification first
-        try:
-            from ..data.thermodynamic_sensor_classifier import ThermodynamicSensorClassifier
-            classifier = ThermodynamicSensorClassifier(df, available_sensors)
-            assignments = classifier.classify_sensors()
-            
-            # Use thermodynamic assignments
-            core_sensors = assignments.get('core', [])
-            surface_sensors = assignments.get('surface', [])
-            ambient_sensors = assignments.get('ambient', [])
-            
-            # Calculate temperatures based on classification
-            df['CoreTemperature'] = df[core_sensors].mean(axis=1) if core_sensors else df[available_sensors[:2]].mean(axis=1)
-            df['SurfaceTemperature'] = df[surface_sensors].mean(axis=1) if surface_sensors else df[available_sensors[2:4]].mean(axis=1)
-            df['AmbientTemperature'] = df[ambient_sensors].mean(axis=1) if ambient_sensors else df[available_sensors[-2:]].mean(axis=1)
-            
-            # Store assignments per curve
-            curve_assignments = {
-                'core': core_sensors[0] if core_sensors else 'Unknown',
-                'surface': surface_sensors[0] if surface_sensors else 'Unknown', 
-                'ambient': ambient_sensors[0] if ambient_sensors else 'Unknown',
-                'method': 'thermodynamic_classification'
-            }
-            self.curve_sensor_assignments[curve_index] = curve_assignments
-            
-            # Update deprecated sensor_assignments
-            self.sensor_assignments = curve_assignments
-            
-            print(f"Thermodynamic sensor classification:")
-            for role, sensors in assignments.items():
-                print(f"  {role.upper()}: {', '.join(sensors)}")
-            
-            return df
-            
-        except Exception as e:
-            print(f"Thermodynamic classification failed: {e}")
-            print("Falling back to simple temperature-based classification")
-        
-        # Calculate statistics for each sensor
-        sensor_stats = {}
-        for sensor in available_sensors:
-            sensor_stats[sensor] = {
-                'mean': df[sensor].mean(),
-                'max': df[sensor].max(),
-                'range': df[sensor].max() - df[sensor].min(),
-                'std': df[sensor].std()
-            }
-        
-        # Sort sensors by maximum temperature (core < surface < ambient)
-        sorted_sensors = sorted(sensor_stats.items(), key=lambda x: x[1]['max'])
-        
-        # Assign roles based on temperature characteristics
-        # Lowest max temp sensors are likely core
-        core_sensors = [s[0] for s in sorted_sensors[:2]]  # 2 coolest sensors
-        # Highest max temp sensors are likely ambient
-        ambient_sensors = [s[0] for s in sorted_sensors[-2:]]  # 2 hottest sensors
-        # Middle sensors are likely surface
-        surface_sensors = [s[0] for s in sorted_sensors[2:-2]]  # Middle sensors
-        
-        # If we don't have enough surface sensors, use some from the edges
-        if len(surface_sensors) < 2:
-            surface_sensors = [s[0] for s in sorted_sensors[2:4]]
-        
-        print(f"Dynamic sensor classification based on temperature patterns:")
-        print(f"  Core sensors: {core_sensors} (coolest)")
-        print(f"  Surface sensors: {surface_sensors} (intermediate)")
-        print(f"  Ambient sensors: {ambient_sensors} (hottest)")
-        
-        # Calculate temperatures based on classification
-        df['CoreTemperature'] = df[core_sensors].mean(axis=1)
-        df['SurfaceTemperature'] = df[surface_sensors].mean(axis=1) if surface_sensors else df[core_sensors].mean(axis=1) * 1.1
-        df['AmbientTemperature'] = df[ambient_sensors].mean(axis=1)
-        
-        # Store assignments per curve
-        curve_assignments = {
-            'core': ', '.join(core_sensors),
-            'surface': ', '.join(surface_sensors),
-            'ambient': ', '.join(ambient_sensors),
-            'method': 'dynamic_classification'
-        }
-        self.curve_sensor_assignments[curve_index] = curve_assignments
-        
-        # Update deprecated sensor_assignments
-        self.sensor_assignments = curve_assignments
-        
-        return df
     
     def _extract_all_baking_curves(self, df: pd.DataFrame) -> list:
         """Extract baking curves via :class:`CurveBoundaryDetector`.
@@ -1288,55 +1710,50 @@ class ThermalProfileLoader:
         return self._sensor_manager.get_automatic_ambient_sensors(curve_index)
     
     def _apply_standard_columns(self, df: pd.DataFrame, curve_index: int) -> None:
-        """Single canonical writer of CoreTemperature / SurfaceTemperature / AmbientTemperature.
+        """Single canonical writer of the standardised temperature columns.
 
-        Layering (matches CLAUDE.md):
-          1. Virtual* firmware channels (or *Average / raw-T fallbacks).
-          2. Physics-based surface correction — preserved when
-             curve_sensor_assignments[curve_index]['physics_corrected'] is True.
-          3. Manual overrides from self._sensor_overrides[curve_index] — win
-             over physics correction (the UI rule: user > physics > firmware).
+        Layering (M3a HMS Royal Sovereign):
+          - Manual override (``_sensor_overrides[curve_index][role]``) wins.
+          - Otherwise the spatial classifier's ``temperature_series`` (interpolated
+            at the inferred position) is used.
+          - Final firmware/legacy fallback only when no classifier output exists.
+
+        ``LidTemperature`` is written ONLY when the classifier reports a lid
+        contact (or the user has set a manual lid override). When neither is
+        present, any pre-existing ``LidTemperature`` column is dropped — the
+        column is present-or-absent, never NaN.
         """
         if df is None:
             return
 
         curve_assignments = self.curve_sensor_assignments.get(curve_index, {})
         overrides = self._sensor_overrides.get(curve_index, {})
+        assignment = curve_assignments.get('assignment')
 
-        # --- CoreTemperature ---
-        # Layering: manual override > physics correction > firmware virtual.
-        # Mirrors the SurfaceTemperature path: core_physics_corrected=True
-        # means the sensor in curve_assignments['core'] is the physics winner,
-        # NOT the firmware VirtualCoreSensor mode, so honour it here or a
-        # later regeneration will silently revert to VirtualCoreTemperature.
-        core_override = overrides.get('core')
-        physics_core = (
-            curve_assignments.get('core')
-            if curve_assignments.get('core_physics_corrected')
-            else None
-        )
-        if core_override and core_override in df.columns:
-            df['CoreTemperature'] = df[core_override]
-        elif physics_core and physics_core in df.columns:
-            df['CoreTemperature'] = df[physics_core]
+        # --- CoreTemperature -------------------------------------------------
+        # Layer override → Method 4 → classifier through the shared helper
+        # (M26 HMS Bellerophon DRY contract); legacy ``resolve_core_temperature_series``
+        # remains as the final fallback when no layer produces a series.
+        core_series = self._resolve_core_series(curve_index, df)
+        if core_series is not None:
+            df['CoreTemperature'] = self._align_series(core_series, df)
         else:
             try:
                 df['CoreTemperature'] = resolve_core_temperature_series(df)
             except KeyError:
                 pass
 
-        # --- SurfaceTemperature ---
-        # Override wins; else physics-corrected sensor wins; else firmware virtual.
+        # --- SurfaceTemperature ----------------------------------------------
         surface_override = overrides.get('surface')
-        physics_surface = (
-            curve_assignments.get('surface')
-            if curve_assignments.get('physics_corrected')
-            else None
-        )
         if surface_override and surface_override in df.columns:
             df['SurfaceTemperature'] = df[surface_override]
-        elif physics_surface and physics_surface in df.columns:
-            df['SurfaceTemperature'] = df[physics_surface]
+        elif (
+            assignment is not None
+            and assignment.surface_assignment is not None
+        ):
+            df['SurfaceTemperature'] = self._align_series(
+                assignment.surface_assignment.temperature_series, df
+            )
         elif 'VirtualSurfaceTemperature' in df.columns:
             df['SurfaceTemperature'] = df['VirtualSurfaceTemperature']
         elif 'SurfaceAverage' in df.columns:
@@ -1344,10 +1761,33 @@ class ThermalProfileLoader:
         elif all(col in df.columns for col in ['T7', 'T8']):
             df['SurfaceTemperature'] = df[['T7', 'T8']].mean(axis=1)
 
-        # --- AmbientTemperature ---
-        # A surface override implies the probe geometry changed, so recompute
-        # ambient from the inferred ambient sensors rather than the firmware pick.
-        if surface_override:
+        # --- AmbientTemperature ----------------------------------------------
+        ambient_override = overrides.get('ambient')
+        if ambient_override:
+            # Override may be a single sensor or a list.
+            if isinstance(ambient_override, str):
+                amb_list = [ambient_override]
+            else:
+                amb_list = list(ambient_override)
+            available = [s for s in amb_list if s in df.columns]
+            if available:
+                df['AmbientTemperature'] = df[available].mean(axis=1)
+            elif 'VirtualAmbientTemperature' in df.columns:
+                df['AmbientTemperature'] = df['VirtualAmbientTemperature']
+            elif 'T8' in df.columns:
+                df['AmbientTemperature'] = df['T8']
+        elif assignment is not None and assignment.ambient_assignments:
+            # Mean across all classifier-identified ambient sensors.
+            sensors = [a.nearest_sensor for a in assignment.ambient_assignments
+                       if a.nearest_sensor in df.columns]
+            if sensors:
+                df['AmbientTemperature'] = df[sensors].mean(axis=1)
+            elif 'VirtualAmbientTemperature' in df.columns:
+                df['AmbientTemperature'] = df['VirtualAmbientTemperature']
+            elif 'T8' in df.columns:
+                df['AmbientTemperature'] = df['T8']
+        elif surface_override:
+            # Surface override implies geometry changed — recompute ambient.
             ambient_sensors = self.get_ambient_sensors(curve_index)
             available_ambient = [s for s in ambient_sensors if s in df.columns]
             if available_ambient:
@@ -1360,6 +1800,42 @@ class ThermalProfileLoader:
             df['AmbientTemperature'] = df['VirtualAmbientTemperature']
         elif 'T8' in df.columns:
             df['AmbientTemperature'] = df['T8']
+
+        # --- LidTemperature (M3a, M3b) ---------------------------------------
+        # Manual override priority:
+        #   - 'lid' key explicitly None -> operator cleared lid; drop column.
+        #   - 'lid' key set to a sensor name -> write df[sensor].
+        #   - 'lid' key absent             -> fall through to classifier.
+        # Classifier writes only when assignment.lid_assignment is non-None.
+        # Otherwise drop a stale column.
+        if 'lid' in overrides:
+            lid_override = overrides['lid']
+            if lid_override is None:
+                if 'LidTemperature' in df.columns:
+                    df.drop(columns=['LidTemperature'], inplace=True)
+            elif lid_override in df.columns:
+                df['LidTemperature'] = df[lid_override]
+        elif assignment is not None and assignment.lid_assignment is not None:
+            df['LidTemperature'] = self._align_series(
+                assignment.lid_assignment.temperature_series, df
+            )
+        elif 'LidTemperature' in df.columns:
+            # Stale column from a prior curve / manual planting — drop.
+            df.drop(columns=['LidTemperature'], inplace=True)
+
+    @staticmethod
+    def _align_series(series: pd.Series, df: pd.DataFrame) -> pd.Series:
+        """Return ``series`` reshaped to ``df``'s row count, defensively.
+
+        Classifier-emitted temperature series are sliced from the same
+        DataFrame the loader passed in, so equal-length is the common path.
+        When length differs (e.g. classifier auto-segmented a long raw CSV),
+        we reindex by position; mismatched lengths return the original
+        series so the caller still gets a usable Series.
+        """
+        if len(series) == len(df):
+            return series.reset_index(drop=True)
+        return series.reset_index(drop=True)
 
     def _regenerate_standard_columns(self):
         """Regenerate standardized temperature columns based on current sensor assignments."""

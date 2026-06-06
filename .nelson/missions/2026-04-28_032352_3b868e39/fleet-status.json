@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Resolution: re-run M7 heat-equation viability with three fixes \u2014 (1) Dirichlet BC at the true M6-interpolated dough/air interface instead of the discrete in-dough sensor, (2) profile-likelihood scan over x_core to distinguish structural from numerical degeneracy, (3) true model-misfit test on synthetic_shallow_insertion which the forward solver did not generate. Deliver a candid revised verdict.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-28T03:23:52Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Resolution",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-28T03:51:24Z"
+}

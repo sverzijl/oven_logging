@@ -1,0 +1,28 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Diamond", "ship_class": "destroyer", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Decompose M9 Stefan residuals — per-sensor, per-time-segment, structure",
+      "owner": "HMS Diamond",
+      "deliverable": "tests/_diagnose_stefan_residuals.py: standalone diagnostic that loads each M9-fitted (x_core, alpha_dough, alpha_crust, rhoL_eff) tuple from tests/baselines/stefan_inverse_research.json, re-runs the forward solver, and decomposes the residual along three axes — per-sensor RMSE, per-time-segment RMSE (startup 0-10%, main 10-90%, tail 90-100%), and residual auto-correlation. Appends a 'Round 2 — residual decomposition (HMS Diamond)' section to tests/baselines/stefan_inverse_research.md with per-fixture tables and a revised verdict. JSON dump at tests/baselines/stefan_inverse_residual_decomposition.json.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/tests/_diagnose_stefan_residuals.py",
+        "oven_logging/tests/baselines/stefan_inverse_research.md",
+        "oven_logging/tests/baselines/stefan_inverse_residual_decomposition.json",
+        ".nelson/missions/2026-04-28_063114_3cc77192/"
+      ],
+      "validation_required": "Driver runs end-to-end without crashes (~5-10 min wall-clock; no new fits, just forward-solve + slicing on cached parameters). Per-fixture decomposition table appended to research report. Existing M1-M9 tests untouched (this is read-only diagnostic).",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Daring: reformulate Luikov-tin with observed T_air(t) and h_eff(t) extracted from sensors (replacing fitted T_oven_eff and Bi_top); add oven-spring alpha(T) piecewise profile (alpha_post/alpha_pre as free parameter or pinned at 0.4); per-fixture diagnostics for steam phase and oven spring window; reduced free parameters from M15's 8 down to 4-5.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-28T14:54:44Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Daring",
+      "ship_class": "destroyer",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-28T16:25:55Z"
+}

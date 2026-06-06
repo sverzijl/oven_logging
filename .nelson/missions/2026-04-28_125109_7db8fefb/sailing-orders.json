@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Lively: Luikov 1D coupled heat-mass transfer model with 3 dimensionless free parameters (Lu Ko Bi) plus x_core and T_oven_eff. Solve the inverse problem from temperature data alone via Levenberg-Marquardt per published methodology. Test whether explicit moisture-transport physics finally addresses the deep-end information limit M13 surfaced.",
+  "success_metric": "Forward solver matches Luikov analytical / published reference within tolerance. Inverse fit converges on at least 5 of 7 real CSVs. Main-bake RMSE comparison vs M9 Stefan (5-11 deg C). LOO test on 3 representative fixtures vs M13 baseline. If main-bake RMSE less than 3 deg C and LOO improves on Stefan verdict GO and we proceed to production wiring; if comparable to Stefan or worse, CONFIRM-information-limit is final across the full physics-class hierarchy.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T12:51:09Z"
+}

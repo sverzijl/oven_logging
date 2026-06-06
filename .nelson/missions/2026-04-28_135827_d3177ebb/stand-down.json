@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Sirius: reformulate Luikov inverse with corrected geometry \u2014 full-thickness domain x in [0, L], asymmetric BCs (radiative-convective top + conductive-tin bottom), real probe geometry (95mm T1-T8 span, 13.6mm spacing, 54mm minimum insertion). 8 free parameters. Test whether asymmetric-tin BC fixes the M13 deep-end LOO failure.",
+  "actual_outcome": "Asymmetric-tin BC Luikov implemented with corrected probe geometry. Forward solver passes 4/4 sanity tests. Synthetic recovery clean: RMSE 0.49 deg C across 5 seeds, all geometry params (L, D) recover within 30 percent on 5/5 runs. Real-CSV: 4/7 converge, main-bake RMSE median 6.1 deg C \u2014 significantly improved from M11/M14 but still above 4 deg C bar. x_core_depth_inferred lands at 51-88mm physically plausible on most fixtures. T1 LOO-RMSE median 11.74 deg C \u2014 slightly improved on M9 Stefan, much better than M14 Luikov. Three fixtures hit L=137-150mm (likely upper bound near max) suggesting bound expansion needed; 100098DE landed at L=118mm, D=87mm, x_core=61.7mm \u2014 physically very plausible. Verdict CONFIRM-information-limit but materially closer than prior missions; possibly winnable with bound expansion + per-fixture tin-state metadata.",
+  "success_metric_result": "Forward sanity 4/4 PASS; synthetic 8-param recovery RMSE 0.49 deg C; real-CSV main-bake RMSE 6-9 deg C (down from M14's 13-22); x_core_depth in physical range 51-88mm; T1 LOO 8.85-12.07 deg C (down from M14's 26).",
+  "duration_minutes": 36,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Asymmetric BCs and physical probe geometry are necessary not sufficient \u2014 they cut RMSE in half but don't reach the 3 deg C bar",
+      "Synthetic 8-param recovery passes cleanly with 13.6mm sensor spacing and probe geometry baked in \u2014 the formulation IS identifiable; real-CSV failure is data-side not model-side"
+    ],
+    "avoid": [
+      "Reporting verdict CONFIRM purely on RMSE without contextualising the trajectory of improvement across missions"
+    ]
+  },
+  "created_at": "2026-04-28T14:35:22Z"
+}

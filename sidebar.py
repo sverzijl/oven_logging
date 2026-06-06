@@ -13,6 +13,10 @@ from config.constants import BAKEOUT_TARGETS, SENSOR_LIST
 from src.analysis.s_curve_analysis import SCurveAnalyzer
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.data.loader import ThermalProfileLoader, validate_thermal_data
+from src.ui.core_confidence_banner import (
+    STATUS_RENDER_KIND,
+    bake_metadata_status_line,
+)
 # Expected-bake-time helpers moved into the dedicated Curve Boundary
 # Review tab (M3 HMS Indomitable, mission 2026-04-24_235134_b68205bd);
 # the sidebar widget was removed in M4 HMS Defender (mission
@@ -230,89 +234,170 @@ def render():
             # Manual override controls
             with st.expander("Override Sensor Assignments", expanded=False):
                 st.markdown("Select which sensors represent each role for this specific curve:")
-                st.markdown("*Note: Internal and ambient sensors are automatically inferred based on surface position*")
+                st.markdown("*Topology rule: core < surface ≤ ambient ≤ lid. Through-loaf insertions (ambient on both sides) are accepted.*")
+
+                curve_idx = st.session_state.current_curve_index
+                # Widget keys must be unique per (filename, curve_idx) so a
+                # selection on one CSV doesn't carry over when the user
+                # switches to another file. Streamlit persists widget state
+                # under the `key=` argument; without the filename component,
+                # a previously-touched ambient multiselect on one CSV ghosts
+                # into the same widget on the next CSV. Same fix pattern as
+                # mission 2026-04-24_102020 for the temperature_profile tab.
+                file_key = (st.session_state.get('current_file') or 'nofile').replace(' ', '_')
 
                 # Core sensor (single selection)
-                current_core = st.session_state.loader.get_core_sensor(st.session_state.current_curve_index)
+                current_core = st.session_state.loader.get_core_sensor(curve_idx)
                 core_sensor = st.selectbox(
                     "Core Sensor (single sensor for core temperature)",
                     options=list(SENSOR_LIST),
                     index=list(SENSOR_LIST).index(current_core) if current_core else 0,
-                    key=f"core_override_{st.session_state.current_curve_index}",
+                    key=f"core_override_{file_key}_{curve_idx}",
                     help="Select the sensor that best represents the core temperature"
                 )
 
                 # Surface sensor (single selection)
-                current_surface = st.session_state.loader.get_surface_sensor(st.session_state.current_curve_index)
+                current_surface = st.session_state.loader.get_surface_sensor(curve_idx)
                 surface_sensor = st.selectbox(
                     "Surface/Crust Sensor (interface between core and ambient)",
                     options=list(SENSOR_LIST),
                     index=list(SENSOR_LIST).index(current_surface) if current_surface else 6,
-                    key=f"surface_override_{st.session_state.current_curve_index}",
-                    help="Select the sensor at the bread surface. Internal sensors (below) and ambient sensors (above) will be automatically determined."
+                    key=f"surface_override_{file_key}_{curve_idx}",
+                    help="Select the sensor at the bread surface."
                 )
 
-                # Show inferred sensor groups based on surface selection
+                # Ambient sensors (multiselect; default = current automatic ambient list)
+                current_ambient = st.session_state.loader.get_ambient_sensors(curve_idx) or []
+                ambient_sensors_choice = st.multiselect(
+                    "Ambient Sensors (one or more sensors in the oven air)",
+                    options=list(SENSOR_LIST),
+                    default=[s for s in current_ambient if s in SENSOR_LIST],
+                    key=f"ambient_override_{file_key}_{curve_idx}",
+                    help=(
+                        "Select sensors that read oven-air temperature. Through-loaf "
+                        "exception: if the probe pierces the loaf, you may pick sensors "
+                        "from BOTH ends with the surface sensor between them."
+                    ),
+                )
+
+                # Lid sensor (single selection, optional)
+                current_lid = st.session_state.loader.get_lid_sensor(curve_idx)
+                lid_options = ["None"] + list(SENSOR_LIST)
+                lid_default_idx = (
+                    lid_options.index(current_lid) if current_lid in lid_options else 0
+                )
+                lid_choice = st.selectbox(
+                    "Lid Sensor (optional; the sensor pressed against an oven lid)",
+                    options=lid_options,
+                    index=lid_default_idx,
+                    key=f"lid_override_{file_key}_{curve_idx}",
+                    help=(
+                        "Select 'None' for non-lidded bakes. When set, the chosen sensor "
+                        "writes a LidTemperature column."
+                    ),
+                )
+                lid_sensor = None if lid_choice == "None" else lid_choice
+
+                # ----------------------------------------------------
+                # Inferred Continuous Positions (read-only)
+                # ----------------------------------------------------
+                # M6 hot-fix HMS Penelope: surface up the substantive
+                # continuous-position result so the user can verify that
+                # interpolation has engaged. ``nearest_sensor`` (above) is
+                # still the override anchor; the values here are diagnostic.
+                cs = st.session_state.loader.curve_sensor_assignments.get(
+                    curve_idx, {}
+                )
+                core_x = cs.get("core_position_normalised")
+                surface_x = cs.get("surface_position_normalised")
+                lid_x = cs.get("lid_position_normalised")
+
+                def _fmt_inferred(label: str, x_val, nearest_name) -> str:
+                    if x_val is None:
+                        return f"**Inferred {label}**: not detected"
+                    if nearest_name:
+                        try:
+                            n_int = int(nearest_name[1:])
+                            nearest_pos = (n_int - 1) / 7.0
+                        except (ValueError, IndexError):
+                            nearest_pos = None
+                    else:
+                        nearest_pos = None
+                    if nearest_pos is not None and abs(x_val - nearest_pos) > 0.005:
+                        return (
+                            f"**Inferred {label}**: x={x_val:.3f} "
+                            f"(interpolated; nearest sensor {nearest_name})"
+                        )
+                    if nearest_name:
+                        return (
+                            f"**Inferred {label}**: x={x_val:.3f} "
+                            f"(at sensor {nearest_name})"
+                        )
+                    return f"**Inferred {label}**: x={x_val:.3f}"
+
+                st.markdown("### Inferred Continuous Positions (read-only)")
+                st.info(_fmt_inferred("core", core_x, cs.get("core")))
+                st.info(_fmt_inferred("surface", surface_x, cs.get("surface")))
+                if lid_x is not None or cs.get("lid"):
+                    st.info(_fmt_inferred("lid", lid_x, cs.get("lid")))
+
+                # Show inferred internal sensors for context
                 st.markdown("### Inferred Sensor Groups")
                 if surface_sensor:
-                    surface_num = int(surface_sensor[1])
-
-                    # Internal sensors (below surface)
+                    surface_num = int(surface_sensor[1:])
                     internal_sensors = [f'T{i}' for i in range(1, surface_num)]
                     if internal_sensors:
                         st.info(f"**Internal sensors**: {', '.join(internal_sensors)} (all sensors below surface)")
                     else:
                         st.warning("No internal sensors (surface is T1)")
-
-                    # Surface
                     st.info(f"**Surface sensor**: {surface_sensor}")
-
-                    # Ambient sensors (above surface)
-                    ambient_sensors = [f'T{i}' for i in range(surface_num + 1, 9)]
-                    if ambient_sensors:
-                        st.info(f"**Ambient sensors**: {', '.join(ambient_sensors)} (all sensors above surface)")
-                    else:
-                        st.warning("No ambient sensors (surface is T8)")
+                    if ambient_sensors_choice:
+                        st.info(f"**Ambient sensors**: {', '.join(ambient_sensors_choice)}")
+                    if lid_sensor:
+                        st.info(f"**Lid sensor**: {lid_sensor}")
 
                 if st.button("Apply Overrides"):
-                    # Validation function
-                    def validate_sensor_assignments(core, surface):
-                        errors = []
+                    # Authoritative validation lives in the loader
+                    # (_validate_override_topology). The sidebar mirrors only
+                    # presence/uniqueness checks the loader can't infer from
+                    # values alone.
+                    errors = []
+                    if not core_sensor:
+                        errors.append("Please select a core sensor")
+                    if not surface_sensor:
+                        errors.append("Please select a surface sensor")
 
-                        # Check for required selections
-                        if not core:
-                            errors.append("Please select a core sensor")
-                        if not surface:
-                            errors.append("Please select a surface sensor")
-
-                        # Check that sensors are different
-                        if core and surface and core == surface:
-                            errors.append("Core and surface sensors must be different")
-
-                        # Check logical order: core < surface
-                        if core and surface:
-                            core_num = int(core[1])
-                            surface_num = int(surface[1])
-
-                            if core_num >= surface_num:
-                                errors.append("Core sensor must have a lower number than surface sensor")
-
-                        return errors
-
-                    # Validate selections
-                    errors = validate_sensor_assignments(core_sensor, surface_sensor)
+                    if not errors:
+                        # Build the prospective override dict and let the
+                        # loader's validator decide; surface ValueError as
+                        # st.error rather than letting the exception kill the
+                        # render.
+                        prospective = {
+                            'core': core_sensor,
+                            'surface': surface_sensor,
+                        }
+                        if ambient_sensors_choice:
+                            prospective['ambient'] = list(ambient_sensors_choice)
+                        prospective['lid'] = lid_sensor  # may be None
+                        try:
+                            ThermalProfileLoader._validate_override_topology(prospective)
+                        except ValueError as ex:
+                            errors.append(str(ex))
 
                     if errors:
                         for error in errors:
                             st.error(error)
                     else:
-                        # Apply overrides (single sensors)
-                        st.session_state.loader.set_sensor_override(
-                            st.session_state.current_curve_index, 'core', core_sensor
-                        )
-                        st.session_state.loader.set_sensor_override(
-                            st.session_state.current_curve_index, 'surface', surface_sensor
-                        )
+                        loader = st.session_state.loader
+                        loader.set_sensor_override(curve_idx, 'core', core_sensor)
+                        loader.set_sensor_override(curve_idx, 'surface', surface_sensor)
+                        if ambient_sensors_choice:
+                            loader.set_sensor_override(
+                                curve_idx, 'ambient', list(ambient_sensors_choice)
+                            )
+                        # Lid override is always applied; None explicitly
+                        # clears any prior lid pick.
+                        loader.set_sensor_override(curve_idx, 'lid', lid_sensor)
                         # Recreate analyzers with new assignments
                         st.session_state.analyzer = ThermalAnalyzer(
                             st.session_state.data,
@@ -325,6 +410,194 @@ def render():
                             st.session_state.loader
                         )
                         st.rerun()
+
+            # ----------------------------------------------------------
+            # Bake Metadata expander (M18 HMS Vigilant — Method 4 stub).
+            # ----------------------------------------------------------
+            # When the operator supplies loaf_thickness AND insertion_depth
+            # the loader computes a *geometric* core position from physical
+            # geometry alone — bypassing Method 1's thermal extrapolation.
+            # When metadata is absent, Method 1 (relaxed parabolic clamp
+            # with low-confidence labelling) engages naturally inside the
+            # classifier. Same widget-key scoping pattern as M3b: keys must
+            # include both filename and curve_idx so values entered for one
+            # CSV/curve do not ghost into another.
+            with st.expander(
+                "Bake Metadata (optional — provide for high-accuracy core position)",
+                expanded=False,
+            ):
+                st.markdown(
+                    "When you supply loaf thickness *and* probe insertion "
+                    "depth, the core position is computed from geometry "
+                    "(`loaf_thickness/2 - insertion_depth_below_top`) and "
+                    "interpolated between the bracketing sensors. Without "
+                    "metadata, the classifier falls back to Method 1's "
+                    "relaxed parabolic clamp with a `low_extrapolated` "
+                    "confidence label."
+                )
+
+                curve_idx = st.session_state.current_curve_index
+                file_key = (st.session_state.get('current_file') or 'nofile').replace(' ', '_')
+                loader = st.session_state.loader
+                current_meta = loader.get_bake_metadata(curve_idx) or {}
+
+                # Active-model status line (M29): declare which model feeds the
+                # current core trace, so the operator doesn't have to infer it
+                # from the presence/absence of the Temperature Profile banner.
+                _active_model, _detail = bake_metadata_status_line(loader, curve_idx)
+                _label = {
+                    "manual_override": "Manual sensor override active",
+                    "method_4": "✅ Method 4 active (geometric core)",
+                    "method_4_degraded": "⚠️ Method 4 active — geometric core past probe tip",
+                    "method_1_high": "Method 1 active (classifier)",
+                    "method_1_medium": "Method 1 active (classifier)",
+                    "method_1_low": "⚠️ Method 1 active — low confidence",
+                    "fallback": "Core model",
+                }.get(_active_model, "Core model")
+                _line = f"{_label}: {_detail}" if _detail else _label
+                _kind = STATUS_RENDER_KIND.get(_active_model, "caption")
+                if _kind == "success":
+                    st.success(_line)
+                elif _kind == "warning":
+                    st.warning(_line)
+                elif _kind == "info":
+                    st.info(_line)
+                else:
+                    st.caption(_line)
+
+                loaf_thickness = st.number_input(
+                    "Loaf thickness (mm)",
+                    min_value=0.0,
+                    max_value=300.0,
+                    value=float(current_meta.get('loaf_thickness_mm', 0.0)),
+                    step=5.0,
+                    help=(
+                        "Total loaf height from tin bottom to top crust. "
+                        "Leave at 0 if unknown."
+                    ),
+                    key=f"loaf_thickness_{file_key}_{curve_idx}",
+                )
+                insertion_depth = st.number_input(
+                    "Probe insertion depth from loaf top (mm)",
+                    min_value=0.0,
+                    max_value=200.0,
+                    value=float(current_meta.get('insertion_depth_mm', 0.0)),
+                    step=5.0,
+                    help=(
+                        "Depth of probe tip (T1) below the loaf top surface. "
+                        "Leave at 0 if unknown."
+                    ),
+                    key=f"insertion_depth_{file_key}_{curve_idx}",
+                )
+                oven_setpoint = st.number_input(
+                    "Oven setpoint (°C)",
+                    min_value=0.0,
+                    max_value=400.0,
+                    value=float(current_meta.get('oven_setpoint_C', 0.0)),
+                    step=10.0,
+                    help="Oven control setpoint. Leave at 0 if unknown.",
+                    key=f"oven_setpoint_{file_key}_{curve_idx}",
+                )
+                lid_options = ["unknown", "open", "lidded", "tin"]
+                lid_state_default = current_meta.get('lid_state', 'unknown')
+                if lid_state_default not in lid_options:
+                    lid_state_default = "unknown"
+                lid_state_choice = st.selectbox(
+                    "Lid / tin state",
+                    options=lid_options,
+                    index=lid_options.index(lid_state_default),
+                    key=f"lid_state_{file_key}_{curve_idx}",
+                    help=(
+                        "Open = uncovered loaf; Lidded = baking lid pressed "
+                        "down; Tin = baked in a tin (no lid contact)."
+                    ),
+                )
+                steam_minutes = st.number_input(
+                    "Steam phase duration (min)",
+                    min_value=0.0,
+                    max_value=20.0,
+                    value=float(current_meta.get('steam_phase_minutes', 0.0)),
+                    step=1.0,
+                    help="Duration of steam injection at the start of the bake.",
+                    key=f"steam_minutes_{file_key}_{curve_idx}",
+                )
+
+                col_apply, col_clear = st.columns(2)
+                with col_apply:
+                    if st.button(
+                        "Apply Bake Metadata",
+                        key=f"apply_metadata_{file_key}_{curve_idx}",
+                    ):
+                        new_meta = {}
+                        if loaf_thickness > 0:
+                            new_meta['loaf_thickness_mm'] = float(loaf_thickness)
+                        if insertion_depth > 0:
+                            new_meta['insertion_depth_mm'] = float(insertion_depth)
+                        if oven_setpoint > 0:
+                            new_meta['oven_setpoint_C'] = float(oven_setpoint)
+                        if lid_state_choice != 'unknown':
+                            new_meta['lid_state'] = lid_state_choice
+                        if steam_minutes > 0:
+                            new_meta['steam_phase_minutes'] = float(steam_minutes)
+                        loader.set_bake_metadata(curve_idx, new_meta)
+                        # Recreate analyzers so the geometric core series
+                        # propagates into downstream analytics on the next
+                        # render pass.
+                        st.session_state.analyzer = ThermalAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.session_state.s_curve_analyzer = SCurveAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.rerun()
+                with col_clear:
+                    if st.button(
+                        "Clear Bake Metadata",
+                        key=f"clear_metadata_{file_key}_{curve_idx}",
+                    ):
+                        loader.clear_bake_metadata(curve_idx)
+                        st.session_state.analyzer = ThermalAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.session_state.s_curve_analyzer = SCurveAnalyzer(
+                            st.session_state.data,
+                            st.session_state.metadata,
+                            st.session_state.loader,
+                        )
+                        st.rerun()
+
+                # Show inferred geometric core when metadata is sufficient.
+                geom_pos_mm = loader.get_geometric_core_position_mm_from_tip(
+                    curve_idx
+                )
+                if geom_pos_mm is not None:
+                    if geom_pos_mm > 0:
+                        st.success(
+                            f"**Geometric core**: {geom_pos_mm:.1f} mm above "
+                            "probe tip (interpolated between T-sensors)."
+                        )
+                    elif geom_pos_mm < 0:
+                        st.warning(
+                            f"**Geometric core**: {-geom_pos_mm:.1f} mm BELOW "
+                            "probe tip (probe inserted too shallow; series "
+                            "degrades to T1)."
+                        )
+                    else:
+                        st.success(
+                            "**Geometric core**: at probe tip (T1)."
+                        )
+                else:
+                    st.info(
+                        "Metadata incomplete — provide both loaf thickness "
+                        "and insertion depth to engage geometric core. "
+                        "Method 1 fallback is active."
+                    )
 
         # Analysis settings
         if st.session_state.data is not None:

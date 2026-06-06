@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Onslaught M21: extend M20 Stefan v2 with a distributed side-heat source term S(x,t) representing heat conducted in from tin sidewalls. 6-param fit (M20's 5 + new Q_side magnitude). Single-fixture decision gate on BA3C_0946 with bar main-bake RMSE less than 4 C and at least 4/6 params interior. Tests the 1D-vs-effective-2D assumption shared by all 18 prior inverse-problem missions.",
+  "success_metric": "Forward solver passes sanity (S=0 reduces to M20). Single-fixture BA3C_0946: main-bake RMSE less than 4 C and at least 4/6 params interior. If gate passes, recommend sweeping 5 unlidded fixtures (skipped in this mission). If gate fails, the 1D assumption is exonerated as not the missing physics; final pivot to Method 4.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-29T04:53:31Z"
+}

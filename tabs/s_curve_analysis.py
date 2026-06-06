@@ -2,11 +2,23 @@
 import pandas as pd
 import streamlit as st
 
+from src.ui.core_confidence_banner import core_confidence_banner_text
 from src.visualization.plots import ThermalPlotter
 
 
 def render():
     st.header("S-Curve Analysis")
+
+    # Core-confidence banner — shared predicate with the Temperature Profile
+    # and Spatial Evolution tabs (M29). The S-curve is read off the core
+    # trace, so a low-confidence core is worth flagging here too.
+    _loader = st.session_state.loader
+    _conf, _reason = _loader.get_core_confidence(st.session_state.current_curve_index)
+    _level, _msg = core_confidence_banner_text(_conf, _reason)
+    if _level == "warning":
+        st.warning(_msg)
+    elif _level == "caption":
+        st.caption(_msg)
 
     # Calculate S-curve analysis
     s_curve_report = st.session_state.s_curve_analyzer.generate_optimization_report()

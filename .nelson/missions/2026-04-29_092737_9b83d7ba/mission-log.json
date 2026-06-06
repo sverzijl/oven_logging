@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T09:28:11Z",
+      "data": {
+        "captain_count": 2,
+        "has_red_cell": false,
+        "execution_mode": "subagents",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T09:28:11Z",
+      "data": {
+        "task_count": 2,
+        "parallel_tracks": 1,
+        "critical_path_length": 2,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_override",
+      "checkpoint": 0,
+      "timestamp": "2026-04-29T09:28:13Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:39:35Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Foxhound isothermal tracker",
+        "owner": "HMS Foxhound",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:39:35Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Astute red-cell",
+        "owner": "HMS Astute",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:39:36Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 2,
+        "tasks_total": 2,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 11,
+        "ships_used": 2,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

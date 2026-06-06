@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Penelope: deliver the continuous-position interpolation the spatial reconstruction architecture promised. core/surface position_normalised values must be able to land strictly between sensors; temperature_series must be a true spatial interpolation per timestep, not a copy of the nearest sensor's series; UI surfaces the inferred position.",
+  "actual_outcome": "Continuous-position interpolation now engages: 4/7 real-CSV core positions are off-sensor; 7/7 surface positions are off-sensor. SurfaceTemperature differs from nearest sensor by up to 13.27 C \u2014 real spatial interpolation. CoreTemperature differs by up to 0.75 C (small because dough plateau is shared).",
+  "success_metric_result": "12 new interpolation tests pass; 62 focused tests pass; 100098DE_1351 core x=0.3896 between T3 and T4; surface x=0.7704 between T6 and T7.",
+  "duration_minutes": 34,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Parabolic vertex interpolation for x_core; linear T-crossing interpolation for x_dough_air; per-timestep linear spatial blend for temperature_series"
+    ],
+    "avoid": [
+      "Snapping position_normalised back to a sensor \u2014 that defeats the architecture's purpose"
+    ]
+  },
+  "created_at": "2026-04-27T13:50:29Z"
+}

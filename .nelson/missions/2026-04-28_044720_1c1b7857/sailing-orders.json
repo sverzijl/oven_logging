@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Triumph: 1D Stefan moving-boundary inverse problem with latent-heat phase change. Forward solver via enthalpy method; joint 4-parameter inverse (x_core alpha_dough alpha_crust rhoL_eff) + comparison against literature-pinned 1-parameter fit. Viability study with honest verdict on whether Stefan physics fits real bread bakes.",
+  "success_metric": "Forward solver passes Stefan-Neumann classical 1D analytical solution match within 1 deg C on a synthetic. Joint 4-param inverse runs to convergence on real CSVs; per-param Hessian-based correlation matrix shows max |rho| < 0.85. Real-CSV RMSE for joint Stefan fit < 3 deg C on at least 4 of 7 fixtures (vs M7/M8 6-10 deg C heat-equation baseline). Pinned vs free comparison: free-fit alpha_dough within 30 percent of literature 1.4e-7. tests/baselines/stefan_inverse_research.md committed with verdict.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-28T04:47:20Z"
+}

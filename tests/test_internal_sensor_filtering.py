@@ -126,8 +126,12 @@ class TestInternalSensorFiltering:
         # T2: Deep internal - reaches ~98°C
         data['T2'] = 25 + 73 * (1 - np.exp(-np.arange(time_points) / 110))
         
-        # T3: Near crust internal - reaches 105°C (exceeds threshold)
-        data['T3'] = 25 + 80 * (1 - np.exp(-np.arange(time_points) / 100))
+        # T3: Near crust internal - reaches ~108°C (exceeds 103°C threshold).
+        # NB the exponential only *approaches* 25+coeff asymptotically, so the
+        # coefficient must be large enough that the achieved max over the 360
+        # samples clears 103 (25 + 85*(1-e^-3.59) ≈ 107.7°C); the previous
+        # coeff of 80 only reached 102.8°C, leaving T3 below the threshold.
+        data['T3'] = 25 + 85 * (1 - np.exp(-np.arange(time_points) / 100))
         
         # T4: Very near crust - reaches 115°C (exceeds threshold)
         data['T4'] = 25 + 90 * (1 - np.exp(-np.arange(time_points) / 90))

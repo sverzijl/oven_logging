@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Land HMS Pelican (M1b of refactor/role-classification-unified flotilla): annotate ambient sensors on all 5 real-CSV fixtures, build 4 synthetic fixtures (shallow_insertion, full_immersion, lid_touch, probe_pull_mid_bake) with x_dough_air_normalised annotations, extend the parametrized presence test, and add a failing classifier-result test that imports the not-yet-existing src.data.spatial_reconstruction.classifier.classify.",
+  "success_metric": "tests/test_role_classifier_unified.py grows three new parametrized tests (test_ambient_annotation_present over 5 real cases; test_classifier_returns_expected_roles + test_synthetic_x_dough_air_normalised over real + synthetic). The presence tests pass; the classifier-result test fails on main with ImportError or AttributeError. Synthetic fixtures register cleanly via the existing load_synthetic_case mechanism.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-27T07:18:47Z"
+}

@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Deep research: evaluate cellular-with-sensor-grounding architecture. 3 research ships + 1 synthesis. Final verdict: BUILD / HYBRID / STAND-DOWN with key risk identified.",
+  "actual_outcome": "M22 research flotilla converged: STAND-DOWN on cellular architecture (8 sensors on 1D line cannot recover 2D field; smoothness-regularised cellular is mathematically equivalent to ~8-mode parametric fitting). Critical finding: existing spatial_reconstruction pipeline already computes core/surface/stefan-front per snapshot. M23 wraps it with per-timestep temporal-smoothing for time-evolving derived quantities.",
+  "success_metric_result": "4 reports converged; M23 scope defined as classify_temporal() wrapper + Savitzky-Golay smoothing on BA3C_0946; rejection of cellular pilot well-evidenced.",
+  "duration_minutes": 10,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 4,
+    "reliefs": 0,
+    "max_concurrent_ships": 4
+  },
+  "tasks": {
+    "completed": 4,
+    "total": 4,
+    "by_station_tier": {
+      "0": 0,
+      "1": 4,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Re-frame inverse-problem questions through user's actual goal (derived quantities, not training-sensor RMSE) before architecture choice"
+    ],
+    "avoid": []
+  },
+  "created_at": "2026-04-29T09:06:24Z"
+}

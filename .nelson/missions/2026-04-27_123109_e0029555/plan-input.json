@@ -1,0 +1,28 @@
+{
+  "squadron": {
+    "mode": "subagents",
+    "admiral": {"ship_name": "HMS Admiralty", "model": "opus"},
+    "captains": [
+      {"ship_name": "HMS Foudroyant", "ship_class": "frigate", "model": "sonnet", "task_id": 1}
+    ]
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Cleanup + docs + flotilla finale",
+      "owner": "HMS Foudroyant",
+      "deliverable": "CLAUDE.md: Architecture section rewritten to describe spatial_reconstruction package and the kill of physics_corrected flags; Known Fragile Areas updated with LidTemperature column lifecycle and override topology validation. config/constants.py: SURFACE_DETECTION_CONFIG and CORE_DETECTION_CONFIG legacy blocks audited — preserve only constants still referenced in src/ or tests/; consolidate the rest into ROLE_CLASSIFIER_CONFIG with deprecation comments. Root-level *_FIX_*.md / surface_*_PLAN.md / core_*_PLAN.md / *_SUMMARY.md files are content-scanned; explicitly surface/core detection ones are deleted (history is in git). tests/test_flotilla_finale_role_classification.py: permanent regression test mirroring tests/test_flotilla_finale_regression.py — pins per-role pass rates on real fixtures + spatial_reconstruction integration smoke. Captain's log records the M4 follow-ups (#1-#5) and the deleted root files.",
+      "dependencies": [],
+      "station_tier": 1,
+      "file_ownership": [
+        "oven_logging/CLAUDE.md",
+        "oven_logging/config/constants.py",
+        "oven_logging/tests/test_flotilla_finale_role_classification.py",
+        ".nelson/missions/2026-04-27_123109_e0029555/"
+      ],
+      "validation_required": "All M1a-M4 focused tests still pass. New flotilla-finale test passes. CLAUDE.md describes spatial_reconstruction; legacy SURFACE_DETECTION_CONFIG / CORE_DETECTION_CONFIG references consolidated; root-level surface/core docs removed.",
+      "rollback_note_required": true,
+      "admiralty_action_required": false
+    }
+  ]
+}

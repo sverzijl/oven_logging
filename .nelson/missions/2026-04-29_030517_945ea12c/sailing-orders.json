@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "outcome": "Deep RCA: why does no physics model fit below the ~6 deg C floor across 17 missions, given that real bake time is 22-25 minutes (much shorter than the 60+ min we may have implicitly modelled). Find the actual root cause via parallel investigation: (a) bake-time-to-physics audit (does the 22-25 min target imply specific alpha/Bi we're missing?), (b) M9-Stefan deep diagnostic (the best result we have \u2014 characterise its residual shape, not just RMSE), (c) data-vs-model trace on one fixture (overlay model prediction against observed sensors timestep-by-timestep and visually identify where it diverges).",
+  "success_metric": "Three damage reports converge on a SINGLE actionable root cause. Either: identify a specific bug/wrong assumption + a fix that demonstrably gets us under 4 deg C; OR provide a defensible final verdict with sharper evidence than what we have. Captain's log includes the actionable next mission OR an explicit stand-down-and-pivot recommendation with bake-time data factored in.",
+  "deadline": "this session",
+  "budget": {
+    "token_limit": null,
+    "time_limit_minutes": null
+  },
+  "constraints": [],
+  "out_of_scope": [],
+  "stop_criteria": [],
+  "handoff_artifacts": [],
+  "circuit_breakers": {},
+  "created_at": "2026-04-29T03:05:17Z"
+}

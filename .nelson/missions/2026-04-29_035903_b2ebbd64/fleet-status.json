@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Resolute M20: take M9 Stefan exactly as-is and free alpha_dough over (5e-7, 1e-5) and delta_T_smear over (3, 10 C). Single-fixture diagnostic on BA3C_0946 first. If main-bake RMSE drops below 4 C, sweep all 5 unlidded fixtures + LOO test. This is the focused targeted fix following M19's RCA finding that alpha_dough was pinned 5-7x too low across all prior Stefan/Luikov missions.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-29T03:59:03Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Resolute",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-29T04:49:53Z"
+}

@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Bellerophon (M3b): extend sidebar override UI to support ambient + lid roles with topology validation; delete surface_sensor_detector.py and ThermodynamicSensorClassifier class; audit tests for standardized-column-set equality assumptions.",
+  "actual_outcome": "Sidebar override UI extended with Ambient (multiselect) + Lid (selectbox-with-None) widgets. set_sensor_override and _validate_override_topology added to loader with through-loaf exception. surface_sensor_detector.py deleted. ThermodynamicSensorClassifier class deleted (identify_core_sensor_combined_rank preserved with detector-test caller). 20 new tests pass; 136/136 focused; full suite +24 passes net.",
+  "success_metric_result": "Module deletions confirmed via grep; topology rejection tests pass; through-loaf example accepted; standardised-column audit returned zero needs-update hits.",
+  "duration_minutes": 17,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Through-loaf topology exception with explicit anchoring rule (ambient lower group must start at T1)",
+      "DRY validator: sidebar calls loader._validate_override_topology rather than duplicating"
+    ],
+    "avoid": [
+      "Mocking streamlit for override tests \u2014 exercise loader-level path instead, mirrors project convention"
+    ]
+  },
+  "created_at": "2026-04-27T11:57:08Z"
+}

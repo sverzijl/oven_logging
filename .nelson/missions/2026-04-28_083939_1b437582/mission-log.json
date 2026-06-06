@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "type": "squadron_formed",
+      "checkpoint": 0,
+      "timestamp": "2026-04-28T08:40:06Z",
+      "data": {
+        "captain_count": 1,
+        "has_red_cell": false,
+        "execution_mode": "subagents",
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "battle_plan_approved",
+      "checkpoint": 0,
+      "timestamp": "2026-04-28T08:40:06Z",
+      "data": {
+        "task_count": 1,
+        "parallel_tracks": 1,
+        "critical_path_length": 1,
+        "standing_order_check": {
+          "triggered": [],
+          "remedies": []
+        }
+      }
+    },
+    {
+      "type": "phase_override",
+      "checkpoint": 0,
+      "timestamp": "2026-04-28T08:40:06Z",
+      "data": {
+        "from_phase": "BATTLE_PLAN",
+        "to_phase": "UNDERWAY"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-28T12:21:50Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "LOO cross-validation diagnostic",
+        "owner": "HMS Hermione",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-28T12:21:50Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 1,
+        "tasks_total": 1,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 221,
+        "ships_used": 1,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
+    }
+  ]
+}

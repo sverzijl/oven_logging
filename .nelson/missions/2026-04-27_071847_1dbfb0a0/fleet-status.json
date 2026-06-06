@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "mission": {
+    "outcome": "Land HMS Pelican (M1b of refactor/role-classification-unified flotilla): annotate ambient sensors on all 5 real-CSV fixtures, build 4 synthetic fixtures (shallow_insertion, full_immersion, lid_touch, probe_pull_mid_bake) with x_dough_air_normalised annotations, extend the parametrized presence test, and add a failing classifier-result test that imports the not-yet-existing src.data.spatial_reconstruction.classifier.classify.",
+    "status": "complete",
+    "phase": "STAND_DOWN",
+    "started_at": "2026-04-27T07:18:47Z",
+    "checkpoint_number": 1
+  },
+  "progress": {
+    "pending": 1,
+    "in_progress": 0,
+    "completed": 0,
+    "blocked": 0,
+    "total": 1
+  },
+  "budget": {
+    "tokens_spent": 0,
+    "tokens_remaining": null,
+    "pct_consumed": 0.0,
+    "burn_rate_per_checkpoint": 0
+  },
+  "squadron": [
+    {
+      "ship_name": "HMS Pelican",
+      "ship_class": "frigate",
+      "role": "captain",
+      "hull_integrity_pct": 100,
+      "hull_integrity_status": "Green",
+      "relief_requested": false,
+      "task_id": 1,
+      "task_name": null,
+      "task_status": "pending"
+    }
+  ],
+  "blockers": [],
+  "recent_events": [
+    "Squadron formed: 1 captains"
+  ],
+  "last_updated": "2026-04-27T07:46:32Z"
+}

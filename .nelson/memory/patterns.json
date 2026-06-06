@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updated_at": "2026-04-27T03:32:52Z",
-  "pattern_count": 33,
+  "updated_at": "2026-04-29T09:39:36Z",
+  "pattern_count": 59,
   "patterns": [
     {
       "mission_id": "2026-04-23_071618_4b7f0acb",
@@ -644,6 +644,532 @@
       "avoid": [
         "Mismatched filename collision with prior flotilla \u2014 Achilles renamed to test_temperature_profile_flotilla_finale.py to avoid clobbering the past flotilla's test_flotilla_finale_regression.py. Future flotillas should namespace finale-test files by topic upfront."
       ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_050308_c614d9eb",
+      "completed_at": "2026-04-27T06:50:29Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Truculent (M1a of refactor/role-classification-unified flotilla): annotation tooling + ground-truth surface and lid sensor annotations across 6 real CSVs, with a failing parametrized presence test going in first.",
+      "adopt": [
+        "Annotator-as-pure-helper module separated from test assertions",
+        "Manifest JSON next to plot PNGs as provenance"
+      ],
+      "avoid": [
+        "Hand-typing role picks into manifest after writing reasoning text introduced typo missed without red-cell"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 0.5
+      }
+    },
+    {
+      "mission_id": "2026-04-27_071847_1dbfb0a0",
+      "completed_at": "2026-04-27T07:46:32Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Pelican (M1b of refactor/role-classification-unified flotilla): annotate ambient sensors on all 5 real-CSV fixtures, build 4 synthetic fixtures (shallow_insertion, full_immersion, lid_touch, probe_pull_mid_bake) with x_dough_air_normalised annotations, extend the parametrized presence test, and add a failing classifier-result test that imports the not-yet-existing src.data.spatial_reconstruction.classifier.classify.",
+      "adopt": [
+        "topology_note + ambiguous=True for fixtures where standard topology genuinely fails (through-loaf insertion)",
+        "import-inside-test-body for failing-on-main contract tests"
+      ],
+      "avoid": [
+        "refactoring existing _build_* builders to share code at this scale"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_074742_ad37cb29",
+      "completed_at": "2026-04-27T08:44:08Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Indefatigable (M2a of refactor/role-classification-unified flotilla): build src/data/spatial_reconstruction/ package with geometry, profile, piecewise model, and classifier; add ROLE_CLASSIFIER_CONFIG; satisfy at least 7 of the 9 classifier contract tests M1b left failing; add per-component unit tests.",
+      "adopt": [
+        "Annotation-convention conflicts between similar fixtures should be documented at fixture level via ambiguous=True + topology_note before classifier implementation",
+        "x_core via time_to_60c (heat-up rate) more robust than coldest terminal under noise"
+      ],
+      "avoid": [
+        "Aggregate pass-rate metric on small fixture sets \u2014 per-role breakdown surfaces real signal"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_084513_72d960e4",
+      "completed_at": "2026-04-27T09:09:44Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Vanguard (M2b): Stefan-physics-constrained spatial model + comparison harness vs piecewise. Document default-model decision empirically.",
+      "adopt": [
+        "Empirical model comparison via mean residual SSE + per-role pass rate is informative; per-role beats aggregate at small n",
+        "Annotation conflicts between similar fixtures are resolved by the convention that both candidate models converge on"
+      ],
+      "avoid": [
+        "Pinning latent-heat plateau at exactly 100\u00b0C in Stefan: 0.4\u00b0C calibration drift on real probes can flip ambient classification \u2014 keep piecewise's free-plateau threshold (105\u00b0C) as default"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_091350_860e5892",
+      "completed_at": "2026-04-27T11:38:58Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Royal Sovereign (M3a): wire spatial_reconstruction into ThermalProfileLoader; drop firmware mode-pick as primary; kill physics_corrected and core_physics_corrected flags; add LidTemperature column + interpolated get_*_temperature_series getters; rewrite sensor_assignment_manager as thin adapter to new classifier; preserve curve-switching invariants.",
+      "adopt": [
+        "Capture full SpatialAssignment in curve_sensor_assignments rather than just the flat dict \u2014 preserves PositionalAssignment.temperature_series for new getters",
+        "Drop column on no-lid curves rather than write NaN \u2014 column lifecycle test catches the leak"
+      ],
+      "avoid": [
+        "Renaming flags instead of deleting \u2014 keeping a 'core_physics_corrected_v2' would just defer the same conceptual confusion"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 0.5
+      }
+    },
+    {
+      "mission_id": "2026-04-27_113942_cfc3d87f",
+      "completed_at": "2026-04-27T11:57:08Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Bellerophon (M3b): extend sidebar override UI to support ambient + lid roles with topology validation; delete surface_sensor_detector.py and ThermodynamicSensorClassifier class; audit tests for standardized-column-set equality assumptions.",
+      "adopt": [
+        "Through-loaf topology exception with explicit anchoring rule (ambient lower group must start at T1)",
+        "DRY validator: sidebar calls loader._validate_override_topology rather than duplicating"
+      ],
+      "avoid": [
+        "Mocking streamlit for override tests \u2014 exercise loader-level path instead, mirrors project convention"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_115752_2038ae7c",
+      "completed_at": "2026-04-27T12:30:13Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Audacious (M4): permanent perturbation harness running \u03c3=0.5/1.0/2.0 \u00b0C noise sweeps on 9 fixtures across 100 seeds; position-flip rate per role; through-loaf and lid TP rate; Astute-style perturbation extras; piecewise-vs-Stefan stability comparison under noise; per-role flip-rate baseline report committed.",
+      "adopt": [
+        "XFAIL_FLIP_5PCT documentation tag for fixture/role pairs where the physics genuinely doesn't support 5 percent at sigma=1.0",
+        "Per-fixture per-role flip rate granular reporting beats aggregate"
+      ],
+      "avoid": [
+        "Treating noise robustness as a binary gate \u2014 partial passes with documented physical exceptions are honest"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_123109_e0029555",
+      "completed_at": "2026-04-27T12:49:34Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Foudroyant (M5, flotilla finale): update CLAUDE.md to reflect spatial reconstruction architecture; consolidate or remove legacy SURFACE_DETECTION_CONFIG and CORE_DETECTION_CONFIG blocks; remove root-level historical artefacts that explicitly discuss surface/core detection; add permanent flotilla-finale regression test; record M4 follow-ups (#1-#5) for post-flotilla missions.",
+      "adopt": [
+        "Flotilla-finale regression test as permanent guard rail \u2014 pins legacy-deletion smoke + per-fixture role contracts + override topology",
+        "config/constants.py audit before block removal: grep usage to distinguish dead from live constants"
+      ],
+      "avoid": [
+        "Reading docstrings/first-paragraphs at root rather than running the full file \u2014 surface/core mention is enough to disqualify a historical doc"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-27_131601_97d63fea",
+      "completed_at": "2026-04-27T13:50:29Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Penelope: deliver the continuous-position interpolation the spatial reconstruction architecture promised. core/surface position_normalised values must be able to land strictly between sensors; temperature_series must be a true spatial interpolation per timestep, not a copy of the nearest sensor's series; UI surfaces the inferred position.",
+      "adopt": [
+        "Parabolic vertex interpolation for x_core; linear T-crossing interpolation for x_dough_air; per-timestep linear spatial blend for temperature_series"
+      ],
+      "avoid": [
+        "Snapping position_normalised back to a sensor \u2014 that defeats the architecture's purpose"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_011739_e9776158",
+      "completed_at": "2026-04-28T02:35:20Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Ambush research mission: empirically test whether Method 3 (1D heat-equation inverse problem) can extrapolate x_core past the probe tip on the existing real CSVs, characterise its parameter confidence (Hessian + bootstrap), and quantify robustness under sigma=0.5/1.0/2.0 deg C noise. Output is a research report with a clear go/no-go recommendation; no production wiring.",
+      "adopt": [
+        "Always report parameter correlation rho alongside CIs for 2-parameter inverse problems \u2014 marginal CIs are misleading when |rho| > 0.8"
+      ],
+      "avoid": [
+        "Sizing slow-path runtime budgets on synthetic data only; real-CSV time-grids can be much longer and the per-fit cost can scale 27x"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_032352_3b868e39",
+      "completed_at": "2026-04-28T03:51:24Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Resolution: re-run M7 heat-equation viability with three fixes \u2014 (1) Dirichlet BC at the true M6-interpolated dough/air interface instead of the discrete in-dough sensor, (2) profile-likelihood scan over x_core to distinguish structural from numerical degeneracy, (3) true model-misfit test on synthetic_shallow_insertion which the forward solver did not generate. Deliver a candid revised verdict.",
+      "adopt": [
+        "Profile-likelihood scan disambiguates structural-degeneracy from optimiser-laziness when joint-fit |rho| is suspiciously uniform",
+        "Use synthetic data NOT generated by your forward solver as the model-class fit baseline"
+      ],
+      "avoid": [
+        "Treating a single OR-clause in an automated verdict logic as load-bearing \u2014 read the empirical totality"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_044720_1c1b7857",
+      "completed_at": "2026-04-28T06:15:06Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Triumph: 1D Stefan moving-boundary inverse problem with latent-heat phase change. Forward solver via enthalpy method; joint 4-parameter inverse (x_core alpha_dough alpha_crust rhoL_eff) + comparison against literature-pinned 1-parameter fit. Viability study with honest verdict on whether Stefan physics fits real bread bakes.",
+      "adopt": [
+        "Enthalpy method (effective Cp with smearing window) for moving-boundary problems \u2014 non-stiff, uses standard ODE solvers, well-suited to inverse problems",
+        "Generate synthetic test data via DIFFERENT numerical realisation than the inverse-fitter (different smearing dT) to avoid self-test tautology"
+      ],
+      "avoid": [
+        "Treating headline RMSE alone as the verdict \u2014 Stefan vs heat-eq RMSE were similar but well-conditioning, x_core extrapolation, and physical interpretability all differ"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_063114_3cc77192",
+      "completed_at": "2026-04-28T06:38:01Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Diamond: decompose M9 Stefan-fit real-CSV residuals into per-sensor, per-time-segment, and structure components. Determine whether the headline 6-10 deg C RMSE is real model misfit or accounting artefact (startup transient, probe-pull tail, per-sensor calibration bias).",
+      "adopt": [
+        "Decompose pooled RMSE into per-segment / per-sensor / structure components before trusting headline number. Lag-1 auto-correlation is a quick pass/fail for white-noise vs structured residual"
+      ],
+      "avoid": [
+        "Assuming pooled RMSE has accounting issues without measuring \u2014 three artefact hypotheses (startup, tail, calibration) all rejected by the data"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_065004_d9bcd3d1",
+      "completed_at": "2026-04-28T07:42:14Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Bellona: implement Zurcher 2014 two-state bread-baking model with radiative outer boundary condition; 3-parameter inverse fit (x_core, j_0, T_oven_eff); test whether main-bake RMSE drops below the M9 Stefan baseline (median 7.5 deg C) when the model has both correct physics class AND correct boundary conditions (radiative not Dirichlet).",
+      "adopt": [
+        "Cite the model author's own warnings \u2014 Zurcher explicitly says 'temperature at the center is an unreliable indicator' for this regime. Should have read that flag before implementing the inverse"
+      ],
+      "avoid": [
+        "Treating a literature model as right by default \u2014 Zurcher's eq 6 + 1mm coarse-graining produces a 6x-too-fast centre rise; literature solutions don't always survive numerical implementation"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_075015_24a1d508",
+      "completed_at": "2026-04-28T08:31:37Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Tireless: extend Zurcher inverse to free k (thermal conductivity) and c (specific heat) in addition to x_core j_0 T_oven_eff. 5-param fit with rho pinned at 1000 kg/m^3 (most product-stable). Test whether per-product physics calibration drops main-bake RMSE below the M9 Stefan baseline.",
+      "adopt": [
+        "Multi-init synthetic recovery (4 inits x 5 seeds = 20 runs) is a robust identifiability check \u2014 single-init synthetic recovery would have given misleading optimism"
+      ],
+      "avoid": [
+        "Treating clean synthetic recovery as evidence the inverse will work on real data \u2014 even Zurcher-class synthetic recovery says nothing about whether the data carries enough information to constrain the model"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_083939_1b437582",
+      "completed_at": "2026-04-28T12:21:50Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Hermione: leave-one-sensor-out cross-validation diagnostic on M9 Stefan and M12 Zurcher fits, plus sensor calibration-floor measurement at t=0 across 7 fixtures. Determine whether the 6-22 deg C in-sample main-bake RMSE was sensor-side noise/calibration or genuine model misfit. If LOO-RMSE on held-out sensor is below 2 deg C, the verdict revises to GO (Method 3 viable); if matches in-sample, CONFIRM-information-limit stands.",
+      "adopt": [
+        "LOO cross-validation is the gold-standard test for inverse-problem viability \u2014 it distinguishes overfitting (LOO >> in-sample) from genuine model adequacy (LOO close to in-sample). Should be standard for any future physics-inversion work"
+      ],
+      "avoid": [
+        "Treating in-sample RMSE as evidence of model adequacy; always run LOO before declaring an inverse problem successful"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_125109_7db8fefb",
+      "completed_at": "2026-04-28T13:35:09Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Lively: Luikov 1D coupled heat-mass transfer model with 3 dimensionless free parameters (Lu Ko Bi) plus x_core and T_oven_eff. Solve the inverse problem from temperature data alone via Levenberg-Marquardt per published methodology. Test whether explicit moisture-transport physics finally addresses the deep-end information limit M13 surfaced.",
+      "adopt": [
+        "Test forward-solver sanity in TWO regimes \u2014 both an uncoupled limit and a long-time steady-state \u2014 to catch implementation bugs in coupled-PDE solvers"
+      ],
+      "avoid": [
+        "Adding more model complexity (more parameters, coupled state vars) when the previous LOO test already showed information-limit; complexity makes the inverse harder when data is information-limited"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_135827_d3177ebb",
+      "completed_at": "2026-04-28T14:35:22Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Sirius: reformulate Luikov inverse with corrected geometry \u2014 full-thickness domain x in [0, L], asymmetric BCs (radiative-convective top + conductive-tin bottom), real probe geometry (95mm T1-T8 span, 13.6mm spacing, 54mm minimum insertion). 8 free parameters. Test whether asymmetric-tin BC fixes the M13 deep-end LOO failure.",
+      "adopt": [
+        "Asymmetric BCs and physical probe geometry are necessary not sufficient \u2014 they cut RMSE in half but don't reach the 3 deg C bar",
+        "Synthetic 8-param recovery passes cleanly with 13.6mm sensor spacing and probe geometry baked in \u2014 the formulation IS identifiable; real-CSV failure is data-side not model-side"
+      ],
+      "avoid": [
+        "Reporting verdict CONFIRM purely on RMSE without contextualising the trajectory of improvement across missions"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_145444_9193a856",
+      "completed_at": "2026-04-28T16:25:55Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Daring: reformulate Luikov-tin with observed T_air(t) and h_eff(t) extracted from sensors (replacing fitted T_oven_eff and Bi_top); add oven-spring alpha(T) piecewise profile (alpha_post/alpha_pre as free parameter or pinned at 0.4); per-fixture diagnostics for steam phase and oven spring window; reduced free parameters from M15's 8 down to 4-5.",
+      "adopt": [
+        "M2a 'ambient' sensors measure the air NEAR THE LOAF in the boundary layer, NOT bulk oven air. Use them with caution as BC sources",
+        "Observed-BC reformulation can REGRESS results when the observable doesn't match the modelled physical quantity"
+      ],
+      "avoid": [
+        "Treating M2a's 'ambient' classification as equivalent to 'bulk oven temperature'; the boundary layer matters"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-28_223435_3acb09f9",
+      "completed_at": "2026-04-29T02:56:21Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Endeavour: hybrid Luikov inverse combining M9 surface-Dirichlet BC (proven best top BC) with M15 asymmetric-tin bottom BC + alpha(T) oven-spring profile. Tests whether stacking the proven-best BC choice with the additional physics layers identified in M11-M16 finally drops main-bake RMSE below 4 deg C. 5 free parameters: L, D, Lu, q_bottom_eff, alpha_ratio.",
+      "adopt": [
+        "When 17 inverse-problem experiments across 5 model classes give the same ~6K RMSE floor, that floor is structural \u2014 stop adding model complexity"
+      ],
+      "avoid": [
+        "6-param Nelder-Mead on Luikov-class problems without strong physical priors finds pathological geometric minima"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_030517_945ea12c",
+      "completed_at": "2026-04-29T03:58:45Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Deep RCA: why does no physics model fit below the ~6 deg C floor across 17 missions, given that real bake time is 22-25 minutes (much shorter than the 60+ min we may have implicitly modelled). Find the actual root cause via parallel investigation: (a) bake-time-to-physics audit (does the 22-25 min target imply specific alpha/Bi we're missing?), (b) M9-Stefan deep diagnostic (the best result we have \u2014 characterise its residual shape, not just RMSE), (c) data-vs-model trace on one fixture (overlay model prediction against observed sensors timestep-by-timestep and visually identify where it diverges).",
+      "adopt": [
+        "When 17 inverse-problem missions converge on the same RMSE floor with optimizer hitting parameter bounds across multiple formulations, suspect a single shared mis-pinned constant \u2014 not a structural information limit"
+      ],
+      "avoid": [
+        "Pinning alpha at literature molecular value when EDC enthalpy transport dominates effective alpha by 5-7x"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_035903_b2ebbd64",
+      "completed_at": "2026-04-29T04:49:53Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Resolute M20: take M9 Stefan exactly as-is and free alpha_dough over (5e-7, 1e-5) and delta_T_smear over (3, 10 C). Single-fixture diagnostic on BA3C_0946 first. If main-bake RMSE drops below 4 C, sweep all 5 unlidded fixtures + LOO test. This is the focused targeted fix following M19's RCA finding that alpha_dough was pinned 5-7x too low across all prior Stefan/Luikov missions.",
+      "adopt": [
+        "RCA hypotheses must be empirically tested before claimed as fix; bound-hitting alone doesn't prove the bound was the binding constraint"
+      ],
+      "avoid": [
+        "Treating any RCA prediction as final without an empirical confirmation run on a single fixture before sweep"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_045331_a3129104",
+      "completed_at": "2026-04-29T08:40:04Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Onslaught M21: extend M20 Stefan v2 with a distributed side-heat source term S(x,t) representing heat conducted in from tin sidewalls. 6-param fit (M20's 5 + new Q_side magnitude). Single-fixture decision gate on BA3C_0946 with bar main-bake RMSE less than 4 C and at least 4/6 params interior. Tests the 1D-vs-effective-2D assumption shared by all 18 prior inverse-problem missions.",
+      "adopt": [
+        "Synthetic recovery is the gating test for inverse-problem viability \u2014 failure on synthetic with known truth proves identifiability is broken regardless of real-CSV result"
+      ],
+      "avoid": [
+        "Adding new free parameters that capture real physics but are statistically degenerate with existing parameters; 8 in-dough sensors have ~1 degree of freedom for cumulative-heat-into-dough effects"
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_085437_3a2809ee",
+      "completed_at": "2026-04-29T09:06:24Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Deep research: evaluate cellular-with-sensor-grounding architecture. 3 research ships + 1 synthesis. Final verdict: BUILD / HYBRID / STAND-DOWN with key risk identified.",
+      "adopt": [
+        "Re-frame inverse-problem questions through user's actual goal (derived quantities, not training-sensor RMSE) before architecture choice"
+      ],
+      "avoid": [],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_090640_f657208a",
+      "completed_at": "2026-04-29T09:19:30Z",
+      "outcome_achieved": true,
+      "planned_outcome": "Land HMS Drake M23: classify_temporal() wrapper over existing M2a/Stefan classifier; per-timestep classification + Savitzky-Golay smoothing produces time-evolving moisture-front, surface-position, core-position traces. Single empirical test on BA3C_0946 validating monotonicity (front moves inward) and continuity (no jumps). Output 3-trace plot.",
+      "adopt": [
+        "Per-snapshot classifier + Savitzky-Golay smoothing produces physically-sensible time-evolving derived quantities at zero parametric inverse-fitting cost \u2014 the right abstraction for user-facing 'where is the moisture front right now' UI."
+      ],
+      "avoid": [
+        "Setting acceptance metrics (e.g. 'x_core std<0.05 over full bake') without considering that the metric is testing the wrong window \u2014 early-bake x_core can legitimately drift before stabilising."
+      ],
+      "standing_order_violations": [],
+      "damage_control_events": 0,
+      "quality": {
+        "violations": 0,
+        "blockers_raised": 0,
+        "blockers_resolved": 0,
+        "task_completion_rate": 1.0
+      }
+    },
+    {
+      "mission_id": "2026-04-29_092737_9b83d7ba",
+      "completed_at": "2026-04-29T09:39:36Z",
+      "outcome_achieved": true,
+      "planned_outcome": "M24 HMS Foxhound + Astute red-cell: Replace classify_temporal walking-core artefact with isothermal-tracking. Time-evolving Stefan front (100C) + bread-chemistry zones (60C, 80C, 110C). FIXED core position computed once from full bake. Red-cell verifies new traces are physically sensible.",
+      "adopt": [],
+      "avoid": [],
       "standing_order_violations": [],
       "damage_control_events": 0,
       "quality": {
