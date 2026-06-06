@@ -25,8 +25,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 # ---------------------------------------------------------------------------
-# Helper: parabolic interpolation (white-box test against the implementation
-# in piecewise._parabolic_vertex).
+# Helper: parabolic interpolation (white-box test against the consolidated
+# implementation in extrapolation.parabolic_vertex_with_clamp; M28 H5 deleted
+# the old piecewise._parabolic_vertex in favour of this single source — its
+# non-relaxed interior path is the same ±1-half-step-clamped vertex).
 # ---------------------------------------------------------------------------
 
 
@@ -34,7 +36,9 @@ class TestParabolicInterpolation:
     def test_parabolic_interpolation_recovers_off_sensor_minimum(self):
         """Synthetic 3-point parabola whose vertex is at x=0.42 (between T3 at
         3/7 and T4 at 4/7); the helper recovers x≈0.42 within 0.005."""
-        from src.data.spatial_reconstruction.piecewise import _parabolic_vertex
+        from src.data.spatial_reconstruction.extrapolation import (
+            parabolic_vertex_with_clamp,
+        )
 
         # Sensor positions T1..T8 at i/7. We construct a parabola y(x) =
         # -100*(x - 0.42)**2 + 50 sampled at T3, T4, T5 (positions 3/7,
@@ -44,27 +48,37 @@ class TestParabolicInterpolation:
         ys = -100.0 * (positions - x_vertex) ** 2 + 50.0
         # T4 is the argmax (closest sensor to 0.42).
         anchor = int(np.argmax(ys))
-        recovered = _parabolic_vertex(positions, ys, anchor)
+        recovered, _ = parabolic_vertex_with_clamp(
+            positions, ys, anchor, relaxed_clamp_mode=False
+        )
         assert abs(recovered - x_vertex) < 0.005, (
             f"Expected vertex near {x_vertex}, got {recovered:.4f}"
         )
 
     def test_parabolic_interpolation_boundary_anchor_returns_sensor_position(self):
         """Anchor at index 0 cannot form a 3-point parabola → return sensor pos."""
-        from src.data.spatial_reconstruction.piecewise import _parabolic_vertex
+        from src.data.spatial_reconstruction.extrapolation import (
+            parabolic_vertex_with_clamp,
+        )
 
         positions = np.array([i / 7.0 for i in range(8)], dtype=float)
         ys = np.linspace(50.0, 10.0, 8)  # max at idx 0
-        recovered = _parabolic_vertex(positions, ys, 0)
+        recovered, _ = parabolic_vertex_with_clamp(
+            positions, ys, 0, relaxed_clamp_mode=False
+        )
         assert recovered == pytest.approx(positions[0])
 
     def test_parabolic_interpolation_collinear_returns_sensor_position(self):
         """Three collinear points → degenerate parabola → return middle pos."""
-        from src.data.spatial_reconstruction.piecewise import _parabolic_vertex
+        from src.data.spatial_reconstruction.extrapolation import (
+            parabolic_vertex_with_clamp,
+        )
 
         positions = np.array([i / 7.0 for i in range(8)], dtype=float)
         ys = np.linspace(10.0, 50.0, 8)  # strictly linear
-        recovered = _parabolic_vertex(positions, ys, 4)
+        recovered, _ = parabolic_vertex_with_clamp(
+            positions, ys, 4, relaxed_clamp_mode=False
+        )
         # Collinear → denominator ≈ 0 → fall back to anchor's position.
         assert recovered == pytest.approx(positions[4])
 

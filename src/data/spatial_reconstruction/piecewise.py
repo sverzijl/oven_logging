@@ -25,41 +25,7 @@ import numpy as np
 from config.constants import ROLE_CLASSIFIER_CONFIG  # noqa: E402
 
 from .extrapolation import parabolic_vertex_with_clamp
-from .profile import ProfileFit
-
-
-def _parabolic_vertex(
-    x_arr: np.ndarray, y_arr: np.ndarray, anchor_idx: int
-) -> float:
-    """3-point parabolic vertex interpolation around ``anchor_idx``.
-
-    Fit a parabola through ``(x_arr[anchor_idx-1..anchor_idx+1],
-    y_arr[same])`` and return the x-coordinate of its vertex (max OR min,
-    whichever the parabola yields for the anchored extremum).
-
-    Limitations (intentional, documented):
-    * Boundary anchors (``anchor_idx == 0`` or ``anchor_idx == len-1``) cannot
-      form a 3-point bracket — return ``x_arr[anchor_idx]`` verbatim.
-    * Collinear samples (denominator < 1e-12) → degenerate parabola → return
-      ``x_arr[anchor_idx]`` verbatim.
-    * Offset is clamped to ``[-1, +1]`` (in units of half-step) so badly
-      conditioned parabolas cannot extrapolate past the immediate neighbours.
-    """
-    n = len(x_arr)
-    if anchor_idx <= 0 or anchor_idx >= n - 1:
-        return float(x_arr[anchor_idx])
-    x0, x1, x2 = float(x_arr[anchor_idx - 1]), float(x_arr[anchor_idx]), float(x_arr[anchor_idx + 1])
-    y0, y1, y2 = float(y_arr[anchor_idx - 1]), float(y_arr[anchor_idx]), float(y_arr[anchor_idx + 1])
-    denom = y0 - 2.0 * y1 + y2
-    if abs(denom) < 1e-12:
-        return float(x1)
-    offset = 0.5 * (y0 - y2) / denom
-    if offset > 1.0:
-        offset = 1.0
-    elif offset < -1.0:
-        offset = -1.0
-    dx = (x2 - x0) / 2.0
-    return float(x1 + offset * dx)
+from .profile import ProfileFit, _heat_up_score
 
 
 def _crossing_position(
@@ -422,22 +388,13 @@ def fit_piecewise(
     # ------------------------------------------------------------------
     if in_dough_idx.size > 0:
         # Score each in-dough sensor by heat-up time (larger = more core-like).
-        scores = []
-        for i in in_dough_idx:
-            s = sensor_names[i]
-            feats = features.get(s, {})
-            t60 = feats.get("time_to_60c_seconds")
-            if t60 is None:
-                # Fallback: time_to_100c, else NEGATIVE terminal temp (so
-                # coldest-terminal still wins among sensors with no t60).
-                t100 = feats.get("time_to_100c_seconds")
-                if t100 is None:
-                    scores.append(-float(temps[i]))
-                else:
-                    scores.append(float(t100))
-            else:
-                scores.append(float(t60))
-        scores_arr = np.array(scores, dtype=float)
+        scores_arr = np.array(
+            [
+                _heat_up_score(features, sensor_names[int(i)], float(temps[int(i)]))
+                for i in in_dough_idx
+            ],
+            dtype=float,
+        )
         slow_local = int(np.argmax(scores_arr))
         core_idx = int(in_dough_idx[slow_local])
         # Parabolic vertex interpolation across the GLOBAL position axis using
@@ -448,19 +405,13 @@ def fit_piecewise(
         # the parabola sees only meaningful neighbours when those neighbours
         # are themselves in-dough — at the boundary of the dough region we
         # fall back to the sensor pick (matches the boundary clause in
-        # ``_parabolic_vertex``).
+        # ``extrapolation.parabolic_vertex_with_clamp``).
         in_dough_set = set(int(i) for i in in_dough_idx.tolist())
-        # Build a per-sensor score lookup we can reuse for both the
-        # interior-anchor parabolic vertex and the M18 relaxed-clamp
-        # boundary path.
+        # Per-sensor score lookup reused for both the interior-anchor parabolic
+        # vertex and the M18 relaxed-clamp boundary path (shared chain via
+        # ``profile._heat_up_score``).
         def _score_for(i: int) -> float:
-            s = sensor_names[i]
-            feats = features.get(s, {})
-            t60 = feats.get("time_to_60c_seconds")
-            if t60 is None:
-                t100 = feats.get("time_to_100c_seconds")
-                return float(t100) if t100 is not None else -float(temps[i])
-            return float(t60)
+            return _heat_up_score(features, sensor_names[i], float(temps[i]))
 
         # Default confidence label for the core position (M18 HMS Vigilant).
         # Interior parabolic vertex → "high"; degenerate fallback → "medium";
@@ -480,8 +431,13 @@ def fit_piecewise(
                 [_score_for(core_idx - 1), _score_for(core_idx), _score_for(core_idx + 1)],
                 dtype=float,
             )
-            # Anchor at local idx 1 (the centre of the 3-point window).
-            x_core = _parabolic_vertex(local_x, local_y, 1)
+            # Anchor at local idx 1 (the centre of the 3-point window). The
+            # interior (non-relaxed) path of ``parabolic_vertex_with_clamp`` is
+            # the same ±1-half-step-clamped vertex the old ``_parabolic_vertex``
+            # computed; the confidence label is unused here (stays "high").
+            x_core, _ = parabolic_vertex_with_clamp(
+                local_x, local_y, 1, relaxed_clamp_mode=False
+            )
         elif core_idx == 0 and 1 in in_dough_set and 2 in in_dough_set:
             # M18 Method 1 — relaxed parabolic clamp for past-T1 core
             # extrapolation. Construct the global score vector aligned with

@@ -22,6 +22,7 @@ Compared with the legacy classifiers in ``surface_sensor_detector.py`` and
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -30,6 +31,7 @@ import pandas as pd
 
 from config.constants import SENSOR_LIST, ROLE_CLASSIFIER_CONFIG  # noqa: E402
 
+from ._lid import select_lid_cluster
 from .geometry import lookup_geometry
 from .piecewise import fit_piecewise
 from .profile import (
@@ -38,6 +40,8 @@ from .profile import (
     extract_features,
     interpolate_temperature_series_at,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +136,7 @@ def _segment_longest_curve(df: pd.DataFrame) -> pd.DataFrame:
             from config.constants import CURVE_DETECTION_CONFIG  # type: ignore
 
             cfg = CURVE_DETECTION_CONFIG
-        except Exception:
+        except ImportError:
             cfg = {}
         detector = CurveBoundaryDetector(cfg)
         curves = detector.extract_curves(df)
@@ -143,7 +147,7 @@ def _segment_longest_curve(df: pd.DataFrame) -> pd.DataFrame:
         def _curve_len(c):
             try:
                 return int(c.get("end_idx", 0)) - int(c.get("start_idx", 0))
-            except Exception:
+            except (ValueError, TypeError, KeyError):
                 return 0
 
         longest = max(curves, key=_curve_len)
@@ -152,7 +156,13 @@ def _segment_longest_curve(df: pd.DataFrame) -> pd.DataFrame:
         s = int(longest.get("start_idx", 0))
         e = int(longest.get("end_idx", len(df) - 1))
         return df.iloc[s : e + 1].reset_index(drop=True)
-    except Exception:
+    except (ImportError, ValueError, KeyError) as exc:
+        # Best-effort: a malformed multi-curve input degrades to the full
+        # DataFrame, but we log it (M28 M5) rather than swallowing silently —
+        # a silent broad-except previously hid genuine detector bugs.
+        logger.warning(
+            "_segment_longest_curve fell back to the full DataFrame: %s", exc
+        )
         return df
 
 
@@ -481,20 +491,11 @@ def classify(
             and (surface_idx_int is None or i != surface_idx_int)
         ):
             pre_candidates.append(i)
-    if len(pre_candidates) >= 2:
-        cand_temps_pre = sorted(
-            (terminal_temps[sensor_names[i]], i) for i in pre_candidates
-        )
-        best_cluster_pre: list[int] = []
-        for j in range(len(cand_temps_pre)):
-            cluster_at_j = [
-                idx for T, idx in cand_temps_pre
-                if abs(T - cand_temps_pre[j][0]) <= 15.0
-            ]
-            if len(cluster_at_j) > len(best_cluster_pre):
-                best_cluster_pre = cluster_at_j
-        if len(best_cluster_pre) >= 2:
-            excluded_for_lid_idx.update(best_cluster_pre)
+    best_cluster_pre = select_lid_cluster(
+        pre_candidates, sensor_names, terminal_temps
+    )
+    if best_cluster_pre:
+        excluded_for_lid_idx.update(best_cluster_pre)
 
     ambient_assignments: list = []
     for i in air_indices:
@@ -554,42 +555,31 @@ def classify(
     # cooler than the cavity proxy (e.g. T7=131°C in real_1000BA3C_0946,
     # which is genuinely in the cavity but reads cooler than T8=170°C).
     # Require ≥ 2 candidates with terminal-T within 15°C of each other.
-    if len(lid_candidates_classifier) >= 2:
-        # Group by terminal-T closeness.
-        cand_temps = sorted(
-            (terminal_temps[sensor_names[i]], i) for i, _ in lid_candidates_classifier
+    best_cluster = select_lid_cluster(
+        [i for i, _ in lid_candidates_classifier], sensor_names, terminal_temps
+    )
+    if best_cluster:
+        # Pick the lid candidate with the largest gap from cavity (most
+        # lid-like) within the densest cluster; tie-break on highest idx.
+        chosen = max(
+            best_cluster,
+            key=lambda i: (
+                proxy_terminal - terminal_temps[sensor_names[i]],
+                i,
+            ),
         )
-        # Look for the densest 15°C cluster.
-        best_cluster: list[int] = []
-        for j in range(len(cand_temps)):
-            cluster_at_j = [
-                idx for T, idx in cand_temps
-                if abs(T - cand_temps[j][0]) <= 15.0
-            ]
-            if len(cluster_at_j) > len(best_cluster):
-                best_cluster = cluster_at_j
-        if len(best_cluster) >= 2:
-            # Pick the lid candidate with the largest gap from cavity (most
-            # lid-like) within the densest cluster; tie-break on highest idx.
-            chosen = max(
-                best_cluster,
-                key=lambda i: (
-                    proxy_terminal - terminal_temps[sensor_names[i]],
-                    i,
-                ),
-            )
-            lid_assignment = _build_assignment(
-                role="lid",
-                position=sensor_positions[chosen],
-                sensor_positions=sensor_positions,
-                sensor_names=sensor_names,
-                df=working_df,
-                confidence="medium",
-                reason=(
-                    f"terminal T sits {proxy_terminal - terminal_temps[sensor_names[chosen]]:.1f}°C "
-                    f"below cavity proxy ({len(best_cluster)} sensors in lid plateau)"
-                ),
-            )
+        lid_assignment = _build_assignment(
+            role="lid",
+            position=sensor_positions[chosen],
+            sensor_positions=sensor_positions,
+            sensor_names=sensor_names,
+            df=working_df,
+            confidence="medium",
+            reason=(
+                f"terminal T sits {proxy_terminal - terminal_temps[sensor_names[chosen]]:.1f}°C "
+                f"below cavity proxy ({len(best_cluster)} sensors in lid plateau)"
+            ),
+        )
 
     # ------------------------------------------------------------------
     # Topology repair (only when not through-loaf): if surface_idx <= core_idx,

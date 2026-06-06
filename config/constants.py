@@ -366,6 +366,15 @@ CORE_DETECTION_CONFIG = {
 # Ordered T1..T8 from probe tip toward probe stem.
 SENSOR_LIST = ('T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8')
 
+# Terminal-temperature tolerance (°C) for grouping lid-contact sensors into a
+# "lid plateau" cluster. A genuine lid touches multiple adjacent sensors at
+# similar plateaued temperatures; the spatial_reconstruction classifier
+# requires >= 2 candidate sensors whose terminal temperatures fall within this
+# band of each other before accepting a lid. Lifted from the inline 15.0 magic
+# constant that previously appeared in both the lid pre-pass and lid-selection
+# blocks of classifier.py (M28 H3 consolidation).
+LID_CLUSTER_TOLERANCE_C = 15.0
+
 
 # ---------------------------------------------------------------------------
 # Spatial-reconstruction role classifier (M2a HMS Indefatigable, mission

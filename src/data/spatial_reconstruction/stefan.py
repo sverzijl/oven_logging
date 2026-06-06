@@ -44,8 +44,8 @@ import numpy as np
 
 from config.constants import ROLE_CLASSIFIER_CONFIG  # noqa: E402
 
-from .piecewise import _parabolic_vertex
-from .profile import ProfileFit
+from .extrapolation import parabolic_vertex_with_clamp
+from .profile import ProfileFit, _heat_up_score
 
 
 # ---------------------------------------------------------------------------
@@ -395,32 +395,20 @@ def fit_stefan(
     # x_core — slowest-heating dough sensor (matches piecewise heuristic).
     # ------------------------------------------------------------------
     if in_dough_idx:
-        scores = []
-        for i in in_dough_idx:
-            s = sensor_names[i]
-            feats = features.get(s, {})
-            t60 = feats.get("time_to_60c_seconds")
-            if t60 is None:
-                t100 = feats.get("time_to_100c_seconds")
-                scores.append(float(t100) if t100 is not None else -float(temps[i]))
-            else:
-                scores.append(float(t60))
+        scores = [
+            _heat_up_score(features, sensor_names[i], float(temps[i]))
+            for i in in_dough_idx
+        ]
         slow_local = int(np.argmax(np.array(scores)))
         core_idx = int(in_dough_idx[slow_local])
         # Parabolic vertex interpolation across in-dough neighbours when both
         # immediate neighbours are themselves in-dough; boundary or single-
-        # neighbour cases degrade to the discrete sensor pick (matches
-        # ``_parabolic_vertex`` boundary clause).
+        # neighbour cases degrade to the discrete sensor pick (matches the
+        # boundary clause in ``extrapolation.parabolic_vertex_with_clamp``).
         in_dough_set = set(in_dough_idx)
 
         def _score_for(j: int) -> float:
-            s_ = sensor_names[j]
-            feats = features.get(s_, {})
-            t60 = feats.get("time_to_60c_seconds")
-            if t60 is None:
-                t100 = feats.get("time_to_100c_seconds")
-                return float(t100) if t100 is not None else -float(temps[j])
-            return float(t60)
+            return _heat_up_score(features, sensor_names[j], float(temps[j]))
 
         if (core_idx - 1) in in_dough_set and (core_idx + 1) in in_dough_set:
             local_x = positions[core_idx - 1 : core_idx + 2]
@@ -428,7 +416,10 @@ def fit_stefan(
                 [_score_for(core_idx - 1), _score_for(core_idx), _score_for(core_idx + 1)],
                 dtype=float,
             )
-            x_core = _parabolic_vertex(local_x, local_y, 1)
+            # Interior (non-relaxed) path = the historic ±1-clamped vertex.
+            x_core, _ = parabolic_vertex_with_clamp(
+                local_x, local_y, 1, relaxed_clamp_mode=False
+            )
         else:
             x_core = float(positions[core_idx])
     else:

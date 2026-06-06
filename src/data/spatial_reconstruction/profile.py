@@ -35,6 +35,27 @@ from config.constants import (  # noqa: E402
 )
 
 
+def _heat_up_score(features: dict, sensor_name: str, terminal_temp: float) -> float:
+    """Heat-up-time score for one sensor — larger = slower-heating = more core-like.
+
+    Single source of the ``time_to_60c → time_to_100c → -terminal_temp``
+    fallback chain shared by the piecewise and Stefan fits (each previously
+    inlined it twice). ``time_to_60c_seconds`` is preferred because it is
+    well-defined for both lidded (no 100 °C crossing) and unlidded bakes;
+    ``time_to_100c_seconds`` is the secondary; the NEGATIVE terminal
+    temperature is the tertiary fallback so the coldest-terminal sensor still
+    wins among sensors that never cross a heat-up threshold.
+    """
+    feats = features.get(sensor_name, {})
+    t60 = feats.get("time_to_60c_seconds")
+    if t60 is not None:
+        return float(t60)
+    t100 = feats.get("time_to_100c_seconds")
+    if t100 is not None:
+        return float(t100)
+    return -float(terminal_temp)
+
+
 # ---------------------------------------------------------------------------
 # ProfileFit dataclass — emitted by the piecewise / Stefan fits.
 # ---------------------------------------------------------------------------
