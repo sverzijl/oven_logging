@@ -16,6 +16,7 @@ from .geometry import PROBE_GEOMETRIES, lookup_geometry
 from .piecewise import fit_piecewise
 from .stefan import fit_stefan
 from .temporal import classify_temporal, TemporalAssignment
+from .isothermal import track_isothermal, IsothermalAssignment
 from .comparison import (
     ModelComparison,
     benchmark_fixture,
@@ -36,6 +37,8 @@ __all__ = [
     "fit_stefan",
     "classify_temporal",
     "TemporalAssignment",
+    "track_isothermal",
+    "IsothermalAssignment",
     "ModelComparison",
     "benchmark_fixture",
     "benchmark_all_cases",

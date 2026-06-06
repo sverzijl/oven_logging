@@ -84,12 +84,18 @@ class ThermalProfileLoader:
         #   - steam_phase_minutes: float
         # When ``loaf_thickness_mm`` and ``insertion_depth_mm`` are both
         # present, ``get_geometric_core_position_mm_from_tip`` computes
-        # ``insertion_depth_mm - loaf_thickness_mm/2`` (positive = past tip,
-        # negative = above tip in dough), and ``get_core_temperature_series``
-        # uses linear interpolation between adjacent T-sensors at that
-        # geometric position. When metadata is absent, the classifier path
-        # (Method 1 relaxed clamp) is used unchanged.
+        # ``insertion_depth_mm - loaf_thickness_mm/2`` (positive = core above
+        # the probe tip, between T1 and T8 -> interpolation; negative = core
+        # past/below the tip -> degraded to T1), and
+        # ``get_core_temperature_series`` uses linear interpolation between
+        # adjacent T-sensors at that geometric position. When metadata is
+        # absent, the classifier path (Method 1 relaxed clamp) is used
+        # unchanged.
         self._bake_metadata: dict[int, dict] = {}
+        # Per-curve memoised IsothermalAssignment (M30 Spatial Evolution tab).
+        # Keyed by curve_index; populated lazily by ``isothermal_assignment``
+        # and invalidated by the override / boundary / manual-curve mutators.
+        self._isothermal_cache: dict = {}
 
     def load_csv(self, file_path: str = None, file_buffer=None) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -481,6 +487,8 @@ class ThermalProfileLoader:
                 # Preserve current_curve_index when valid; otherwise reset.
                 if self.current_curve_index >= len(self.all_curves):
                     self.current_curve_index = 0
+            # Curve list re-detected — drop stale isothermal assignments.
+            self._invalidate_isothermal_cache()
 
     def set_curve_boundaries(
         self, curve_index: int, start_idx: int, end_idx: int
@@ -556,6 +564,8 @@ class ThermalProfileLoader:
         self.all_curves = self._extract_all_baking_curves(self.raw_data.copy())
         if self.all_curves and self.current_curve_index >= len(self.all_curves):
             self.current_curve_index = 0
+        # Curve list re-indexed — every cached isothermal assignment is stale.
+        self._invalidate_isothermal_cache()
 
     def set_sensor_override(self, curve_index: int, role: str, sensor):
         """Allow user to override sensor assignments for a specific curve.
@@ -602,6 +612,9 @@ class ThermalProfileLoader:
             self._apply_standard_columns(df_curve, curve_index)
         if curve_index == self.current_curve_index:
             self._regenerate_standard_columns()
+        # The override changes the classifier's core/surface picks, so any
+        # cached isothermal assignment for this curve is stale.
+        self._invalidate_isothermal_cache(curve_index)
 
     @staticmethod
     def _sensor_index(name) -> Optional[int]:
@@ -739,6 +752,7 @@ class ThermalProfileLoader:
             self._apply_standard_columns(df_curve, curve_index)
         if curve_index == self.current_curve_index:
             self._regenerate_standard_columns()
+        self._invalidate_isothermal_cache(curve_index)
 
     # ------------------------------------------------------------------
     # M18 HMS Vigilant — Method 4: bake metadata + geometric core
@@ -876,7 +890,59 @@ class ThermalProfileLoader:
             frac = 1.0
         series = (1.0 - frac) * df[sensor_lo] + frac * df[sensor_hi]
         return series.reset_index(drop=True)
-    
+
+    # ------------------------------------------------------------------
+    # M30 Spatial Evolution — memoised isothermal-front assignment
+    # ------------------------------------------------------------------
+    def isothermal_assignment(self, curve_index: Optional[int] = None):
+        """Return the memoised :class:`IsothermalAssignment` for a curve.
+
+        Wraps :func:`src.data.spatial_reconstruction.track_isothermal`, which
+        traces the 60/80/100/110 °C isotherm positions through the dough over
+        time (the 100 °C front is the latent-heat / Stefan moisture-front
+        proxy). The result is cached per ``curve_index`` because
+        ``track_isothermal`` runs the full-bake classifier once (~1-2 s on a
+        single bake) and the UI re-renders on every unrelated widget change.
+
+        The cache is invalidated by the sensor-override mutators
+        (:meth:`set_sensor_override`, :meth:`clear_sensor_overrides`) for the
+        affected curve, and cleared wholesale by the boundary / manual-curve
+        mutators (:meth:`set_curve_boundaries`, :meth:`clear_curve_boundaries`,
+        :meth:`add_manual_curve`, :meth:`remove_manual_curve`) because those
+        re-index the curve list.
+
+        Returns ``None`` when the curve has no DataFrame.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        cache = self._isothermal_cache
+        if curve_index in cache:
+            return cache[curve_index]
+        df = self._curve_dataframe(curve_index)
+        if df is None:
+            return None
+        # Local import keeps the spatial_reconstruction package off the
+        # loader's import-time critical path (and avoids any import cycle).
+        from src.data.spatial_reconstruction import track_isothermal
+
+        sample_period_ms = 5000
+        if isinstance(self.metadata, dict):
+            sample_period_ms = int(self.metadata.get("sample_period_ms", 5000))
+        result = track_isothermal(df, sample_period_ms=sample_period_ms)
+        cache[curve_index] = result
+        return result
+
+    def _invalidate_isothermal_cache(self, curve_index: Optional[int] = None) -> None:
+        """Drop cached isothermal assignments.
+
+        ``curve_index=None`` clears the whole cache (used when the curve list
+        is re-indexed); otherwise only the named curve's entry is dropped.
+        """
+        if curve_index is None:
+            self._isothermal_cache.clear()
+        else:
+            self._isothermal_cache.pop(curve_index, None)
+
     def get_core_sensors(self, curve_index: Optional[int] = None) -> List[str]:
         """Get list of physical sensors identified as core (with override support)."""
         if curve_index is None:

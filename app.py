@@ -14,6 +14,7 @@ from tabs import (
     quality_metrics,
     recommendations,
     s_curve_analysis,
+    spatial_evolution,
     temperature_profile,
     zone_analysis,
 )
@@ -62,6 +63,7 @@ sidebar.render()
 TAB_SPECS = [
     ("🔬 Curve Boundaries", boundary_review.render),
     ("📈 Temperature Profile", temperature_profile.render),
+    ("🌡️ Spatial Evolution", spatial_evolution.render),
     ("📉 S-Curve Analysis", s_curve_analysis.render),
     ("🎯 Zone Analysis", zone_analysis.render),
     ("📊 Quality Metrics", quality_metrics.render),
