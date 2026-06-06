@@ -13,6 +13,10 @@ from config.constants import BAKEOUT_TARGETS, SENSOR_LIST
 from src.analysis.s_curve_analysis import SCurveAnalyzer
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.data.loader import ThermalProfileLoader, validate_thermal_data
+from src.ui.core_confidence_banner import (
+    STATUS_RENDER_KIND,
+    bake_metadata_status_line,
+)
 # Expected-bake-time helpers moved into the dedicated Curve Boundary
 # Review tab (M3 HMS Indomitable, mission 2026-04-24_235134_b68205bd);
 # the sidebar widget was removed in M4 HMS Defender (mission
@@ -436,6 +440,30 @@ def render():
                 file_key = (st.session_state.get('current_file') or 'nofile').replace(' ', '_')
                 loader = st.session_state.loader
                 current_meta = loader.get_bake_metadata(curve_idx) or {}
+
+                # Active-model status line (M29): declare which model feeds the
+                # current core trace, so the operator doesn't have to infer it
+                # from the presence/absence of the Temperature Profile banner.
+                _active_model, _detail = bake_metadata_status_line(loader, curve_idx)
+                _label = {
+                    "manual_override": "Manual sensor override active",
+                    "method_4": "✅ Method 4 active (geometric core)",
+                    "method_4_degraded": "⚠️ Method 4 active — geometric core past probe tip",
+                    "method_1_high": "Method 1 active (classifier)",
+                    "method_1_medium": "Method 1 active (classifier)",
+                    "method_1_low": "⚠️ Method 1 active — low confidence",
+                    "fallback": "Core model",
+                }.get(_active_model, "Core model")
+                _line = f"{_label}: {_detail}" if _detail else _label
+                _kind = STATUS_RENDER_KIND.get(_active_model, "caption")
+                if _kind == "success":
+                    st.success(_line)
+                elif _kind == "warning":
+                    st.warning(_line)
+                elif _kind == "info":
+                    st.info(_line)
+                else:
+                    st.caption(_line)
 
                 loaf_thickness = st.number_input(
                     "Loaf thickness (mm)",

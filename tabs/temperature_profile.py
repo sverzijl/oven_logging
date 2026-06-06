@@ -1,6 +1,7 @@
 """Temperature Profile tab — refactored to use canonical sensor role helpers."""
 import streamlit as st
 
+from src.ui.core_confidence_banner import core_confidence_banner_text
 from src.ui.sensor_role_helpers import build_sensor_label_map, build_sensor_role_map
 from src.visualization.plots import ThermalPlotter
 from sensor_naming import get_default_sensors
@@ -12,6 +13,16 @@ def render():
 
     curve_index = st.session_state.current_curve_index
     loader = st.session_state.loader
+
+    # Core-confidence banner — shared predicate with the Spatial Evolution
+    # and S-Curve tabs (M29). Warns when the core position was extrapolated
+    # past the probe tip and invites bake-metadata entry.
+    _conf, _reason = loader.get_core_confidence(curve_index)
+    _level, _msg = core_confidence_banner_text(_conf, _reason)
+    if _level == "warning":
+        st.warning(_msg)
+    elif _level == "caption":
+        st.caption(_msg)
 
     # SINGLE fetch — closes B2 and S6.
     sensor_labels = build_sensor_label_map(loader, curve_index)

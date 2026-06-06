@@ -25,7 +25,6 @@ from src.visualization.spatial_evolution_plots import (  # noqa: E402
     plot_isothermal_positions,
     plot_fixed_position_temperatures,
 )
-from tabs.spatial_evolution import confidence_banner_text  # noqa: E402
 
 
 def _make_assignment(
@@ -111,23 +110,3 @@ class TestPlotFixedPositionTemperatures:
         names_blob = " ".join(str(tr.name).lower() for tr in fig.data)
         assert "core" in names_blob
         assert "surface" in names_blob
-
-
-class TestConfidenceBannerText:
-
-    def test_low_confidence_warns_and_mentions_metadata(self):
-        kind, message = confidence_banner_text(
-            "low", "extrapolated past probe tip"
-        )
-        assert kind == "warning"
-        assert "metadata" in message.lower()
-
-    def test_medium_confidence_is_caption(self):
-        kind, message = confidence_banner_text("medium", "boundary anchor")
-        assert kind == "caption"
-        assert message
-
-    def test_high_confidence_no_banner(self):
-        kind, message = confidence_banner_text("high", "clean fit")
-        assert kind is None
-        assert message is None

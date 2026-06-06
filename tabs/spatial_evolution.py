@@ -22,54 +22,17 @@ Layout:
 from __future__ import annotations
 
 import time
-from typing import Optional
 
 import numpy as np
 import streamlit as st
 
+from src.ui.core_confidence_banner import core_confidence_banner_text
 from src.ui.sensor_role_helpers import build_sensor_role_map
 from src.visualization.plots import ThermalPlotter
 from src.visualization.spatial_evolution_plots import (
     plot_fixed_position_temperatures,
     plot_isothermal_positions,
 )
-
-
-def confidence_banner_text(
-    confidence: Optional[str], reason: Optional[str]
-) -> tuple:
-    """Map a core-confidence label to a (banner_kind, message) pair.
-
-    The classifier collapses Method 1's ``low_extrapolated`` to the plain
-    ``"low"`` enum (the qualifier survives in ``reason``). Mapping:
-
-    * ``"low"``    -> ``("warning", ...)`` — invite bake-metadata entry.
-    * ``"medium"`` -> ``("caption", reason)`` — boundary estimate.
-    * anything else (``"high"`` / ``None``) -> ``(None, None)`` — no banner.
-    """
-    if confidence == "low":
-        message = (
-            "⚠️ Core position extrapolated past the probe tip. Enter loaf "
-            "thickness and probe insertion depth in the sidebar **Bake "
-            "Metadata** expander for a high-accuracy geometric core."
-        )
-        if reason:
-            message += f"  ({reason})"
-        return ("warning", message)
-    if confidence == "medium":
-        return ("caption", reason or "Core position is a boundary estimate.")
-    return (None, None)
-
-
-def _core_confidence(assignment) -> tuple:
-    """Read (confidence, reason) from the embedded full-bake classification."""
-    classification = getattr(assignment, "classification", None)
-    if classification is None:
-        return (None, None)
-    core = getattr(classification, "core_assignment", None)
-    if core is None:
-        return (None, None)
-    return (getattr(core, "confidence", None), getattr(core, "reason", None))
 
 
 def _last_finite(arr) -> float:
@@ -106,8 +69,10 @@ def render():
         return
 
     # --- Confidence banner (core) + full-immersion note -------------------
-    confidence, reason = _core_confidence(assignment)
-    kind, message = confidence_banner_text(confidence, reason)
+    # Confidence is a property of the full-bake classifier / Method 4, shared
+    # with the Temperature Profile and S-Curve tabs via the loader accessor.
+    confidence, reason = loader.get_core_confidence(curve_index)
+    kind, message = core_confidence_banner_text(confidence, reason)
     if kind == "warning":
         st.warning(message)
     elif kind == "caption":

@@ -1117,6 +1117,53 @@ class ThermalProfileLoader:
             return overrides['lid']
         return self.curve_sensor_assignments.get(curve_index, {}).get('lid')
 
+    def _resolve_core(
+        self,
+        curve_index: int,
+        df: Optional[pd.DataFrame],
+    ) -> tuple:
+        """Resolve the active core series AND which method produced it.
+
+        Single source of truth for the override → Method 4 → classifier
+        layering *decision*, shared by :meth:`_resolve_core_series` (which
+        wants the series), :meth:`get_core_confidence` (which wants the
+        confidence), and ``src.ui.core_confidence_banner._bake_metadata_status_line``
+        (which wants the active-model label). Keeping the decision in one
+        place means the trace, the banner, and the sidebar status can never
+        disagree about which model is feeding the core curve.
+
+        Returns ``(series, method_tag)`` where ``series`` is
+        ``reset_index(drop=True)`` (or ``None`` when no layer produces one)
+        and ``method_tag`` is one of:
+
+          * ``"override"``         — manual sensor override on the core role.
+          * ``"method4"``          — geometric core in-probe (``pos_mm >= 0``;
+            spatial interpolation between the bracketing T-sensors).
+          * ``"method4_degraded"`` — geometric core past/below the probe tip
+            (``pos_mm < 0``; the series is held at T1, lower accuracy).
+          * ``"classifier"``       — Method 1 classifier assignment.
+          * ``"fallback"``         — no layer produced a series (``None``).
+        """
+        overrides = self._sensor_overrides.get(curve_index, {})
+        if 'core' in overrides and df is not None:
+            sensor = overrides['core']
+            if sensor in df.columns:
+                return df[sensor].reset_index(drop=True), "override"
+        # Method 4 — geometric core from bake metadata.
+        geom_series = self._geometric_core_series(curve_index)
+        if geom_series is not None:
+            pos_mm = self.get_geometric_core_position_mm_from_tip(curve_index)
+            tag = "method4_degraded" if (pos_mm is not None and pos_mm < 0.0) else "method4"
+            return geom_series, tag
+        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+            'assignment'
+        )
+        if assignment is not None and assignment.core_assignment is not None:
+            return assignment.core_assignment.temperature_series.reset_index(
+                drop=True
+            ), "classifier"
+        return None, "fallback"
+
     def _resolve_core_series(
         self,
         curve_index: int,
@@ -1124,24 +1171,15 @@ class ThermalProfileLoader:
     ) -> Optional[pd.Series]:
         """Apply the override → Method 4 → classifier core-series layering.
 
-        Single source of truth for the *non-fallback* portion of the
-        core-temperature decision, shared by
-        :meth:`get_core_temperature_series` (the public reader) and
+        Thin wrapper over :meth:`_resolve_core` that discards the method tag.
+        Shared by :meth:`get_core_temperature_series` (the public reader) and
         :meth:`_apply_standard_columns` (the canonical writer that produces
         ``df['CoreTemperature']``). The two paths previously disagreed when
         bake metadata was set — the reader honoured Method 4, the writer
         ignored it — so every Streamlit tab and analyser reading the column
-        saw stale Method 1 output. M26 HMS Bellerophon consolidates the
-        decision here.
-
-        Layering (per ``CLAUDE.md`` "Data transformation pipeline"):
-          1. **Manual sensor override** — ``_sensor_overrides[i]['core']``.
-          2. **Bake metadata (Method 4)** — when ``loaf_thickness_mm`` AND
-             ``insertion_depth_mm`` are both set, the geometric core
-             position drives spatial interpolation between the bracketing
-             T-sensors via :meth:`_geometric_core_series`.
-          3. **Classifier (Method 1)** —
-             ``assignment.core_assignment.temperature_series``.
+        saw stale Method 1 output. M26 HMS Bellerophon consolidated the
+        decision; M29 lifts it into :meth:`_resolve_core` so the confidence
+        and sidebar surfaces reuse the same branch order.
 
         Returns the series with ``reset_index(drop=True)`` so callers can
         rely on positional alignment with ``df``. Returns ``None`` when
@@ -1150,23 +1188,8 @@ class ThermalProfileLoader:
         ``df['CoreTemperature']`` if present; the writer invokes
         :func:`resolve_core_temperature_series`).
         """
-        overrides = self._sensor_overrides.get(curve_index, {})
-        if 'core' in overrides and df is not None:
-            sensor = overrides['core']
-            if sensor in df.columns:
-                return df[sensor].reset_index(drop=True)
-        # Method 4 — geometric core from bake metadata.
-        geom_series = self._geometric_core_series(curve_index)
-        if geom_series is not None:
-            return geom_series
-        assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
-            'assignment'
-        )
-        if assignment is not None and assignment.core_assignment is not None:
-            return assignment.core_assignment.temperature_series.reset_index(
-                drop=True
-            )
-        return None
+        series, _ = self._resolve_core(curve_index, df)
+        return series
 
     def get_core_temperature_series(
         self, curve_index: Optional[int] = None
@@ -1198,6 +1221,78 @@ class ThermalProfileLoader:
         if df is not None and 'CoreTemperature' in df.columns:
             return df['CoreTemperature'].reset_index(drop=True)
         return None
+
+    def get_core_confidence(
+        self, curve_index: Optional[int] = None
+    ) -> tuple:
+        """Return ``(confidence, reason)`` for the core-temperature series.
+
+        ``confidence`` is one of ``"high"`` / ``"medium"`` / ``"low"`` and
+        drives the banner colour; ``reason`` is the human-readable
+        justification (banner copy / tooltip). The layering mirrors
+        :meth:`get_core_temperature_series` exactly — both read the active
+        method from :meth:`_resolve_core`:
+
+          1. **Manual override** → ``("high", "manual override: core = T{n}")``.
+          2. **Bake metadata (Method 4), core in-probe** (``pos_mm >= 0``) →
+             ``("high", "geometric core at {pos_mm:.1f} mm from tip via bake metadata")``.
+             **Method 4 trumps Method 1's confidence** here: a deterministic
+             operator-supplied geometry is high-confidence even when the
+             classifier extrapolated and reported ``"low"``.
+          3. **Bake metadata (Method 4), core past tip** (``pos_mm < 0``) →
+             ``("low", "geometric core sits below probe tip; series degraded to T1")``.
+          4. **Classifier (Method 1)** →
+             ``(core_assignment.confidence, core_assignment.reason)``.
+          5. **Final fallback** →
+             ``("low", "no classifier assignment; using legacy CoreTemperature column")``.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        _, tag = self._resolve_core(curve_index, df)
+
+        if tag == "override":
+            sensor = self._sensor_overrides.get(curve_index, {}).get('core')
+            return "high", f"manual override: core = {sensor}"
+        if tag == "method4":
+            pos_mm = self.get_geometric_core_position_mm_from_tip(curve_index)
+            pos_txt = f"{pos_mm:.1f}" if pos_mm is not None else "?"
+            return (
+                "high",
+                f"geometric core at {pos_txt} mm from tip via bake metadata",
+            )
+        if tag == "method4_degraded":
+            return (
+                "low",
+                "geometric core sits below probe tip; series degraded to T1",
+            )
+        if tag == "classifier":
+            assignment = self.curve_sensor_assignments.get(curve_index, {}).get(
+                'assignment'
+            )
+            core = assignment.core_assignment
+            return (
+                getattr(core, "confidence", "medium") or "medium",
+                getattr(core, "reason", "") or "",
+            )
+        return (
+            "low",
+            "no classifier assignment; using legacy CoreTemperature column",
+        )
+
+    def active_core_method(self, curve_index: Optional[int] = None) -> str:
+        """Return the method tag feeding the core series for ``curve_index``.
+
+        One of ``"override"`` / ``"method4"`` / ``"method4_degraded"`` /
+        ``"classifier"`` / ``"fallback"`` (see :meth:`_resolve_core`). Public
+        so UI surfaces (the sidebar Bake Metadata status line) can label the
+        active model without reaching into loader internals.
+        """
+        if curve_index is None:
+            curve_index = self.current_curve_index
+        df = self._curve_dataframe(curve_index)
+        _, tag = self._resolve_core(curve_index, df)
+        return tag
 
     def get_surface_temperature_series(
         self, curve_index: Optional[int] = None
