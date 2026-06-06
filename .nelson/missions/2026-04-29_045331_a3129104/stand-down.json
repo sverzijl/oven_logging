@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Onslaught M21: extend M20 Stefan v2 with a distributed side-heat source term S(x,t) representing heat conducted in from tin sidewalls. 6-param fit (M20's 5 + new Q_side magnitude). Single-fixture decision gate on BA3C_0946 with bar main-bake RMSE less than 4 C and at least 4/6 params interior. Tests the 1D-vs-effective-2D assumption shared by all 18 prior inverse-problem missions.",
+  "actual_outcome": "Side-heat hypothesis empirically refuted. M9 Stefan extended with distributed side-source S(x,t) = Q_side * w(x) * g_oven(t). Phase 1 sanity 2/2 PASS. Phase 2 synthetic recovery: 4/5 FAIL \u2014 optimizer always finds Q_side approx 1e4 regardless of true value (12K, 28K, 45K, 107K, 109K), proving Q_side is statistically unidentifiable from in-dough thermometry. Phase 3 single-fixture BA3C_0946: main-bake RMSE 5.66 C vs M9 5.76 C, improvement 0.1 C (within noise); 5/6 params interior; Q_side landed at 1.33e4 \u2014 the meaningless default. Decision gate FAILED. The 5-6 C floor is now confirmed structural across 20 inverse-problem missions, 5 model classes, 7 BC formulations, and 8 distinct free-parameter combinations including the brand-new side-heat term. Final verdict CONFIRM-information-limit; pivot to M18 Method 1 + Method 4 stub for production.",
+  "success_metric_result": "Phase 2: 4/5 synthetic seeds FAILED to recover Q_side (61-90% relative error). Phase 3 BA3C_0946: 5.66 C vs M9 5.76 C \u2014 no improvement. Q_side is a degenerate parameter; in-dough sensors cannot separate side-heat from alpha/rhoL/smear effects.",
+  "duration_minutes": 226,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Synthetic recovery is the gating test for inverse-problem viability \u2014 failure on synthetic with known truth proves identifiability is broken regardless of real-CSV result"
+    ],
+    "avoid": [
+      "Adding new free parameters that capture real physics but are statistically degenerate with existing parameters; 8 in-dough sensors have ~1 degree of freedom for cumulative-heat-into-dough effects"
+    ]
+  },
+  "created_at": "2026-04-29T08:40:04Z"
+}

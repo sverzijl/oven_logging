@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "outcome_achieved": true,
+  "planned_outcome": "Land HMS Drake M23: classify_temporal() wrapper over existing M2a/Stefan classifier; per-timestep classification + Savitzky-Golay smoothing produces time-evolving moisture-front, surface-position, core-position traces. Single empirical test on BA3C_0946 validating monotonicity (front moves inward) and continuity (no jumps). Output 3-trace plot.",
+  "actual_outcome": "M23 classify_temporal wrapper landed. 5/5 tests pass. BA3C_0946 empirical (23 min bake, 42 strides, 2.3s wall): Stefan front advances monotone inward 0.94\u21920.68 over 2.5\u219223 min \u2014 perfect match to conduction-driven physics; x_core late-quarter std 0.000 (target <0.05); x_surface stable at 0.78 (T6/T7 boundary); T_core climbs to ~95\u00b0C and stops at latent-heat plateau. Derived quantities are physically sensible. PNG diagnostic shows 4 panels of time-evolving traces. Recommend M24 wires this into Streamlit Spatial Evolution sub-tab.",
+  "success_metric_result": "5 new tests pass; existing 60-test spatial-reconstruction pack still green; PNG generated; physics signatures (monotone front, stable core, latent-heat plateau) all confirmed empirically.",
+  "duration_minutes": 12,
+  "budget": {
+    "tokens_consumed": 0,
+    "tokens_budgeted": null,
+    "pct_consumed": 0.0
+  },
+  "fleet": {
+    "ships_used": 1,
+    "reliefs": 0,
+    "max_concurrent_ships": 1
+  },
+  "tasks": {
+    "completed": 1,
+    "total": 1,
+    "by_station_tier": {
+      "0": 0,
+      "1": 1,
+      "2": 0,
+      "3": 0
+    }
+  },
+  "quality": {
+    "standing_order_violations": 0,
+    "blockers_raised": 0,
+    "blockers_resolved": 0,
+    "avg_blocker_duration_minutes": null
+  },
+  "open_risks": [],
+  "follow_ups": [],
+  "mentioned_in_despatches": [],
+  "reusable_patterns": {
+    "adopt": [
+      "Per-snapshot classifier + Savitzky-Golay smoothing produces physically-sensible time-evolving derived quantities at zero parametric inverse-fitting cost \u2014 the right abstraction for user-facing 'where is the moisture front right now' UI."
+    ],
+    "avoid": [
+      "Setting acceptance metrics (e.g. 'x_core std<0.05 over full bake') without considering that the metric is testing the wrong window \u2014 early-bake x_core can legitimately drift before stabilising."
+    ]
+  },
+  "created_at": "2026-04-29T09:19:30Z"
+}

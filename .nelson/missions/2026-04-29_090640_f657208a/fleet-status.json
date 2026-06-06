@@ -2,10 +2,10 @@
   "version": 1,
   "mission": {
     "outcome": "Land HMS Drake M23: classify_temporal() wrapper over existing M2a/Stefan classifier; per-timestep classification + Savitzky-Golay smoothing produces time-evolving moisture-front, surface-position, core-position traces. Single empirical test on BA3C_0946 validating monotonicity (front moves inward) and continuity (no jumps). Output 3-trace plot.",
-    "status": "underway",
-    "phase": "UNDERWAY",
+    "status": "complete",
+    "phase": "STAND_DOWN",
     "started_at": "2026-04-29T09:06:40Z",
-    "checkpoint_number": 0
+    "checkpoint_number": 1
   },
   "progress": {
     "pending": 1,
@@ -37,5 +37,5 @@
   "recent_events": [
     "Squadron formed: 1 captains"
   ],
-  "last_updated": "2026-04-29T09:07:13Z"
+  "last_updated": "2026-04-29T09:19:30Z"
 }

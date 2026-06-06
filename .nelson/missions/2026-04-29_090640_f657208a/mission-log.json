@@ -37,6 +37,34 @@
         "from_phase": "BATTLE_PLAN",
         "to_phase": "UNDERWAY"
       }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:19:30Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "classify_temporal wrapper + BA3C empirical validation",
+        "owner": "HMS Drake",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:19:30Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 1,
+        "tasks_total": 1,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 12,
+        "ships_used": 1,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
     }
   ]
 }

@@ -37,6 +37,46 @@
         "from_phase": "BATTLE_PLAN",
         "to_phase": "UNDERWAY"
       }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:39:35Z",
+      "data": {
+        "task_id": 1,
+        "task_name": "Foxhound isothermal tracker",
+        "owner": "HMS Foxhound",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "task_completed",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:39:35Z",
+      "data": {
+        "task_id": 2,
+        "task_name": "Astute red-cell",
+        "owner": "HMS Astute",
+        "station_tier": 1,
+        "verification": "passed"
+      }
+    },
+    {
+      "type": "mission_complete",
+      "checkpoint": 1,
+      "timestamp": "2026-04-29T09:39:36Z",
+      "data": {
+        "outcome_achieved": true,
+        "tasks_completed": 2,
+        "tasks_total": 2,
+        "total_tokens_consumed": 0,
+        "budget_pct_consumed": 0.0,
+        "duration_minutes": 11,
+        "ships_used": 2,
+        "reliefs": 0,
+        "standing_order_violations_total": 0
+      }
     }
   ]
 }
