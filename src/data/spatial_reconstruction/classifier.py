@@ -297,7 +297,14 @@ def classify(
     # Map fit positions to PositionalAssignments + apply topology.
     # ------------------------------------------------------------------
     # Cavity proxy terminal value used for ambient/lid decisions.
-    proxy_terminal = float(np.max(np.array(list(terminal_temps.values()))))
+    # nan-aware (fix/deep-review #1): a single dead/NaN sensor terminal must NOT
+    # make the proxy NaN — that would make every gap (proxy - T) NaN and
+    # silently disable all lid/ambient detection. Guard the all-NaN case.
+    _terminal_vals = np.array(list(terminal_temps.values()), dtype=float)
+    if np.any(np.isfinite(_terminal_vals)):
+        proxy_terminal = float(np.nanmax(_terminal_vals))
+    else:
+        proxy_terminal = float("nan")
 
     # core_assignment ---------------------------------------------------
     if fit.x_core is not None:
@@ -333,18 +340,29 @@ def classify(
         )
     else:
         # Fall back to the sensor with the lowest terminal temp.
-        cold_idx = int(np.argmin(np.array(list(terminal_temps.values()))))
-        core_assignment = _build_assignment(
-            role="core",
-            position=sensor_positions[cold_idx],
-            sensor_positions=sensor_positions,
-            sensor_names=sensor_names,
-            df=working_df,
-            confidence="low",
-            reason="degraded fallback: coldest terminal temp",
-        )
+        # nan-aware (fix/deep-review #2): np.argmin over a NaN-containing
+        # terminal vector can return the dead sensor's index. Use nanargmin and
+        # guard the all-NaN case (no usable core).
+        if np.any(np.isfinite(_terminal_vals)):
+            cold_idx = int(np.nanargmin(_terminal_vals))
+            core_assignment = _build_assignment(
+                role="core",
+                position=sensor_positions[cold_idx],
+                sensor_positions=sensor_positions,
+                sensor_names=sensor_names,
+                df=working_df,
+                confidence="low",
+                reason="degraded fallback: coldest terminal temp",
+            )
+        else:
+            core_assignment = None  # type: ignore[assignment]
 
-    core_sensor_idx = sensor_names.index(core_assignment.nearest_sensor)
+    if core_assignment is None:
+        # All sensors dead — no usable core. Downstream consumers
+        # (isothermal.track_isothermal) already guard core_assignment is None.
+        core_sensor_idx = 0
+    else:
+        core_sensor_idx = sensor_names.index(core_assignment.nearest_sensor)
 
     # surface_assignment ------------------------------------------------
     # Convention (matches fixture annotations across both modes):

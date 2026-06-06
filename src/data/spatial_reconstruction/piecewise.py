@@ -83,10 +83,17 @@ def _detect_through_loaf(temps: np.ndarray, jump_min: float) -> bool:
     """
     if temps.size < 5:
         return False
-    interior_min = float(np.min(temps[1:-1]))
-    interior_min_idx = int(np.argmin(temps[1:-1])) + 1
+    # nan-aware interior min (fix/deep-review #2): a dead interior sensor must
+    # not poison the U-shape detection nor be chosen as the interior minimum.
+    interior = temps[1:-1]
+    if not np.any(np.isfinite(interior)):
+        return False
+    interior_min = float(np.nanmin(interior))
+    interior_min_idx = int(np.nanargmin(interior)) + 1
     left = float(temps[0])
     right = float(temps[-1])
+    if not (np.isfinite(left) and np.isfinite(right)):
+        return False
     # Both endpoints higher than interior min by ≥ jump_min, and the global
     # min is strictly interior.
     if interior_min_idx in (0, len(temps) - 1):
@@ -121,7 +128,19 @@ def _interface_position(
     if side == "single":
         lo, hi = 0, n - 1
     else:
-        interior_argmin = int(np.argmin(temps[1:-1])) + 1 if n > 2 else int(np.argmin(temps))
+        # nan-aware interior argmin (fix/deep-review #2): do not split the probe
+        # at a dead sensor.
+        if n > 2:
+            interior = temps[1:-1]
+            interior_argmin = (
+                int(np.nanargmin(interior)) + 1
+                if np.any(np.isfinite(interior))
+                else 1
+            )
+        else:
+            interior_argmin = (
+                int(np.nanargmin(temps)) if np.any(np.isfinite(temps)) else 0
+            )
         if side == "left":
             lo, hi = 0, interior_argmin
         elif side == "right":
@@ -304,15 +323,28 @@ def fit_piecewise(
         positions = np.array(sensor_positions_normalised, dtype=float)
 
     temps = np.array([terminal_temps[s] for s in sensor_names], dtype=float)
-    cavity_proxy_T = float(np.max(temps))
+    # nan-aware cavity proxy (fix/deep-review #1): a single dead/NaN sensor
+    # terminal must NOT make the proxy NaN and silently disable every
+    # downstream lid/ambient gap test (gap = proxy - T becomes NaN).
+    if np.any(np.isfinite(temps)):
+        cavity_proxy_T = float(np.nanmax(temps))
+    else:
+        cavity_proxy_T = float("nan")
 
     # ------------------------------------------------------------------
     # Lid-bake heuristic: when ALL sensors terminate in the plateau band
     # (no sensor crosses plateau_hi), the dough/air boundary cannot be
     # detected from terminal-T alone. Use heat-up-speed instead.
     # ------------------------------------------------------------------
-    all_in_plateau = bool(np.all(temps <= plat_hi + 5.0))
-    lid_bake_mode = all_in_plateau and bool(np.max(temps) - np.min(temps) < 10.0)
+    # nan-aware span check (fix/deep-review #1): np.nanmax/nanmin so a dead
+    # sensor does not NaN-poison the < 10 C lid-bake span test.
+    finite_temps = temps[np.isfinite(temps)]
+    all_in_plateau = bool(finite_temps.size > 0 and np.all(finite_temps <= plat_hi + 5.0))
+    span_ok = bool(
+        finite_temps.size > 0
+        and (float(np.nanmax(temps)) - float(np.nanmin(temps))) < 10.0
+    )
+    lid_bake_mode = all_in_plateau and span_ok
 
     # ------------------------------------------------------------------
     # Detect through-loaf insertion.
@@ -369,8 +401,11 @@ def fit_piecewise(
         in_dough_idx = np.array(lid_through_loaf_dough_idx, dtype=int)
     elif x_dough_air is None:
         # No interface — entire probe is in one region. Decide which by
-        # comparing terminal temps to the plateau band.
-        if np.all(temps <= plat_hi):
+        # comparing terminal temps to the plateau band. nan-aware
+        # (fix/deep-review #1/#2): ignore dead sensors so a NaN does not break
+        # full-immersion detection.
+        finite_for_region = temps[np.isfinite(temps)]
+        if finite_for_region.size > 0 and np.all(finite_for_region <= plat_hi):
             # Full immersion in dough.
             in_dough_idx = np.arange(len(sensor_names))
         else:
@@ -389,9 +424,14 @@ def fit_piecewise(
         idx_right = np.flatnonzero(positions > x_dough_air)
         if idx_left.size and idx_right.size:
             # Pick the side whose median terminal-T is closer to the plateau
-            # band — that's the dough side.
-            left_med = float(np.median(temps[idx_left]))
-            right_med = float(np.median(temps[idx_right]))
+            # band — that's the dough side. nan-aware (fix/deep-review #1/#2):
+            # a dead sensor on one side must not NaN-poison its median and flip
+            # the dough/air side selection. Fall back to the other side's median
+            # when a side is entirely dead.
+            left_finite = temps[idx_left][np.isfinite(temps[idx_left])]
+            right_finite = temps[idx_right][np.isfinite(temps[idx_right])]
+            left_med = float(np.median(left_finite)) if left_finite.size else float("inf")
+            right_med = float(np.median(right_finite)) if right_finite.size else float("inf")
             if left_med <= right_med:
                 in_dough_idx = idx_left
             else:

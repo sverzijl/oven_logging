@@ -98,21 +98,30 @@ def _find_isotherm_position(
     sensor_temps_C: np.ndarray,
     target_T_C: float,
 ) -> float:
-    """Find x where T(x) = target along the probe.
+    """Find x where the spatial T(x) profile crosses ``target_T_C``.
 
-    Strategy: walk from surface (highest x, hottest in canonical bake) toward
-    core (lowest x, coldest); return the FIRST adjacent-sensor pair where
-    one is >= target and the next (toward core) is < target. Linear
-    interpolation between those two positions.
+    fix/deep-review #4 / #16. The old implementation assumed the highest-x
+    sensor is the hottest and the profile is monotone decreasing toward the
+    core. That short-circuited to NaN when ``temps[surface_end] < target`` and
+    snapped to 0.0 when ``min(temps) > target`` — which MIS-LOCATES fronts on
+    INVERTED / non-monotonic profiles (Wonder full-crumb, where the probe-tip
+    sensor T1 is hottest and the array is a shallow, non-monotone U).
 
-    Boundary cases:
-    * ``max(temps) < target``: front not yet in the probe → return NaN.
-    * ``min(temps) > target``: front already advanced past the core → return
-      0.0 (probe-tip position, the deepest position the probe can report).
-    * ``temps[i] >= target >= temps[i+1]`` for adjacent (surface→core) pair:
-      linear-interp between positions[i] and positions[i+1].
+    Corrected strategy (the same bracket-scan ``piecewise._crossing_position``
+    and ``stefan._find_100c_crossings`` already use): order the sensors by
+    position, then scan EVERY adjacent pair for a bracket
+    ``min(t0, t1) <= target <= max(t0, t1)`` and linearly interpolate the
+    crossing position within that pair.
 
-    NaN sensor temperatures are dropped before the walk (defensive).
+    * No pair brackets the target → return NaN (the front is genuinely not
+      sampled by the probe). We do NOT snap to 0.0 — fabricating a probe-tip
+      position is exactly the inverted-profile bug.
+    * Multiple crossings (e.g. a through-loaf U has two) → return the crossing
+      nearest the surface (the highest-x crossing). The moisture/Stefan front
+      advances inward from the surface, so the surface-side crossing is the
+      physically relevant front position.
+
+    NaN sensor temperatures are dropped before the scan (defensive).
     """
     pos = np.asarray(sensor_positions_norm, dtype=float)
     T = np.asarray(sensor_temps_C, dtype=float)
@@ -124,39 +133,34 @@ def _find_isotherm_position(
     pos = pos[finite_mask]
     T = T[finite_mask]
 
-    # Walk from surface (highest x) toward core (lowest x).
-    sorted_idx = np.argsort(pos)[::-1]
+    # Order by position ascending (probe tip x=0 first, surface x=1 last) so we
+    # can return the highest-x (surface-nearest) crossing deterministically.
+    sorted_idx = np.argsort(pos)
     positions = pos[sorted_idx]
     temps = T[sorted_idx]
 
-    if temps[0] < target_T_C:
-        # Hottest sensor is below target → front not yet in the probe.
-        return float("nan")
-    if temps[-1] > target_T_C:
-        # Coldest sensor (toward core) is already past target →
-        # front advanced past the probe tip.
-        return 0.0
-
+    best_x = float("nan")  # tracks the highest-x crossing found so far
     for i in range(len(temps) - 1):
-        T_hi = temps[i]
-        T_lo = temps[i + 1]
-        # We want T_hi >= target >= T_lo (walking surface→core means T
-        # generally decreases). Use >= on both sides so equality at either
-        # endpoint resolves cleanly.
-        if T_hi >= target_T_C >= T_lo:
-            # Linear interpolation in (position, T) space.
-            # As we move from positions[i] (hot side) to positions[i+1]
-            # (cool side), T goes from T_hi to T_lo. Find frac so that
-            # T_hi + frac * (T_lo - T_hi) = target.
-            denom = T_lo - T_hi
+        t0 = float(temps[i])
+        t1 = float(temps[i + 1])
+        lo_T = min(t0, t1)
+        hi_T = max(t0, t1)
+        if lo_T <= target_T_C <= hi_T:
+            x0 = float(positions[i])
+            x1 = float(positions[i + 1])
+            denom = t1 - t0
             if denom == 0.0:
-                return float(positions[i])
-            frac = (target_T_C - T_hi) / denom
-            # Clamp to [0, 1] for numerical safety.
-            frac = float(np.clip(frac, 0.0, 1.0))
-            return float(positions[i] + frac * (positions[i + 1] - positions[i]))
-    # Should not reach here given the boundary checks above.
-    return float("nan")
+                # Flat bracket sitting exactly on the target — the crossing
+                # spans [x0, x1]; report the surface-side (higher-x) end.
+                x_cross = max(x0, x1)
+            else:
+                frac = (target_T_C - t0) / denom
+                frac = float(np.clip(frac, 0.0, 1.0))
+                x_cross = x0 + frac * (x1 - x0)
+            # Keep the highest-x crossing (nearest the surface).
+            if np.isnan(best_x) or x_cross >= best_x:
+                best_x = x_cross
+    return best_x
 
 
 def _smooth_savgol_contiguous(
@@ -347,7 +351,16 @@ def track_isothermal(
             T_at_fixed_surface_t=empty,
             classification=classification,
         )
-    t_grid = np.arange(stride_seconds, bake_duration_s + 1e-9, stride_seconds)
+    # fix/deep-review #5: start the grid at t=0 so the opening row is covered,
+    # and extend the upper bound by one stride past bake_duration_s so the
+    # FINAL sample is always covered (np.arange's half-open stop otherwise drops
+    # the last row when bake_duration_s is not an exact multiple of the stride).
+    t_grid = np.arange(0.0, bake_duration_s + stride_seconds, stride_seconds)
+    # Clamp the final centre to the last sample time so we never index past the
+    # bake (the per-stride loop rounds t/period to a row index and clips, but
+    # keeping t_grid within the bake keeps the reported times honest).
+    if t_grid.size > 0 and t_grid[-1] > bake_duration_s:
+        t_grid[-1] = bake_duration_s
 
     # ------------------------------------------------------------------
     # 3-4) Per-stride isotherm positions.

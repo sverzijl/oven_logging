@@ -222,6 +222,29 @@ class TestStefanFitInvariants:
             f"full-immersion case should yield no front; got {fit.x_dough_air!r}"
         )
 
+    def test_fit_stefan_alpha_crust_is_numeric_on_full_immersion(self):
+        """fix/deep-review #7 — alpha_crust is a float-typed field. On the
+        full-immersion / all-air / lid-bake paths (no air-side crust fit) it
+        must store float('nan'), NOT None, matching piecewise's float-only
+        fields and keeping the field numeric for downstream consumers.
+        """
+        import math
+
+        from src.data.spatial_reconstruction.stefan import fit_stefan
+
+        peaks = [95.0, 95.5, 96.0, 96.5, 97.0, 97.5, 98.0, 98.5]
+        df = _make_8_sensor_df(
+            peaks,
+            plateau_caps={s: peaks[i] for i, s in enumerate(
+                ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"))},
+        )
+        features, terminal_temps, positions = _build_features_and_terminals(df)
+        fit = fit_stefan(features, terminal_temps, positions)
+        alpha = fit.fit_quality.alpha_crust
+        assert alpha is not None, "alpha_crust must be numeric (nan), not None"
+        assert isinstance(alpha, float)
+        assert math.isnan(alpha), f"expected nan on full-immersion, got {alpha}"
+
     def test_fit_stefan_lid_detection(self):
         """Lid bake: T1-T4 dough, T5-T6 air at cavity, T7-T8 lid plateau ~150°C.
 

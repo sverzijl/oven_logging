@@ -262,6 +262,57 @@ def _make_synthetic_full_df(
     return df
 
 
+class TestPiecewiseNanSafety:
+    """fix/deep-review #1, #2 — a NaN terminal must not poison the cavity proxy
+    or the lid-bake span check, and the degraded core fallback must not pick the
+    dead sensor.
+    """
+
+    def _features(self, terminal_arr):
+        return {
+            f"T{i+1}": {
+                "terminal_temp": float(terminal_arr[i]),
+                "max_temp": float(terminal_arr[i]),
+                "plateau_dwell_seconds_near_100c": 0.0,
+                "time_fraction_below_100c": 0.5,
+                "rise_slope_30_to_80c_c_per_s": 0.1,
+                "post_80c_variance": 0.0,
+                "time_to_100c_seconds": None,
+                "time_to_60c_seconds": float(10 * (i + 1)),
+                "xcorr_lag_to_oven_proxy_seconds": 0.0,
+            }
+            for i in range(8)
+        }
+
+    def test_cavity_proxy_finite_with_one_nan_terminal(self):
+        from src.data.spatial_reconstruction.piecewise import fit_piecewise
+
+        positions = tuple(i / 7 for i in range(8))
+        arr = np.array([95.0, np.nan, 99.0, 99.5, 150.0, 200.0, 220.0, 220.0])
+        terminal_temps = {f"T{i+1}": float(arr[i]) for i in range(8)}
+        fit = fit_piecewise(self._features(arr), terminal_temps, positions)
+        # cavity_proxy_T must be the finite max (220), NOT NaN.
+        proxy = fit.fit_quality.get("cavity_proxy_T")
+        assert np.isfinite(proxy)
+        assert abs(proxy - 220.0) < 1e-6
+        # The 150/200/220 air-side rise must still produce a dough/air interface.
+        assert fit.x_dough_air is not None
+
+    def test_lid_bake_span_check_ignores_nan(self):
+        from src.data.spatial_reconstruction.piecewise import fit_piecewise
+
+        # All sensors plateau ~98 C (lid bake) but T4 is dead (NaN). The
+        # span check max-min must use nan-aware ops so the dead sensor does
+        # not make the span NaN and silently break lid-bake-mode detection.
+        positions = tuple(i / 7 for i in range(8))
+        arr = np.array([97.0, 98.0, 98.5, np.nan, 98.0, 97.5, 98.0, 99.0])
+        terminal_temps = {f"T{i+1}": float(arr[i]) for i in range(8)}
+        fit = fit_piecewise(self._features(arr), terminal_temps, positions)
+        # cavity proxy finite; fit completes (no NaN crash).
+        assert np.isfinite(fit.fit_quality.get("cavity_proxy_T"))
+        assert fit.fit_quality.get("lid_bake_mode") is True
+
+
 class TestClassifier:
     def test_classify_returns_position_between_sensors(self):
         from src.data.spatial_reconstruction.classifier import classify

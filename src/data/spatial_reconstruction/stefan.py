@@ -324,22 +324,38 @@ def fit_stefan(
 
     # T_cavity anchor — the proxy. The Stefan air-region model converges to
     # this asymptote as α(x − x_front) → ∞.
-    T_cavity = float(np.max(temps))
+    # nan-aware (fix/deep-review #1): a single dead/NaN sensor terminal must NOT
+    # make T_cavity NaN and silently disable every lid/ambient gap test.
+    if np.any(np.isfinite(temps)):
+        T_cavity = float(np.nanmax(temps))
+    else:
+        T_cavity = float("nan")
 
     # ------------------------------------------------------------------
     # Detect "lid bake" mode: every terminal sits in the plateau band and
     # the spread is < 10 °C. In this regime no terminal-T crossing of 100°C
     # is meaningful; we fall back to heat-up-speed splitting.
     # ------------------------------------------------------------------
-    all_in_plateau = bool(np.all(temps <= plat_hi + 5.0))
-    lid_bake_mode = all_in_plateau and bool(np.max(temps) - np.min(temps) < 10.0)
+    # nan-aware span check (fix/deep-review #1): nanmax/nanmin so a dead sensor
+    # does not poison the < 10 C lid-bake span test.
+    finite_temps = temps[np.isfinite(temps)]
+    all_in_plateau = bool(finite_temps.size > 0 and np.all(finite_temps <= plat_hi + 5.0))
+    span_ok = bool(
+        finite_temps.size > 0
+        and (float(np.nanmax(temps)) - float(np.nanmin(temps))) < 10.0
+    )
+    lid_bake_mode = all_in_plateau and span_ok
 
     crossings = _find_100c_crossings(positions, temps)
 
     is_through_loaf = False
     x_dough_air: float | tuple | None = None
     in_dough_idx: list[int] = []
-    alpha = None
+    # fix/deep-review #7: alpha_crust is a float-typed field. Default to nan (not
+    # None) so the full-immersion / all-air / lid-bake paths — where there is no
+    # air-side crust to fit — keep the field numeric, matching piecewise's
+    # float-only fields and downstream numeric consumers.
+    alpha: float = float("nan")
     air_sse = 0.0
 
     if lid_bake_mode:

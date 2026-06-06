@@ -45,23 +45,53 @@ def select_lid_cluster(
     Returns
     -------
     list[int]
-        The sensor indices forming the densest cluster whose pairwise terminal
-        temperatures fall within ``tolerance_c`` of a common member, or ``[]``
-        when no cluster of >= 2 sensors exists.
+        The sensor indices forming the densest cluster that is BOTH internally
+        coherent (terminal max - min within ``tolerance_c``) AND index-adjacent
+        (a real lid touches physically adjacent sensors), or ``[]`` when no such
+        cluster of >= 2 sensors exists.
+
+    Notes
+    -----
+    fix/deep-review #6: the previous rule grouped sensors "within tolerance of
+    ONE anchor", which let a gradual air-side gradient (e.g. 100, 110, 120, 130,
+    140 — every adjacent step < 15 C but a 40 C span) register as a multi-sensor
+    lid plateau. A genuine lid is a tight, contiguous plateau: we now require
+    the accepted cluster's own terminal span to be within ``tolerance_c`` AND
+    its members to be index-adjacent.
     """
     if tolerance_c is None:
         tolerance_c = LID_CLUSTER_TOLERANCE_C
     if len(candidate_indices) < 2:
         return []
-    cand_temps = sorted(
-        (terminal_temps[sensor_names[i]], i) for i in candidate_indices
-    )
+
+    # Sort candidates by sensor index so we can scan contiguous index runs.
+    idx_sorted = sorted(candidate_indices)
+
     best_cluster: list = []
-    for j in range(len(cand_temps)):
-        cluster_at_j = [
-            idx for T, idx in cand_temps
-            if abs(T - cand_temps[j][0]) <= tolerance_c
-        ]
-        if len(cluster_at_j) > len(best_cluster):
-            best_cluster = cluster_at_j
+    # Scan every contiguous-by-index run; within each run take the longest
+    # sub-run whose terminal span stays within tolerance (sliding window).
+    n = len(idx_sorted)
+    start = 0
+    while start < n:
+        # Extend a maximal index-adjacent run.
+        end = start
+        while end + 1 < n and idx_sorted[end + 1] == idx_sorted[end] + 1:
+            end += 1
+        run = idx_sorted[start : end + 1]
+        # Within this index-adjacent run, find the longest window whose terminal
+        # max - min <= tolerance_c (coherence). Sliding window over the run.
+        w_lo = 0
+        for w_hi in range(len(run)):
+            # Shrink the window from the left until coherent.
+            while w_lo <= w_hi:
+                window = run[w_lo : w_hi + 1]
+                temps = [terminal_temps[sensor_names[i]] for i in window]
+                if (max(temps) - min(temps)) <= tolerance_c:
+                    break
+                w_lo += 1
+            window = run[w_lo : w_hi + 1]
+            if len(window) > len(best_cluster):
+                best_cluster = list(window)
+        start = end + 1
+
     return best_cluster if len(best_cluster) >= 2 else []
