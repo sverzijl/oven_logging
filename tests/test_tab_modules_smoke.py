@@ -52,3 +52,16 @@ def test_sensor_naming_module_exposes_helpers():
     import sensor_naming
     assert callable(getattr(sensor_naming, "get_dynamic_sensor_names", None))
     assert callable(getattr(sensor_naming, "get_default_sensors", None))
+
+
+def test_shared_dedup_module_exposes_helpers():
+    """#20: the per-(file, curve) dedup helpers are importable and callable."""
+    from tabs import _shared
+    assert callable(getattr(_shared, "get_s_curve_report", None))
+    assert callable(getattr(_shared, "get_zone_analyzer", None))
+
+
+def test_app_module_exposes_error_boundary():
+    """#18: the per-tab error boundary helper is importable and callable."""
+    import app
+    assert callable(getattr(app, "render_tab_safely", None))

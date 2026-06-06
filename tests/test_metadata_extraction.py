@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 from datetime import datetime
-from io import StringIO
+from io import BytesIO, StringIO
 from src.data.loader import ThermalProfileLoader
 from src.analysis.curve_comparison import CurveComparison
 
@@ -37,7 +37,42 @@ Timestamp,SessionID,SequenceNumber,T1,T2,T3,T4,T5,T6,T7,T8,VirtualCoreTemperatur
         assert metadata['sample_period_s'] == 5.0
         assert isinstance(metadata['created_datetime'], datetime)
         assert metadata['created_datetime'].strftime('%H:%M') == '13:51'
-        
+
+    def test_trailing_commas_stripped_from_all_values(self):
+        """Double-comma header artefact must not corrupt Probe S/N / Created."""
+        csv_content = (
+            "Combustion Inc. Probe Data\n"
+            "Probe S/N: 100098DE,\n"
+            "Sample Period: 5000,\n"
+            "Created: 2025-05-30 13:51:07,\n"
+            "\n\n\n\n\n\n"
+            "Timestamp,T1\n0.000,22.0\n"
+        )
+        loader = ThermalProfileLoader()
+        md = loader._parse_metadata_from_content(csv_content)
+        assert md['Probe S/N'] == '100098DE'
+        assert md['Created'] == '2025-05-30 13:51:07'
+        assert md['sample_period_ms'] == 5000
+        assert md['created_datetime'].strftime('%H:%M') == '13:51'
+
+    def test_cp1252_buffer_with_degree_sign(self):
+        """A cp1252-encoded buffer (degree sign 0xB0) must decode cleanly."""
+        csv_content = (
+            "Combustion Inc. Probe Data\n"
+            "Probe S/N: 100098DE\n"
+            "Sample Period: 5000\n"
+            "Created: 2025-05-30 13:51:07\n"
+            "Note: ambient 22°C\n"
+            "\n\n\n\n\n"
+            "Timestamp,T1,T2,T3,T4,T5,T6,T7,T8,VirtualCoreTemperature\n"
+            "0.000,22.0,22.1,22.2,22.3,22.4,22.5,22.6,22.7,22.0\n"
+        )
+        loader = ThermalProfileLoader()
+        buf = BytesIO(csv_content.encode('cp1252'))
+        data, md = loader.load_csv(file_buffer=buf)
+        assert md['Probe S/N'] == '100098DE'
+        assert data is not None
+
     def test_short_curve_name_generation(self):
         """Test generation of short curve names."""
         # Test with metadata

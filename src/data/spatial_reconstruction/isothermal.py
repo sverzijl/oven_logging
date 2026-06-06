@@ -41,6 +41,9 @@ from .profile import interpolate_temperature_series_at
 
 DEFAULT_ISOTHERMS_C = (60.0, 80.0, 100.0, 110.0)
 
+# Epsilon for the "<= fixed_surface_x" in-bounds test (fix/deep-review #2b).
+_SURFACE_EPS = 1e-6
+
 
 # ---------------------------------------------------------------------------
 # Public dataclass
@@ -93,70 +96,108 @@ class IsothermalAssignment:
 # ---------------------------------------------------------------------------
 
 
-def _find_isotherm_position(
+def _find_isotherm_crossings(
     sensor_positions_norm: np.ndarray,
     sensor_temps_C: np.ndarray,
     target_T_C: float,
-) -> float:
-    """Find x where T(x) = target along the probe.
+) -> list[float]:
+    """Return ALL x-positions where the spatial T(x) profile crosses
+    ``target_T_C``, sorted ascending by x.
 
-    Strategy: walk from surface (highest x, hottest in canonical bake) toward
-    core (lowest x, coldest); return the FIRST adjacent-sensor pair where
-    one is >= target and the next (toward core) is < target. Linear
-    interpolation between those two positions.
+    Bracket-scan (the same pattern ``piecewise._crossing_position`` and
+    ``stefan._find_100c_crossings`` use): order the sensors by position, then
+    scan EVERY adjacent pair for a bracket ``min(t0,t1) <= target <= max(t0,t1)``
+    and linearly interpolate the crossing position within that pair. A
+    non-monotonic / U-shaped profile (Wonder full-crumb) yields multiple
+    crossings; the caller decides which to report.
 
-    Boundary cases:
-    * ``max(temps) < target``: front not yet in the probe → return NaN.
-    * ``min(temps) > target``: front already advanced past the core → return
-      0.0 (probe-tip position, the deepest position the probe can report).
-    * ``temps[i] >= target >= temps[i+1]`` for adjacent (surface→core) pair:
-      linear-interp between positions[i] and positions[i+1].
-
-    NaN sensor temperatures are dropped before the walk (defensive).
+    NaN sensor temperatures are dropped before the scan (defensive).
+    Returns an empty list when no pair brackets the target.
     """
     pos = np.asarray(sensor_positions_norm, dtype=float)
     T = np.asarray(sensor_temps_C, dtype=float)
     if pos.size != T.size or pos.size == 0:
-        return float("nan")
+        return []
     finite_mask = np.isfinite(T)
     if finite_mask.sum() < 2:
-        return float("nan")
+        return []
     pos = pos[finite_mask]
     T = T[finite_mask]
 
-    # Walk from surface (highest x) toward core (lowest x).
-    sorted_idx = np.argsort(pos)[::-1]
+    sorted_idx = np.argsort(pos)
     positions = pos[sorted_idx]
     temps = T[sorted_idx]
 
-    if temps[0] < target_T_C:
-        # Hottest sensor is below target → front not yet in the probe.
-        return float("nan")
-    if temps[-1] > target_T_C:
-        # Coldest sensor (toward core) is already past target →
-        # front advanced past the probe tip.
-        return 0.0
-
+    crossings: list[float] = []
     for i in range(len(temps) - 1):
-        T_hi = temps[i]
-        T_lo = temps[i + 1]
-        # We want T_hi >= target >= T_lo (walking surface→core means T
-        # generally decreases). Use >= on both sides so equality at either
-        # endpoint resolves cleanly.
-        if T_hi >= target_T_C >= T_lo:
-            # Linear interpolation in (position, T) space.
-            # As we move from positions[i] (hot side) to positions[i+1]
-            # (cool side), T goes from T_hi to T_lo. Find frac so that
-            # T_hi + frac * (T_lo - T_hi) = target.
-            denom = T_lo - T_hi
+        t0 = float(temps[i])
+        t1 = float(temps[i + 1])
+        lo_T = min(t0, t1)
+        hi_T = max(t0, t1)
+        if lo_T <= target_T_C <= hi_T:
+            x0 = float(positions[i])
+            x1 = float(positions[i + 1])
+            denom = t1 - t0
             if denom == 0.0:
-                return float(positions[i])
-            frac = (target_T_C - T_hi) / denom
-            # Clamp to [0, 1] for numerical safety.
-            frac = float(np.clip(frac, 0.0, 1.0))
-            return float(positions[i] + frac * (positions[i + 1] - positions[i]))
-    # Should not reach here given the boundary checks above.
-    return float("nan")
+                # Flat bracket sitting exactly on the target — the crossing
+                # spans [x0, x1]; report the surface-side (higher-x) end.
+                x_cross = max(x0, x1)
+            else:
+                frac = (target_T_C - t0) / denom
+                frac = float(np.clip(frac, 0.0, 1.0))
+                x_cross = x0 + frac * (x1 - x0)
+            crossings.append(x_cross)
+    crossings.sort()
+    return crossings
+
+
+def _find_isotherm_position(
+    sensor_positions_norm: np.ndarray,
+    sensor_temps_C: np.ndarray,
+    target_T_C: float,
+    max_x: float | None = None,
+    prefer_near: float | None = None,
+) -> float:
+    """Find x where the spatial T(x) profile crosses ``target_T_C``.
+
+    fix/deep-review #4 / #16 / #2b. Wraps :func:`_find_isotherm_crossings` and
+    selects ONE crossing under two well-defined constraints:
+
+    * ``prefer_near`` (fix/deep-review #2b constraint (b)) — when supplied,
+      return the crossing NEAREST this hint (the previous stride's reported
+      position for this isotherm) to enforce front CONTINUITY across strides and
+      eliminate the discontinuous teleport (probe-tip limb -> grazing surface
+      sensor the instant it reaches the target).
+    * ``max_x`` (fix/deep-review #2b constraint (a)) — used only to SEED the
+      first finite stride (``prefer_near is None``): among the crossings, prefer
+      the surface-most one that is still ``<= max_x`` (the inferred surface).
+      The moisture/Stefan front advances inward from the surface, so the
+      surface-side in-bounds crossing is the physically relevant seed. If NO
+      crossing is in-bounds (e.g. a genuine crust front sitting just outside the
+      dough/air interface, as on BA3C's 100 C front), fall back to the
+      surface-most crossing rather than dropping the front — clamping the seed
+      below a genuine crust front would amputate it.
+
+    With neither hint set, behaviour is the legacy "surface-most crossing"; with
+    no bracket at all, returns NaN (never snaps to 0.0).
+    """
+    crossings = _find_isotherm_crossings(
+        sensor_positions_norm, sensor_temps_C, target_T_C
+    )
+    if not crossings:
+        return float("nan")
+    # Constraint (b): front continuity — pick the crossing nearest the hint.
+    # Continuity, not clamping, is what prevents the teleport on a non-monotone
+    # profile, so it takes precedence once a front has been seeded.
+    if prefer_near is not None and np.isfinite(prefer_near):
+        return float(min(crossings, key=lambda x: abs(x - prefer_near)))
+    # Seed (constraint (a)): prefer the surface-most in-bounds crossing.
+    if max_x is not None and np.isfinite(max_x):
+        in_bounds = [x for x in crossings if x <= max_x + _SURFACE_EPS]
+        if in_bounds:
+            return float(in_bounds[-1])
+        # No in-bounds crossing — genuine crust front; keep the surface-most.
+    return float(crossings[-1])
 
 
 def _smooth_savgol_contiguous(
@@ -347,7 +388,16 @@ def track_isothermal(
             T_at_fixed_surface_t=empty,
             classification=classification,
         )
-    t_grid = np.arange(stride_seconds, bake_duration_s + 1e-9, stride_seconds)
+    # fix/deep-review #5: start the grid at t=0 so the opening row is covered,
+    # and extend the upper bound by one stride past bake_duration_s so the
+    # FINAL sample is always covered (np.arange's half-open stop otherwise drops
+    # the last row when bake_duration_s is not an exact multiple of the stride).
+    t_grid = np.arange(0.0, bake_duration_s + stride_seconds, stride_seconds)
+    # Clamp the final centre to the last sample time so we never index past the
+    # bake (the per-stride loop rounds t/period to a row index and clips, but
+    # keeping t_grid within the bake keeps the reported times honest).
+    if t_grid.size > 0 and t_grid[-1] > bake_duration_s:
+        t_grid[-1] = bake_duration_s
 
     # ------------------------------------------------------------------
     # 3-4) Per-stride isotherm positions.
@@ -379,14 +429,30 @@ def track_isothermal(
     )
     sensor_matrix = df[sensor_cols_present].to_numpy(dtype=float)  # (n_rows, n_sensors)
 
+    # fix/deep-review #2b: enforce (a) no front beyond the inferred surface and
+    # (b) front continuity across strides. ``max_x`` clamps to fixed_surface_x;
+    # ``prev_pos`` seeds per-isotherm continuity. The FIRST finite stride for an
+    # isotherm has no previous position, so it picks the surface-most in-bounds
+    # crossing (prefer_near=None); every later finite stride picks the crossing
+    # nearest the previous reported position, killing the teleport from the hot
+    # probe-tip limb to a grazing surface sensor.
+    max_x = float(fixed_surface_x) if np.isfinite(fixed_surface_x) else None
+    prev_pos: dict = {T: None for T in isotherms_C}
     for k, t_c in enumerate(t_grid):
         row_idx = int(round(float(t_c) / period_s))
         row_idx = max(0, min(n_rows - 1, row_idx))
         temps_now = sensor_matrix[row_idx, :]
         for T_target in isotherms_C:
-            isotherm_raw[T_target][k] = _find_isotherm_position(
-                used_pos, temps_now, float(T_target)
+            x = _find_isotherm_position(
+                used_pos,
+                temps_now,
+                float(T_target),
+                max_x=max_x,
+                prefer_near=prev_pos[T_target],
             )
+            isotherm_raw[T_target][k] = x
+            if np.isfinite(x):
+                prev_pos[T_target] = x
 
     # ------------------------------------------------------------------
     # 5) Per-isotherm Savitzky-Golay smoothing.

@@ -1,25 +1,24 @@
 """Recommendations tab — extracted from app.py's original tab7 block.
 
-Recomputes `s_curve_report` and the `ZoneAnalyzer` locally because the
-original code reused locals from tabs 2 and 3 — which tab-isolated modules
-cannot rely on.
+The S-curve report and ZoneAnalyzer are sourced from ``tabs._shared`` so they
+are built ONCE per (file, curve, product) selection rather than re-derived here
+after the S-Curve and Zone Analysis tabs already built them on the same rerun
+(#20). ``st.tabs`` renders every tab body eagerly, so without this dedup the
+report/ZoneAnalyzer were computed two-or-more times per rerun.
 """
 import pandas as pd
 import streamlit as st
 
-from src.analysis.zone_analysis import ZoneAnalyzer
 from src.visualization.plots import ThermalPlotter
+from tabs._shared import get_s_curve_report, get_zone_analyzer
 
 
 def render():
     st.header("Process Optimization Recommendations")
 
-    s_curve_report = st.session_state.s_curve_analyzer.generate_optimization_report()
-    zone_analyzer = ZoneAnalyzer(
-        st.session_state.data,
-        st.session_state.metadata['sample_period_s'],
-        st.session_state.loader
-    )
+    # Product-aware (#8) report + ZoneAnalyzer, deduped per selection (#20).
+    s_curve_report = get_s_curve_report()
+    zone_analyzer = get_zone_analyzer()
 
     # Get S-curve diagnostics
     s_curve_issues = s_curve_report['quality_issues']
@@ -28,7 +27,7 @@ def render():
     # Quality diagnostics visualization
     plotter = ThermalPlotter()
     fig_diagnostics = plotter.plot_quality_diagnostics(s_curve_issues, s_curve_report['overall_score'])
-    st.plotly_chart(fig_diagnostics, use_container_width=True)
+    st.plotly_chart(fig_diagnostics, width="stretch")
 
     # S-curve based recommendations
     if s_curve_recommendations:

@@ -109,12 +109,20 @@ class TestFindIsothermPositionUnit:
         result = _find_isotherm_position(positions, temps, 100.0)
         assert np.isnan(result)
 
-    def test_target_above_all_returns_zero(self):
+    def test_target_above_all_returns_nan(self):
+        # fix/deep-review #4: re-derived from the corrected behaviour. The old
+        # implementation snapped to 0.0 whenever min(temps) > target ("front
+        # passed the probe tip"). That snap MIS-LOCATES the front on inverted /
+        # non-monotonic profiles (Wonder full-crumb) — it reports a front at the
+        # probe tip that is not actually sampled by any sensor. The corrected
+        # rule scans every adjacent pair for a bracket and returns NaN when the
+        # target is genuinely not bracketed by any pair (no sensor reports it),
+        # rather than fabricating a position at x=0. Here every sensor is above
+        # 100 C, so 100 C is not bracketed -> NaN.
         positions = np.array([0.0, 1 / 7, 2 / 7, 3 / 7, 4 / 7, 5 / 7, 6 / 7, 1.0])
         temps = np.array([105.0, 110.0, 115.0, 120.0, 125.0, 130.0, 140.0, 150.0])
-        # All sensors are above 100 C — front passed the probe tip.
         result = _find_isotherm_position(positions, temps, 100.0)
-        assert result == 0.0
+        assert np.isnan(result)
 
     def test_target_in_middle_linear_interp(self):
         positions = np.array([0.0, 1 / 7, 2 / 7, 3 / 7, 4 / 7, 5 / 7, 6 / 7, 1.0])
@@ -133,6 +141,44 @@ class TestFindIsothermPositionUnit:
 # ---------------------------------------------------------------------------
 # Synthetic tests
 # ---------------------------------------------------------------------------
+
+
+class TestStrideGridCoverage:
+    """fix/deep-review #5 — the stride grid must cover the first and last
+    samples of the bake (the old grid started at ``stride_seconds`` and stopped
+    at ``bake_duration_s``, omitting the t=0 row and clipping the final row).
+    """
+
+    def test_grid_starts_at_zero(self):
+        df = _make_static_profile_df(n_samples=240, period_s=5.0)
+        result = track_isothermal(
+            df,
+            sample_period_ms=5000,
+            isotherms_C=(100.0,),
+            stride_seconds=30.0,
+        )
+        # The first stride centre must be t=0 (covering the opening row).
+        assert result.t_grid_s.size > 0
+        assert result.t_grid_s[0] == 0.0
+
+    def test_grid_covers_final_row(self):
+        # bake_duration_s = (240-1)*5 = 1195 s. With stride 30 the OLD grid
+        # ran 30..1190 (np.arange stops before 1195+eps at 1200), so the final
+        # row at 1195 was uncovered. The fix must include a stride at/after the
+        # last sample time.
+        n = 240
+        period_s = 5.0
+        df = _make_static_profile_df(n_samples=n, period_s=period_s)
+        result = track_isothermal(
+            df,
+            sample_period_ms=5000,
+            isotherms_C=(100.0,),
+            stride_seconds=30.0,
+        )
+        bake_duration_s = (n - 1) * period_s
+        # The last stride centre must reach the final sample time (within one
+        # stride of the end is not enough — it must cover the last row).
+        assert result.t_grid_s[-1] >= bake_duration_s - 1e-6
 
 
 class TestIsothermalSynthetic:
@@ -264,26 +310,27 @@ class TestIsothermalBA3C0946:
         x_110C >= x_100C >= x_80C >= x_60C  (110 C nearest surface, 60 C
         deepest into the dough).
 
-        We check the late-bake window (last quarter of strides) where all
-        four isotherms are typically defined.
+        fix/deep-review #4: scan the WHOLE bake for strides where all four
+        isotherms are simultaneously finite, rather than the last quarter. The
+        corrected front detector no longer snaps under-target fronts to x=0.0,
+        so by the late bake the 60/80 C fronts have correctly advanced PAST the
+        probe tip (NaN), and the four-way coexistence window is the mid-bake
+        active phase (BA3C strides ~6-33), not the tail.
         """
         result, _, _ = ba3c_0946_isothermal
-        n = result.t_grid_s.size
-        # Use last-quarter strides as the active phase.
-        idx_start = 3 * n // 4
-        x60 = result.isotherm_positions[60.0][idx_start:]
-        x80 = result.isotherm_positions[80.0][idx_start:]
-        x100 = result.isotherm_positions[100.0][idx_start:]
-        x110 = result.isotherm_positions[110.0][idx_start:]
+        x60 = result.isotherm_positions[60.0]
+        x80 = result.isotherm_positions[80.0]
+        x100 = result.isotherm_positions[100.0]
+        x110 = result.isotherm_positions[110.0]
         # Find strides where ALL FOUR are finite simultaneously.
         all_finite = (
             np.isfinite(x60) & np.isfinite(x80)
             & np.isfinite(x100) & np.isfinite(x110)
         )
-        if all_finite.sum() < 3:
-            pytest.skip(
-                "not enough simultaneous-finite strides in late bake window"
-            )
+        assert all_finite.sum() >= 10, (
+            "expected a substantial mid-bake window where all four isotherms "
+            f"coexist; got {int(all_finite.sum())} strides"
+        )
         # For each such stride, x110 >= x100 >= x80 >= x60 must hold.
         # Allow a small tolerance for numerical equality at the probe tip.
         tol = 1e-6

@@ -6,6 +6,7 @@ from typing import List, Dict, Optional, Tuple
 from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.analysis.zone_analysis import ZoneAnalyzer
 from src.analysis.s_curve_analysis import SCurveAnalyzer
+from src.data.column_helpers import get_core_temperature_column
 from config.constants import TEMPERATURE_ZONES, SENSOR_LIST
 
 
@@ -194,9 +195,11 @@ class CurveComparison:
             analyzer = ThermalAnalyzer(data, metadata)
             metrics = analyzer.calculate_quality_metrics()
             
-            # Extract key metrics
+            # Extract key metrics. Resolve the core column via the shared helper
+            # (CoreTemperature → CoreAverage) rather than falling back to raw T1,
+            # which is not guaranteed to be the core sensor (#24).
             duration = data['TimeMinutes'].max()
-            max_core_temp = data['CoreTemperature'].max() if 'CoreTemperature' in data.columns else data['T1'].max()
+            max_core_temp = data[get_core_temperature_column(data)].max()
             
             # Time to key temperatures
             time_to_56 = self._get_time_to_temp(data, 56)
@@ -385,8 +388,10 @@ class CurveComparison:
     
     def _get_time_to_temp(self, data: pd.DataFrame, temp: float) -> Optional[float]:
         """Get time to reach a specific temperature."""
-        core_col = 'CoreTemperature' if 'CoreTemperature' in data.columns else 'T1'
-        
+        # Resolve via the shared helper (CoreTemperature → CoreAverage) rather
+        # than falling back to raw T1, which may not be the core sensor (#24).
+        core_col = get_core_temperature_column(data)
+
         mask = data[core_col] >= temp
         if mask.any():
             # Get the index of the first True value

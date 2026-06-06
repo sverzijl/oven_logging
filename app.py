@@ -2,6 +2,8 @@
 Thermal Profile Analyzer for Bread Baking Optimization
 A Streamlit application for analyzing temperature profiles in manufacturing environments.
 """
+import os
+
 import streamlit as st
 
 import sidebar
@@ -51,6 +53,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 initialize_session_state()
+
+
+def render_tab_safely(render_fn):
+    """Render one tab, containing any failure to that tab (#18).
+
+    ``st.tabs`` renders every tab body eagerly on each rerun (see the
+    dispatch comment below), so an unguarded exception in any single tab
+    would abort the whole script and replace every tab with a raw
+    traceback. Wrapping each ``render_fn()`` keeps one tab's failure from
+    blanking the others: the failing tab shows a friendly ``st.error`` and
+    the full traceback is only revealed behind a debug flag
+    (``st.session_state['debug']`` or the ``OVEN_LOGGING_DEBUG`` env var).
+    """
+    try:
+        render_fn()
+    except Exception as exc:  # noqa: BLE001 — boundary must catch everything
+        st.error(
+            "⚠️ This tab failed to render. The other tabs are unaffected — "
+            "switch tabs or re-upload the file. Enable debug mode to see the "
+            "full traceback."
+        )
+        debug = bool(st.session_state.get("debug")) or bool(
+            os.environ.get("OVEN_LOGGING_DEBUG")
+        )
+        if debug:
+            st.exception(exc)
+
 
 # Title and description
 st.title("🍞 Thermal Profile Analyzer")
@@ -102,10 +131,14 @@ else:
         tab_specs.append(("🔄 Curve Comparison", curve_comparison.render))
 
     labels = [label for label, _ in tab_specs]
+    # NOTE: st.tabs renders ALL tab bodies eagerly on every rerun (the inactive
+    # tabs are simply hidden client-side, not lazily rendered), so each
+    # render_fn() below executes on every pass. render_tab_safely() isolates a
+    # failure to its own tab — see #18.
     tab_objects = st.tabs(labels)
     for (_, render_fn), tab_obj in zip(tab_specs, tab_objects):
         with tab_obj:
-            render_fn()
+            render_tab_safely(render_fn)
 
 # Footer
 st.divider()

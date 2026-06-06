@@ -51,3 +51,43 @@ class TestSelectLidCluster:
         beyond = {"T6": 100.0, "T7": 100.0 + LID_CLUSTER_TOLERANCE_C + 0.5}
         assert sorted(select_lid_cluster([5, 6], SENSORS, at)) == [5, 6]
         assert select_lid_cluster([5, 6], SENSORS, beyond) == []
+
+    # ------------------------------------------------------------------
+    # fix/deep-review #6 — a gradual air-side gradient must NOT register as a
+    # multi-sensor lid plateau. The old "within tolerance of ONE anchor"
+    # grouping accepted a smooth ramp where the extremes are far apart so long
+    # as every step was small; require the accepted cluster to be internally
+    # coherent (max-min within tolerance) AND index-adjacent (a real lid
+    # touches physically adjacent sensors).
+    # ------------------------------------------------------------------
+
+    def test_monotone_gradient_not_accepted_as_lid(self):
+        # A 5-sensor monotone ramp 100,110,120,130,140. Adjacent steps are
+        # 10 C (< 15 C tolerance) but the cluster span is 40 C — this is a
+        # cavity-air gradient, not a lid plateau. Must NOT be accepted.
+        terminal = {"T4": 100.0, "T5": 110.0, "T6": 120.0, "T7": 130.0, "T8": 140.0}
+        result = select_lid_cluster([3, 4, 5, 6, 7], SENSORS, terminal)
+        # The returned cluster (if any) must be internally coherent: its own
+        # terminal span must be within tolerance. A 5-wide span-40 ramp must
+        # not slip through as a valid lid.
+        if result:
+            temps = [terminal[SENSORS[i]] for i in result]
+            assert (max(temps) - min(temps)) <= LID_CLUSTER_TOLERANCE_C, (
+                f"gradient accepted as lid: {result} span "
+                f"{max(temps) - min(temps)} > {LID_CLUSTER_TOLERANCE_C}"
+            )
+
+    def test_coherent_adjacent_pair_within_gradient_is_ok(self):
+        # Two genuinely-close adjacent sensors at the top of the ramp form a
+        # real (coherent + adjacent) cluster and ARE accepted.
+        terminal = {"T6": 128.0, "T7": 130.0, "T8": 131.0}
+        result = sorted(select_lid_cluster([5, 6, 7], SENSORS, terminal))
+        assert result == [5, 6, 7]
+
+    def test_non_adjacent_cluster_not_accepted(self):
+        # Two sensors with similar temps but NOT index-adjacent (T6 and T8 with
+        # a hot T7 between) is not a contiguous lid contact.
+        terminal = {"T6": 130.0, "T7": 200.0, "T8": 131.0}
+        # Only T6 and T8 are within tolerance, but they straddle a hot T7 —
+        # not a contiguous lid. Must be rejected.
+        assert select_lid_cluster([5, 7], SENSORS, terminal) == []

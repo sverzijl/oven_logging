@@ -1,4 +1,6 @@
 """Quality Metrics tab — extracted from app.py's original tab4 block."""
+import math
+
 import streamlit as st
 
 from src.visualization.metric_cards import (
@@ -9,18 +11,35 @@ from src.visualization.metric_cards import (
 from src.visualization.plots import ThermalPlotter
 
 
+def compute_time_to_target_fraction(time_to_target, total_time):
+    """Return time_to_target as a fraction of total bake time, or None (#38).
+
+    Guards the division: a zero/negative/NaN/None total bake time (degenerate
+    single-sample curve) or a None time-to-target yields None instead of a
+    ZeroDivisionError or NaN.
+    """
+    if time_to_target is None or total_time is None:
+        return None
+    try:
+        total = float(total_time)
+    except (TypeError, ValueError):
+        return None
+    if not (total > 0) or math.isnan(total):
+        return None
+    return float(time_to_target) / total
+
+
 def render():
     st.header("Quality Metrics Analysis")
 
     # Calculate quality metrics
     quality_metrics = st.session_state.analyzer.calculate_quality_metrics()
 
-    # Convert time to target to percentage if available
-    if quality_metrics.get('time_to_target_minutes') is not None:
-        total_time = st.session_state.data['TimeMinutes'].max()
-        time_to_target_pct = quality_metrics['time_to_target_minutes'] / total_time
-    else:
-        time_to_target_pct = None
+    # Convert time to target to percentage if available (#38: guarded division).
+    time_to_target_pct = compute_time_to_target_fraction(
+        quality_metrics.get('time_to_target_minutes'),
+        st.session_state.data['TimeMinutes'].max(),
+    )
 
     # Create beautiful metric dashboard
     metrics_for_dashboard = {
@@ -79,9 +98,9 @@ def render():
     # Quality gauge charts
     plotter = ThermalPlotter()
     fig_quality = plotter.plot_quality_metrics_gauge(quality_metrics)
-    st.plotly_chart(fig_quality, use_container_width=True)
+    st.plotly_chart(fig_quality, width="stretch")
 
     # Uniformity analysis
     st.subheader("Temperature Uniformity Over Time")
     fig_uniformity = plotter.plot_temperature_uniformity(st.session_state.data)
-    st.plotly_chart(fig_uniformity, use_container_width=True)
+    st.plotly_chart(fig_uniformity, width="stretch")

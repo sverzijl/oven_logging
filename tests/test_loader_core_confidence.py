@@ -83,3 +83,35 @@ class TestGetCoreConfidence:
         conf, reason = loader.get_core_confidence(0)
         assert conf == "high"
         assert "override" in reason.lower()
+
+
+class TestResolveCoreAgreesWithGetCoreSensor:
+    """Finding 6: ``_resolve_core``'s method tag must agree with
+    ``get_core_sensor`` when a core override is present but the override
+    sensor is absent from the curve DataFrame.
+
+    Contract (option B): a present core override always reports the
+    ``"override"`` method tag — matching ``get_core_sensor`` which returns the
+    override sensor unconditionally — even though the resolved series degrades
+    to None (and the public reader's legacy CoreTemperature fallback) when the
+    sensor column is missing.
+    """
+
+    def test_missing_override_sensor_still_tagged_override(self, loader):
+        # Inject a core override for a sensor that does not exist in the df,
+        # bypassing topology validation (which permits any T<n> name).
+        loader._sensor_overrides[0] = {"core": "T9"}
+        # get_core_sensor returns the override sensor unconditionally.
+        assert loader.get_core_sensor(0) == "T9"
+        # The method tag MUST agree — not silently fall through to classifier.
+        assert loader.active_core_method(0) == "override"
+        conf, reason = loader.get_core_confidence(0)
+        assert conf == "high"
+        assert "override" in reason.lower()
+        assert "T9" in reason
+
+    def test_present_override_sensor_resolves_series(self, loader):
+        loader.set_sensor_override(0, "core", "T1")
+        assert loader.active_core_method(0) == "override"
+        series = loader.get_core_temperature_series(0)
+        assert series is not None

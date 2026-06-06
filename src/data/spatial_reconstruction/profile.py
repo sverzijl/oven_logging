@@ -149,16 +149,22 @@ def compute_oven_proxy(
 
 
 def _safe_robust_mean(values: np.ndarray) -> float:
+    # Drop NaNs first (fix/deep-review #3): a SINGLE NaN sample in the terminal
+    # window must not poison the whole representative temperature. Only return
+    # NaN when there is no finite sample at all.
+    values = np.asarray(values, dtype=float)
+    values = values[np.isfinite(values)]
     if values.size == 0:
         return float("nan")
     # Trim to middle 90% via percentile clip — protects against probe-pull
-    # spikes without losing all signal in tiny windows.
+    # spikes without losing all signal in tiny windows. nan-aware percentile/
+    # mean are belt-and-braces now that NaNs are already dropped above.
     if values.size >= 5:
-        lo, hi = np.percentile(values, [5, 95])
+        lo, hi = np.nanpercentile(values, [5, 95])
         clipped = values[(values >= lo) & (values <= hi)]
         if clipped.size > 0:
-            return float(np.mean(clipped))
-    return float(np.mean(values))
+            return float(np.nanmean(clipped))
+    return float(np.nanmean(values))
 
 
 def _longest_contiguous_run(mask: np.ndarray) -> int:
@@ -192,11 +198,16 @@ def _xcorr_lag_seconds(
         return 0.0
     sensor = np.asarray(sensor, dtype=float)
     proxy = np.asarray(proxy, dtype=float)
-    sensor = sensor - np.mean(sensor)
-    proxy = proxy - np.mean(proxy)
-    s_std = np.std(sensor)
-    p_std = np.std(proxy)
-    if s_std < 1e-9 or p_std < 1e-9:
+    # nan-aware centring (fix/deep-review #3): a single NaN sample must not turn
+    # the whole centred series into NaN and silently zero out the lag feature.
+    # Guard the all-NaN case before subtracting.
+    if not np.any(np.isfinite(sensor)) or not np.any(np.isfinite(proxy)):
+        return 0.0
+    sensor = sensor - np.nanmean(sensor)
+    proxy = proxy - np.nanmean(proxy)
+    s_std = np.nanstd(sensor)
+    p_std = np.nanstd(proxy)
+    if not np.isfinite(s_std) or not np.isfinite(p_std) or s_std < 1e-9 or p_std < 1e-9:
         return 0.0
 
     max_lag = min(max_lag_samples, n - 2)
@@ -211,10 +222,20 @@ def _xcorr_lag_seconds(
             p_seg = proxy[:-lag]
         if len(s_seg) < 5:
             continue
-        denom = (np.std(s_seg) * np.std(p_seg))
-        if denom < 1e-9:
+        # fix/deep-review #3b: a shifted segment can be ENTIRELY NaN (e.g. a
+        # sensor that dies partway through the bake). np.nanstd over an all-NaN
+        # slice both emits a "Degrees of freedom <= 0 for slice" RuntimeWarning
+        # and returns NaN. Short-circuit BEFORE calling nanstd when either
+        # segment has < 2 finite samples (no usable correlation there anyway).
+        if (
+            np.sum(np.isfinite(s_seg)) < 2
+            or np.sum(np.isfinite(p_seg)) < 2
+        ):
             continue
-        corr = float(np.mean(s_seg * p_seg) / denom)
+        denom = (np.nanstd(s_seg) * np.nanstd(p_seg))
+        if not np.isfinite(denom) or denom < 1e-9:
+            continue
+        corr = float(np.nanmean(s_seg * p_seg) / denom)
         if corr > best_corr:
             best_corr = corr
             best_lag = lag
@@ -275,7 +296,12 @@ def extract_features(
         terminal_window = values[win_lo:win_hi]
         terminal_temp = _safe_robust_mean(terminal_window)
 
-        max_temp = float(np.nanmax(values)) if values.size else float("nan")
+        # nan-aware max; a fully-dead sensor yields nan (guard the all-NaN
+        # slice quietly rather than emitting a RuntimeWarning).
+        if values.size and np.any(np.isfinite(values)):
+            max_temp = float(np.nanmax(values))
+        else:
+            max_temp = float("nan")
 
         # Plateau-near-100°C dwell: contiguous run where T ∈ [lo, hi] AND
         # |dT/dt| < plat_rate.

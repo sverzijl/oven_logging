@@ -112,14 +112,16 @@ class ThermalProfileLoader:
         if file_buffer is not None:
             # Convert to string buffer if needed
             if hasattr(file_buffer, 'read'):
-                # Read all content
+                # Read all content and decode defensively (combustion exports
+                # are usually UTF-8 but a degree sign etc. can arrive as
+                # cp1252/latin-1, which a hard UTF-8 decode would crash on).
                 content = file_buffer.read()
                 if isinstance(content, bytes):
-                    content = content.decode('utf-8')
-                
+                    content = self._decode_bytes(content)
+
                 # Parse metadata from content
                 self.metadata = self._parse_metadata_from_content(content)
-                
+
                 # Create StringIO for pandas
                 content_buffer = io.StringIO(content)
                 self.data = pd.read_csv(content_buffer, skiprows=10)
@@ -127,8 +129,11 @@ class ThermalProfileLoader:
                 raise ValueError("Invalid file buffer provided")
         else:
             self.metadata = self._parse_metadata(file_path)
-            # Read the actual data
-            self.data = pd.read_csv(file_path, skiprows=10)
+            # Read the actual data. Decode defensively then hand pandas a text
+            # buffer so the same encoding-fallback applies to the data table.
+            with open(file_path, 'rb') as fh:
+                content = self._decode_bytes(fh.read())
+            self.data = pd.read_csv(io.StringIO(content), skiprows=10)
         
         # Clean and validate the data
         self.data = self._clean_data(self.data)
@@ -167,107 +172,81 @@ class ThermalProfileLoader:
             out["data"] = out["data"].copy()
         return out
     
+    # Combustion firmware's documented default sample period (ms).
+    _DEFAULT_SAMPLE_PERIOD_MS = 5000
+
+    @staticmethod
+    def _decode_bytes(raw: bytes) -> str:
+        """Decode CSV bytes, tolerating non-UTF-8 exports.
+
+        Tries ``utf-8-sig`` (handles a BOM and plain UTF-8) first, then
+        ``cp1252`` and ``latin-1`` so a stray degree sign or other Windows
+        codepage byte cannot crash ingestion. ``latin-1`` never raises, so it
+        is the guaranteed final fallback.
+        """
+        for encoding in ('utf-8-sig', 'cp1252', 'latin-1'):
+            try:
+                return raw.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        # Unreachable in practice (latin-1 maps every byte) — belt and braces.
+        return raw.decode('utf-8', errors='replace')
+
+    @classmethod
+    def _parse_metadata_lines(cls, lines: List[str]) -> Dict:
+        """Parse the colon-separated metadata header from its first 10 lines.
+
+        Single source of truth for both the file-path (:meth:`_parse_metadata`)
+        and content (:meth:`_parse_metadata_from_content`) entry points. Strips
+        a trailing comma (the double-comma header artefact) from EVERY value,
+        not just Sample Period, so Probe S/N and Created are not corrupted.
+        """
+        metadata: Dict = {}
+        for line in lines[:10]:
+            line = line.strip()
+            if ':' in line:
+                key, value = line.split(':', 1)
+                # Strip trailing comma artefacts off every value.
+                metadata[key.strip()] = value.strip().rstrip(',').strip()
+
+        # Sample Period — tolerate float-formatted / non-int values.
+        if 'Sample Period' in metadata:
+            try:
+                metadata['sample_period_ms'] = int(
+                    float(metadata['Sample Period'])
+                )
+            except (ValueError, TypeError):
+                _log.warning(
+                    "Unparseable Sample Period %r; falling back to %d ms.",
+                    metadata.get('Sample Period'),
+                    cls._DEFAULT_SAMPLE_PERIOD_MS,
+                )
+                metadata['sample_period_ms'] = cls._DEFAULT_SAMPLE_PERIOD_MS
+            metadata['sample_period_s'] = metadata['sample_period_ms'] / 1000.0
+
+        # Created timestamp.
+        if 'Created' in metadata:
+            try:
+                metadata['created_datetime'] = datetime.strptime(
+                    metadata['Created'],
+                    '%Y-%m-%d %H:%M:%S',
+                )
+            except ValueError:
+                metadata['created_datetime'] = None
+
+        return metadata
+
     def _parse_metadata(self, file_path: str) -> Dict:
-        """Parse metadata from the CSV header."""
-        metadata = {}
-        
-        with open(file_path, 'r') as f:
-            lines = f.readlines()[:10]
-            
-        for line in lines:
-            line = line.strip()
-            if ':' in line:
-                key, value = line.split(':', 1)
-                metadata[key.strip()] = value.strip()
-                
-        # Parse specific fields
-        if 'Sample Period' in metadata:
-            # Strip trailing commas from the value
-            sample_period_str = metadata['Sample Period'].rstrip(',')
-            metadata['sample_period_ms'] = int(sample_period_str)
-            metadata['sample_period_s'] = metadata['sample_period_ms'] / 1000.0
-            
-        if 'Created' in metadata:
-            try:
-                metadata['created_datetime'] = datetime.strptime(
-                    metadata['Created'], 
-                    '%Y-%m-%d %H:%M:%S'
-                )
-            except:
-                metadata['created_datetime'] = None
-                
-        return metadata
-    
+        """Parse metadata from a CSV header on disk (thin wrapper)."""
+        with open(file_path, 'rb') as f:
+            content = self._decode_bytes(f.read())
+        return self._parse_metadata_lines(content.split('\n'))
+
     def _parse_metadata_from_content(self, content: str) -> Dict:
-        """Parse metadata from file content string."""
-        metadata = {}
-        
-        # Split into lines and get first 10
-        lines = content.split('\n')[:10]
-        
-        for line in lines:
-            line = line.strip()
-            if ':' in line:
-                key, value = line.split(':', 1)
-                metadata[key.strip()] = value.strip()
-                
-        # Parse specific fields
-        if 'Sample Period' in metadata:
-            # Strip trailing commas from the value
-            sample_period_str = metadata['Sample Period'].rstrip(',')
-            metadata['sample_period_ms'] = int(sample_period_str)
-            metadata['sample_period_s'] = metadata['sample_period_ms'] / 1000.0
-            
-        if 'Created' in metadata:
-            try:
-                metadata['created_datetime'] = datetime.strptime(
-                    metadata['Created'], 
-                    '%Y-%m-%d %H:%M:%S'
-                )
-            except:
-                metadata['created_datetime'] = None
-                
-        return metadata
-    
-    def _parse_metadata_from_buffer(self, file_buffer) -> Dict:
-        """Parse metadata from a file buffer."""
-        metadata = {}
-        
-        # Read the file content as string
-        content = file_buffer.read()
-        if isinstance(content, bytes):
-            content = content.decode('utf-8')
-        
-        # Split into lines and get first 10
-        lines = content.split('\n')[:10]
-        
-        # Reset buffer position for later use
-        file_buffer.seek(0)
-        
-        for line in lines:
-            line = line.strip()
-            if ':' in line:
-                key, value = line.split(':', 1)
-                metadata[key.strip()] = value.strip()
-                
-        # Parse specific fields
-        if 'Sample Period' in metadata:
-            # Strip trailing commas from the value
-            sample_period_str = metadata['Sample Period'].rstrip(',')
-            metadata['sample_period_ms'] = int(sample_period_str)
-            metadata['sample_period_s'] = metadata['sample_period_ms'] / 1000.0
-            
-        if 'Created' in metadata:
-            try:
-                metadata['created_datetime'] = datetime.strptime(
-                    metadata['Created'], 
-                    '%Y-%m-%d %H:%M:%S'
-                )
-            except:
-                metadata['created_datetime'] = None
-                
-        return metadata
-    
+        """Parse metadata from an in-memory CSV string (thin wrapper)."""
+        return self._parse_metadata_lines(content.split('\n'))
+
+
     def _clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Clean and validate the data."""
         # Ensure numeric columns are float
@@ -483,10 +462,10 @@ class ThermalProfileLoader:
         source = self.raw_data if self.raw_data is not None else self.data
         if source is not None and len(source) > 0:
             self.all_curves = self._extract_all_baking_curves(source.copy())
-            if self.all_curves:
-                # Preserve current_curve_index when valid; otherwise reset.
-                if self.current_curve_index >= len(self.all_curves):
-                    self.current_curve_index = 0
+            # Clamp the current index and re-point self.data at the fresh
+            # current-curve slice (the prior self.data is now an orphan from
+            # the pre-re-extract list).
+            self._sync_current_curve_after_reextract()
             # Curve list re-detected — drop stale isothermal assignments.
             self._invalidate_isothermal_cache()
 
@@ -527,34 +506,105 @@ class ThermalProfileLoader:
                 f"start_idx={start_idx} must be less than end_idx={end_idx}"
             )
 
-        # M11 HMS Endeavour: dispatch by curve type.
-        target = self.all_curves[curve_index]
-        added_idx = target.get("_user_added_idx")
-        if added_idx is not None and 0 <= added_idx < len(self._added_curves):
+        # M11 HMS Endeavour: dispatch by curve type via the stable-key
+        # translation (shared with clear_curve_boundaries + the per-curve
+        # state remap in _extract_all_baking_curves).
+        kind, key = self._curve_stable_key(curve_index)
+        if kind == "added":
             # User-added curve — update its entry in ``_added_curves``
             # so the same curve (identified by its position in that
             # list) gets re-refined with the new range on next extract.
-            self._added_curves[added_idx] = (int(start_idx), int(end_idx))
+            self._added_curves[key] = (int(start_idx), int(end_idx))
         else:
-            # Detector curve — translate the all_curves position back
-            # to the detector position (the position before any
-            # user-added curves were appended) so the override key
-            # stays stable as user-added curves come and go.
-            detector_pos = sum(
-                1
-                for c in self.all_curves[: curve_index + 1]
-                if c.get("_user_added_idx") is None
-            ) - 1
-            self._boundary_overrides[detector_pos] = (
-                int(start_idx),
-                int(end_idx),
-            )
+            # Detector curve — keyed by the stable detector position so
+            # the override survives user-added curves coming and going.
+            self._boundary_overrides[key] = (int(start_idx), int(end_idx))
         self._reapply_boundary_state()
 
+    def _curve_stable_key(
+        self, curve_index: int, curves: Optional[list] = None
+    ) -> tuple:
+        """Translate an ``all_curves`` position into a STABLE curve identity.
+
+        The all_curves position is volatile: ``_extract_all_baking_curves``
+        re-sorts by ``start_idx`` and renumbers, so any per-curve state keyed
+        by position (sensor overrides, bake metadata, boundary overrides)
+        would otherwise bind to the wrong curve after a re-extract. The stable
+        identity is:
+
+          * ``("added", added_idx)`` — a user-added curve, identified by its
+            index in ``self._added_curves`` (carried on the curve dict as
+            ``_user_added_idx``).
+          * ``("detector", detector_pos)`` — a detector curve, identified by
+            its position among detector curves (i.e. how many detector curves
+            precede it, ignoring any interleaved user-added curves).
+
+        ``curves`` defaults to ``self.all_curves``; pass an explicit list when
+        translating against a snapshot taken before/after a re-extract.
+        """
+        if curves is None:
+            curves = self.all_curves
+        target = curves[curve_index]
+        added_idx = target.get("_user_added_idx")
+        if added_idx is not None:
+            return ("added", int(added_idx))
+        detector_pos = sum(
+            1
+            for c in curves[: curve_index + 1]
+            if c.get("_user_added_idx") is None
+        ) - 1
+        return ("detector", detector_pos)
+
+    def _remap_per_curve_state(self, old_curves: list, new_curves: list) -> None:
+        """Re-key position-indexed per-curve state onto the NEW curve list.
+
+        ``_sensor_overrides`` and ``_bake_metadata`` are keyed by the volatile
+        ``all_curves`` position for fast reads in the getters, but the position
+        changes whenever ``_extract_all_baking_curves`` re-sorts/renumbers (e.g.
+        a manual curve inserted ahead of an existing bake). This translates each
+        old-position entry to its stable curve identity and re-binds it to the
+        new position holding that same identity, so overrides/metadata follow
+        the physical curve they were set on rather than leaking onto a
+        neighbour. Entries whose stable identity no longer exists are dropped.
+        """
+        if not old_curves:
+            return
+        # stable_key -> new position
+        new_by_key: dict = {}
+        for new_pos in range(len(new_curves)):
+            new_by_key[self._curve_stable_key(new_pos, new_curves)] = new_pos
+
+        for attr in ("_sensor_overrides", "_bake_metadata"):
+            old_dict = getattr(self, attr)
+            if not old_dict:
+                continue
+            remapped: dict = {}
+            for old_pos, value in old_dict.items():
+                if not (0 <= old_pos < len(old_curves)):
+                    continue  # stale key from a shorter prior list
+                key = self._curve_stable_key(old_pos, old_curves)
+                new_pos = new_by_key.get(key)
+                if new_pos is not None:
+                    remapped[new_pos] = value
+            setattr(self, attr, remapped)
+
     def clear_curve_boundaries(self, curve_index: int) -> None:
-        """Remove the manual override for ``curve_index`` (no-op if absent)."""
-        if curve_index in self._boundary_overrides:
-            del self._boundary_overrides[curve_index]
+        """Remove the manual override for ``curve_index`` (no-op if absent).
+
+        Translates the volatile all_curves position to the SAME stable key the
+        setter used; without this, clearing a detector curve that a user-added
+        curve precedes was a silent no-op (the raw position never matched the
+        ``detector_pos`` key the setter stored under).
+        """
+        if not (0 <= curve_index < len(self.all_curves)):
+            return  # unknown index — no-op
+        kind, key = self._curve_stable_key(curve_index)
+        if kind == "added":
+            # A user-added curve's boundary lives in ``_added_curves`` and is
+            # not a clearable detector pin; nothing to remove.
+            return
+        if key in self._boundary_overrides:
+            del self._boundary_overrides[key]
             self._reapply_boundary_state()
 
     def _reapply_boundary_state(self) -> None:
@@ -562,10 +612,27 @@ class ThermalProfileLoader:
         if self.raw_data is None or len(self.raw_data) == 0:
             return
         self.all_curves = self._extract_all_baking_curves(self.raw_data.copy())
-        if self.all_curves and self.current_curve_index >= len(self.all_curves):
-            self.current_curve_index = 0
+        # Clamp the current index and re-point self.data at the fresh
+        # current-curve slice (the prior self.data is now an orphan).
+        self._sync_current_curve_after_reextract()
         # Curve list re-indexed — every cached isothermal assignment is stale.
         self._invalidate_isothermal_cache()
+
+    def _sync_current_curve_after_reextract(self) -> None:
+        """Clamp ``current_curve_index`` to the new list and re-point
+        ``self.data`` at that curve's fresh DataFrame.
+
+        Every re-extract rebuilds ``all_curves`` with brand-new per-curve
+        DataFrames, leaving ``self.data`` pointing at an orphaned slice from
+        the previous list. Centralised here (used by
+        :meth:`_reapply_boundary_state` and :meth:`set_expected_durations`) so
+        the current-curve view never goes stale after a boundary edit.
+        """
+        if not self.all_curves:
+            return
+        if self.current_curve_index >= len(self.all_curves):
+            self.current_curve_index = 0
+        self.data = self.all_curves[self.current_curve_index]["data"]
 
     def set_sensor_override(self, curve_index: int, role: str, sensor):
         """Allow user to override sensor assignments for a specific curve.
@@ -723,7 +790,17 @@ class ThermalProfileLoader:
                         "requires the lower group to start at T1 and the upper "
                         "group to be contiguous on the far side."
                     )
-                # Through-loaf accepted.
+                # Through-loaf accepted — but the core must sit ABOVE the
+                # lower (air-below) ambient group. A core at/within that group
+                # is in the oven air, not the loaf. Enforce
+                #   lower-ambient < core < surface < upper-ambient (<= lid).
+                if core_idx is not None and lower and core_idx <= lower[-1]:
+                    raise ValueError(
+                        "Override topology: in a through-loaf split the core "
+                        f"sensor must be above the lower ambient group "
+                        f"(got core=T{core_idx}, lower ambient up to "
+                        f"T{lower[-1]})."
+                    )
 
         # Lid vs Ambient
         if lid_idx is not None and ambient_idxs:
@@ -1031,28 +1108,31 @@ class ThermalProfileLoader:
         Returns:
             List of sensor names that represent internal crumb
         """
+        # Resolve the target curve index — None means the current curve, but
+        # curve_index=0 is a valid explicit selection and must NOT fall through
+        # to current_curve_index (the old ``curve_index or ...`` falsy-zero bug).
+        if curve_index is None:
+            curve_index = self.current_curve_index
+
         surface_sensor = self.get_surface_sensor(curve_index)
         if not surface_sensor or len(surface_sensor) < 2:
             return []
-            
+
         surface_num = int(surface_sensor[1])
-        
-        # Step 1: Get all sensors below surface (current logic)
-        candidate_sensors = []
-        for i in range(1, surface_num):
-            sensor = f'T{i}'
-            if sensor in self.data.columns:
-                candidate_sensors.append(sensor)
-        
-        # If no data provided for filtering, return all candidates (backward compatibility)
-        if data is None:
-            # Try to get data for the current curve
-            if hasattr(self, 'all_curves') and 0 <= (curve_index or self.current_curve_index) < len(self.all_curves):
-                data = self.all_curves[curve_index or self.current_curve_index]['data']
-            else:
-                # No data available for temperature filtering, return all candidates
-                return candidate_sensors
-        
+
+        # Resolve the DataFrame for the chosen curve: explicit ``data`` arg
+        # wins; otherwise the chosen curve's own slice (falling back to
+        # self.data). Candidate enumeration and temperature filtering both read
+        # from THIS frame so a multi-curve loader returns the right sensors.
+        df = data if data is not None else self._curve_dataframe(curve_index)
+        if df is None:
+            return []
+
+        # Step 1: candidate sensors below the surface, present in the curve df.
+        candidate_sensors = [
+            f'T{i}' for i in range(1, surface_num) if f'T{i}' in df.columns
+        ]
+
         # Step 2: Filter by temperature criteria
         internal_sensors = []
         temp_threshold = INTERNAL_SENSOR_CONFIG['TEMP_THRESHOLD']
@@ -1060,10 +1140,10 @@ class ThermalProfileLoader:
         time_threshold = INTERNAL_SENSOR_CONFIG['TIME_THRESHOLD']
         
         for sensor in candidate_sensors:
-            if sensor not in data.columns:
+            if sensor not in df.columns:
                 continue
-                
-            sensor_data = data[sensor]
+
+            sensor_data = df[sensor]
             max_temp = sensor_data.max()
             
             # Check maximum temperature criterion
@@ -1137,6 +1217,12 @@ class ThermalProfileLoader:
         and ``method_tag`` is one of:
 
           * ``"override"``         — manual sensor override on the core role.
+            Reported whenever a (truthy) core override is set, matching
+            :meth:`get_core_sensor` which returns the override sensor
+            unconditionally. The series is the override sensor's column when
+            present, else ``None`` (the public reader then degrades to the
+            legacy ``CoreTemperature`` column) — the TAG never silently
+            downgrades to ``"classifier"`` just because the column is missing.
           * ``"method4"``          — geometric core in-probe (``pos_mm >= 0``;
             spatial interpolation between the bracketing T-sensors).
           * ``"method4_degraded"`` — geometric core past/below the probe tip
@@ -1145,10 +1231,14 @@ class ThermalProfileLoader:
           * ``"fallback"``         — no layer produced a series (``None``).
         """
         overrides = self._sensor_overrides.get(curve_index, {})
-        if 'core' in overrides and df is not None:
-            sensor = overrides['core']
-            if sensor in df.columns:
-                return df[sensor].reset_index(drop=True), "override"
+        core_override = overrides.get('core')
+        if core_override:
+            # A present core override always wins the method tag (consistent
+            # with get_core_sensor); the series degrades to None when the
+            # sensor column is absent rather than the tag falling through.
+            if df is not None and core_override in df.columns:
+                return df[core_override].reset_index(drop=True), "override"
+            return None, "override"
         # Method 4 — geometric core from bake metadata.
         geom_series = self._geometric_core_series(curve_index)
         if geom_series is not None:
@@ -1448,6 +1538,13 @@ class ThermalProfileLoader:
         for i, c in enumerate(curves):
             c["curve_number"] = i + 1
 
+        # Re-key position-indexed per-curve state (sensor overrides + bake
+        # metadata) onto the freshly sorted list BEFORE role identification,
+        # so _apply_standard_columns sees each override bound to the physical
+        # curve it was set on rather than whatever curve now occupies the old
+        # position (e.g. after a manual-curve insert shifted indices).
+        self._remap_per_curve_state(self.all_curves, curves)
+
         # Note: sensor-role identification runs AFTER boundary overrides
         # AND user-added insertion so role detection uses the final
         # post-sort slice.
@@ -1658,14 +1755,63 @@ class ThermalProfileLoader:
         # Drop the entry; subsequent _user_added_idx values shift
         # down on the next re-extract because the list index changes.
         if 0 <= added_idx < len(self._added_curves):
+            # fix/deep-review #1b: deleting an earlier added curve decrements
+            # every LATER added curve's ``_user_added_idx`` on the next
+            # re-extract. Per-curve state (``_sensor_overrides`` /
+            # ``_bake_metadata``) is keyed by all_curves POSITION but remapped
+            # across re-extracts via the stable key ``("added", _user_added_idx)``
+            # (see :meth:`_remap_per_curve_state`). Without anticipating the
+            # shift, the survivor's old key ``("added", k)`` no longer matches
+            # its new ``("added", k-1)`` and the entry is silently dropped.
+            #
+            # Align the stable identities NOW by decrementing the live
+            # ``all_curves`` entries' ``_user_added_idx`` for every later added
+            # curve (and dropping the removed curve's own per-curve state). The
+            # subsequent ``_remap_per_curve_state`` inside the re-extract then
+            # computes matching stable keys for the survivors against this
+            # adjusted old list and re-binds their state onto the new positions.
+            self._drop_removed_added_curve_state(added_idx)
+            for c in self.all_curves:
+                a = c.get("_user_added_idx")
+                if a is not None and int(a) > added_idx:
+                    c["_user_added_idx"] = int(a) - 1
             del self._added_curves[added_idx]
             self._reapply_boundary_state()
 
+    def _drop_removed_added_curve_state(self, removed_added_idx: int) -> None:
+        """Drop ``_sensor_overrides`` / ``_bake_metadata`` belonging to the
+        added curve being removed, so its state does not leak onto whatever
+        physical curve later occupies its old position.
+        """
+        if not self.all_curves:
+            return
+        removed_pos = next(
+            (
+                pos
+                for pos, c in enumerate(self.all_curves)
+                if c.get("_user_added_idx") == removed_added_idx
+            ),
+            None,
+        )
+        if removed_pos is None:
+            return
+        self._sensor_overrides.pop(removed_pos, None)
+        self._bake_metadata.pop(removed_pos, None)
+
     def get_sensor_data(self) -> pd.DataFrame:
-        """Get only the temperature sensor columns."""
-        sensor_cols = ['Timestamp', 'TimeMinutes', 'T1', 'T2', 'T3', 'T4', 
-                      'T5', 'T6', 'T7', 'T8']
-        return self.data[sensor_cols]
+        """Get only the temperature sensor columns that are actually present.
+
+        Builds the column list from the sensors present in ``self.data`` so a
+        sub-8-sensor probe export does not KeyError on a hard-coded ``T1..T8``
+        list (a 6-sensor file would otherwise reference phantom T7/T8).
+        """
+        if self.data is None:
+            return pd.DataFrame()
+        cols = [
+            c for c in (['Timestamp', 'TimeMinutes'] + list(SENSOR_LIST))
+            if c in self.data.columns
+        ]
+        return self.data[cols]
     
     def get_analysis_data(self) -> pd.DataFrame:
         """Get data formatted for analysis."""

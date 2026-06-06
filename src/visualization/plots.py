@@ -529,13 +529,17 @@ class ThermalPlotter:
                     line=dict(color=color, width=1, dash="dash")
                 )
         
-        # Add horizontal lines for key temperatures
-        fig.add_hline(y=56, line_dash="dot", line_color="gray", 
-                     annotation_text="Yeast Kill (56°C)")
-        fig.add_hline(y=82, line_dash="dot", line_color="gray", 
-                     annotation_text="Starch Complete (82°C)")
-        fig.add_hline(y=93, line_dash="dot", line_color="gray", 
-                     annotation_text="Arrival Temp (93°C)")
+        # Add horizontal lines for key temperatures. #19: iterate
+        # S_CURVE_BENCHMARKS (the config source of truth) rather than
+        # hardcoding 56/82/93 — mirrors spatial_evolution_plots.py.
+        for key, spec in S_CURVE_BENCHMARKS.items():
+            temp = float(spec["temperature"])
+            fig.add_hline(
+                y=temp,
+                line_dash="dot",
+                line_color="gray",
+                annotation_text=f"{key.replace('_', ' ').title()} ({temp:.0f}°C)",
+            )
         
         fig.update_layout(
             title="S-Curve Analysis with Landmarks and Zones",

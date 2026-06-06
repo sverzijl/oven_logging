@@ -324,22 +324,38 @@ def fit_stefan(
 
     # T_cavity anchor — the proxy. The Stefan air-region model converges to
     # this asymptote as α(x − x_front) → ∞.
-    T_cavity = float(np.max(temps))
+    # nan-aware (fix/deep-review #1): a single dead/NaN sensor terminal must NOT
+    # make T_cavity NaN and silently disable every lid/ambient gap test.
+    if np.any(np.isfinite(temps)):
+        T_cavity = float(np.nanmax(temps))
+    else:
+        T_cavity = float("nan")
 
     # ------------------------------------------------------------------
     # Detect "lid bake" mode: every terminal sits in the plateau band and
     # the spread is < 10 °C. In this regime no terminal-T crossing of 100°C
     # is meaningful; we fall back to heat-up-speed splitting.
     # ------------------------------------------------------------------
-    all_in_plateau = bool(np.all(temps <= plat_hi + 5.0))
-    lid_bake_mode = all_in_plateau and bool(np.max(temps) - np.min(temps) < 10.0)
+    # nan-aware span check (fix/deep-review #1): nanmax/nanmin so a dead sensor
+    # does not poison the < 10 C lid-bake span test.
+    finite_temps = temps[np.isfinite(temps)]
+    all_in_plateau = bool(finite_temps.size > 0 and np.all(finite_temps <= plat_hi + 5.0))
+    span_ok = bool(
+        finite_temps.size > 0
+        and (float(np.nanmax(temps)) - float(np.nanmin(temps))) < 10.0
+    )
+    lid_bake_mode = all_in_plateau and span_ok
 
     crossings = _find_100c_crossings(positions, temps)
 
     is_through_loaf = False
     x_dough_air: float | tuple | None = None
     in_dough_idx: list[int] = []
-    alpha = None
+    # fix/deep-review #7: alpha_crust is a float-typed field. Default to nan (not
+    # None) so the full-immersion / all-air / lid-bake paths — where there is no
+    # air-side crust to fit — keep the field numeric, matching piecewise's
+    # float-only fields and downstream numeric consumers.
+    alpha: float = float("nan")
     air_sse = 0.0
 
     if lid_bake_mode:
@@ -427,7 +443,16 @@ def fit_stefan(
             _heat_up_score(features, sensor_names[i], float(temps[i]))
             for i in in_dough_idx
         ]
-        slow_local = int(np.argmax(np.array(scores)))
+        # nan-aware argmax (fix/deep-review #4b): a DEAD in-dough sensor (no
+        # time_to_60c / time_to_100c AND a NaN terminal) yields a NaN heat-up
+        # score; plain np.argmax picks that NaN index and MIS-PLACES the core on
+        # the dead sensor. Use np.nanargmax so the genuinely-slowest LIVE sensor
+        # wins; guard the all-NaN region (every dough sensor dead) → first index.
+        scores_arr = np.array(scores, dtype=float)
+        if np.any(np.isfinite(scores_arr)):
+            slow_local = int(np.nanargmax(scores_arr))
+        else:
+            slow_local = 0
         core_idx = int(in_dough_idx[slow_local])
         # Parabolic vertex interpolation across in-dough neighbours when both
         # immediate neighbours are themselves in-dough; boundary or single-
@@ -438,7 +463,18 @@ def fit_stefan(
         def _score_for(j: int) -> float:
             return _heat_up_score(features, sensor_names[j], float(temps[j]))
 
-        if (core_idx - 1) in in_dough_set and (core_idx + 1) in in_dough_set:
+        # nan-aware neighbour guard (fix/deep-review #4b): the parabolic vertex
+        # is undefined when a neighbour's heat-up score is NaN (a DEAD sensor
+        # adjacent to the live core); _three_point_vertex would propagate that
+        # NaN into x_core. Require finite window scores before fitting; otherwise
+        # degrade to the discrete sensor pick.
+        if (
+            (core_idx - 1) in in_dough_set
+            and (core_idx + 1) in in_dough_set
+            and np.isfinite(_score_for(core_idx - 1))
+            and np.isfinite(_score_for(core_idx))
+            and np.isfinite(_score_for(core_idx + 1))
+        ):
             local_x = positions[core_idx - 1 : core_idx + 2]
             local_y = np.array(
                 [_score_for(core_idx - 1), _score_for(core_idx), _score_for(core_idx + 1)],
@@ -473,8 +509,14 @@ def fit_stefan(
     if in_dough_idx:
         # Dough is predicted at its mean (the Stefan model is non-committal
         # about the dough-side profile shape — only the front is pinned).
+        # nan-aware mean (fix/deep-review #4b): a dead dough sensor's NaN
+        # terminal must NOT NaN-poison residual_sse (which feeds comparison.py's
+        # cross-fixture SSE mean/report). Sum squared deviations over the finite
+        # dough terminals only; guard the all-NaN region → no dough contribution.
         dough_T = temps[in_dough_idx]
-        residual_sse += float(np.sum((dough_T - np.mean(dough_T)) ** 2))
+        finite_dough = dough_T[np.isfinite(dough_T)]
+        if finite_dough.size > 0:
+            residual_sse += float(np.sum((finite_dough - np.nanmean(dough_T)) ** 2))
 
     fit_quality = StefanFitQuality(
         residual_sse=residual_sse,

@@ -101,6 +101,33 @@ class TestAmbientPositionConstraint:
         with pytest.raises(ValueError):
             loader.set_sensor_override(0, 'ambient', ['T2', 'T3', 'T7', 'T8'])
 
+    def test_through_loaf_core_inside_lower_ambient_group_raises(self):
+        """Finding 5: in a through-loaf split, the core must sit ABOVE the
+        lower (air-below) ambient group. A core at/within that group is in the
+        oven air, not the loaf, and must be rejected.
+
+        Geometry: ambient=[T1, T2, T8] (lower air-below group T1-T2, upper
+        air-above T8), surface=T4. core=T2 lies inside the lower-ambient
+        group — invalid. Valid core would be T3 (between max(lower)=T2 and
+        surface=T4).
+        """
+        loader = make_loader()
+        # Establish a valid through-loaf base with core=T3.
+        loader.set_sensor_override(0, 'core', 'T3')
+        loader.set_sensor_override(0, 'surface', 'T4')
+        loader.set_sensor_override(0, 'ambient', ['T1', 'T2', 'T8'])  # accepted
+        # Now lower core into the lower-ambient group — must raise.
+        with pytest.raises(ValueError, match=r"(?i)core.*ambient|ambient.*core"):
+            loader.set_sensor_override(0, 'core', 'T2')
+
+    def test_through_loaf_core_above_lower_ambient_group_passes(self):
+        """Companion to the above: core strictly above the lower-ambient
+        group (and below surface) is the valid through-loaf core."""
+        loader = make_loader()
+        loader.set_sensor_override(0, 'surface', 'T4')
+        loader.set_sensor_override(0, 'ambient', ['T1', 'T2', 'T8'])
+        loader.set_sensor_override(0, 'core', 'T3')  # must NOT raise
+
 
 class TestLidPositionConstraint:
     """lid_idx >= max(ambient_idx) when both are present."""

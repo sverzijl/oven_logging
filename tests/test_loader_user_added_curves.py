@@ -155,6 +155,58 @@ class TestRemoveManualCurve:
         loader.remove_manual_curve(0)  # detector curve at index 0
         assert len(loader.all_curves) == baseline_count
 
+    def test_surviving_manual_curve_state_preserved_when_earlier_removed(self):
+        """RESIDUAL #1b — removing an EARLIER user-added curve must NOT lose the
+        per-curve overrides / bake-metadata set on a SURVIVING later one.
+
+        Root cause: ``del self._added_curves[added_idx]`` shifts every later
+        manual curve's ``_user_added_idx`` down by one; the stable-key remap
+        keys added curves by ``("added", _user_added_idx)``, so the old key
+        ``("added", 1)`` no longer matches the survivor's new ``("added", 0)``
+        and the entry was dropped.
+        """
+        loader = _load()
+        # Two manual curves: added_idx 0 (350-600) and added_idx 1 (1000-1300).
+        loader.add_manual_curve(350, 600)
+        loader.add_manual_curve(1000, 1300)
+
+        # Set a core override + bake metadata on the SECOND manual curve.
+        idx2 = next(
+            i for i, c in enumerate(loader.all_curves)
+            if c.get("_user_added_idx") == 1
+        )
+        loader.set_sensor_override(idx2, "core", "T2")
+        loader.set_bake_metadata(
+            idx2, {"loaf_thickness_mm": 120.0, "oven_setpoint_C": 230.0}
+        )
+        assert loader.get_core_sensor(idx2) == "T2"
+        assert loader.get_bake_metadata(idx2) == {
+            "loaf_thickness_mm": 120.0,
+            "oven_setpoint_C": 230.0,
+        }
+
+        # Remove the FIRST manual curve (added_idx 0).
+        idx1 = next(
+            i for i, c in enumerate(loader.all_curves)
+            if c.get("_user_added_idx") == 0
+        )
+        loader.remove_manual_curve(idx1)
+
+        # The surviving (formerly second) manual curve now has added_idx 0.
+        surv = next(
+            i for i, c in enumerate(loader.all_curves)
+            if c.get("_user_added_idx") is not None
+        )
+        # Its override and metadata must be PRESERVED (followed the physical
+        # curve across the index shift), not silently dropped.
+        assert loader.get_core_sensor(surv) == "T2", (
+            "core override lost on surviving manual curve after earlier removal"
+        )
+        assert loader.get_bake_metadata(surv) == {
+            "loaf_thickness_mm": 120.0,
+            "oven_setpoint_C": 230.0,
+        }, "bake metadata lost on surviving manual curve after earlier removal"
+
 
 # ---------------------------------------------------------------------------
 # Tests: set_curve_boundaries dispatch

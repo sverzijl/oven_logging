@@ -116,6 +116,66 @@ class TestIsothermCoverageWarning:
         assert "full-immersion" in msg.lower()
         assert "never enter" in msg.lower()
 
+    def test_moving_lower_isotherms_but_no_100c_front_warns(self):
+        """WAVE-A FOLLOW-UP a: a full-crumb (Wonder) bake has moving 60/80 °C
+        contours but NO 100 °C moisture/Stefan front. The headline the tab
+        promises is the 100 °C front, so its absence must be surfaced even
+        though lower isotherms move (the all-degenerate branch returns None
+        here because 60/80 ARE trackable)."""
+        n = 20
+        t_grid = np.arange(n, dtype=float) * 30.0
+        positions = {}
+        for T in DEFAULT_ISOTHERMS_C:
+            if T in (60.0, 80.0):
+                # These fronts advance inward (trackable).
+                positions[T] = np.clip(0.85 - np.linspace(0.0, 0.4, n), 0.0, 1.0)
+            else:
+                # 100 °C and 110 °C never enter the probe (full crumb).
+                positions[T] = np.full(n, np.nan, dtype=float)
+        assignment = IsothermalAssignment(
+            t_grid_s=t_grid,
+            isotherm_temps_C=tuple(DEFAULT_ISOTHERMS_C),
+            isotherm_positions=positions,
+            isotherm_positions_raw={T: a.copy() for T, a in positions.items()},
+            fixed_core_x=0.1,
+            fixed_surface_x=0.8,
+            T_at_fixed_core_t=np.linspace(25.0, 96.0, n),
+            T_at_fixed_surface_t=np.linspace(25.0, 99.0, n),
+            classification=None,  # type: ignore[arg-type]
+        )
+        msg = isotherm_coverage_warning(assignment)
+        assert msg is not None, (
+            "the 100 °C front being absent must produce a warning even when "
+            "60/80 °C fronts move"
+        )
+        low = msg.lower()
+        assert "100" in low
+        assert "moisture" in low or "stefan" in low
+
+    def test_100c_front_present_no_warning(self):
+        """Sanity: when the 100 °C front DOES move, no warning fires even if a
+        higher isotherm (110 °C) is absent."""
+        n = 20
+        t_grid = np.arange(n, dtype=float) * 30.0
+        positions = {}
+        for T in DEFAULT_ISOTHERMS_C:
+            if T == 110.0:
+                positions[T] = np.full(n, np.nan, dtype=float)
+            else:
+                positions[T] = np.clip(0.85 - np.linspace(0.0, 0.4, n), 0.0, 1.0)
+        assignment = IsothermalAssignment(
+            t_grid_s=t_grid,
+            isotherm_temps_C=tuple(DEFAULT_ISOTHERMS_C),
+            isotherm_positions=positions,
+            isotherm_positions_raw={T: a.copy() for T, a in positions.items()},
+            fixed_core_x=0.1,
+            fixed_surface_x=0.8,
+            T_at_fixed_core_t=np.linspace(25.0, 101.0, n),
+            T_at_fixed_surface_t=np.linspace(25.0, 130.0, n),
+            classification=None,  # type: ignore[arg-type]
+        )
+        assert isotherm_coverage_warning(assignment) is None
+
     def test_flat_at_tip_warns_about_probe_tip(self):
         # All fronts pinned at x=0 (every sensor hotter than the targets).
         n = 20

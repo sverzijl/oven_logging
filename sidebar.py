@@ -7,6 +7,8 @@ settings (``show_zones``, ``smooth_data``, ``selected_sensors``,
 written into ``st.session_state`` so tab modules can read them without
 plumbing an args dict through every tab call.
 """
+import hashlib
+
 import streamlit as st
 
 from config.constants import BAKEOUT_TARGETS, SENSOR_LIST
@@ -22,6 +24,77 @@ from src.ui.core_confidence_banner import (
 # the sidebar widget was removed in M4 HMS Defender (mission
 # 2026-04-24_235605_ced2aac9).  Pure helpers in
 # ``src/ui/expected_duration_widgets.py`` remain in use by that tab.
+
+
+def classify_load_outcome(
+    filename: str,
+    num_curves: int,
+    existing_signature: str | None = None,
+    new_signature: str | None = None,
+) -> dict:
+    """Decide how a freshly-loaded file should be reported (#13, #28).
+
+    Pure decision logic keyed only on hashable values so it is unit-testable
+    without the Streamlit runtime. Returns a dict:
+
+    * ``status`` — one of ``"success"`` / ``"warning"`` / ``"skip"``.
+    * ``store``  — whether the file should be stored as a successful load.
+    * ``message`` — the human-facing line for st.success / st.warning.
+
+    Branches:
+      - A name-collision with *identical* content -> ``skip`` (already loaded,
+        nothing to do; not stored again).
+      - A name-collision with *different* content (#28) -> ``warning``, not
+        stored: silently ignoring it would hide a genuinely new file.
+      - 0 detected curves (#13) -> ``warning``, not stored: the welcome screen
+        stays and the operator can re-upload a corrected file.
+      - >=1 curve -> ``success``, stored.
+    """
+    if existing_signature is not None:
+        if new_signature is not None and new_signature == existing_signature:
+            return {
+                "status": "skip",
+                "store": False,
+                "message": f"{filename} is already loaded.",
+            }
+        return {
+            "status": "warning",
+            "store": False,
+            "message": (
+                f"A different file named '{filename}' is already loaded "
+                "(same name, different content). Rename one of the files and "
+                "re-upload to load both."
+            ),
+        }
+
+    if num_curves <= 0:
+        return {
+            "status": "warning",
+            "store": False,
+            "message": f"No baking curves detected in {filename}.",
+        }
+
+    if num_curves > 1:
+        message = f"✅ {filename}: Found {num_curves} baking curves."
+    else:
+        message = f"✅ {filename}: Loaded successfully!"
+    return {"status": "success", "store": True, "message": message}
+
+
+def _content_signature(file_buffer) -> str | None:
+    """SHA-256 of the uploaded file's bytes, used to detect same-name /
+    different-content collisions (#28). Best-effort: returns ``None`` if the
+    buffer can't be read/seeked, in which case dedup falls back to name only.
+    """
+    try:
+        pos = file_buffer.tell()
+        data = file_buffer.getvalue() if hasattr(file_buffer, "getvalue") else file_buffer.read()
+        file_buffer.seek(pos)
+    except Exception:
+        return None
+    if isinstance(data, str):
+        data = data.encode("utf-8", "replace")
+    return hashlib.sha256(data).hexdigest()
 
 
 def render():
@@ -46,37 +119,65 @@ def render():
             # Process new files that haven't been loaded yet
             new_files_loaded = False
             for uploaded_file in uploaded_files:
-                if uploaded_file.name not in st.session_state.files:
-                    with st.spinner(f"Loading {uploaded_file.name}..."):
-                        try:
-                            # Load data directly from uploaded file buffer
-                            loader = ThermalProfileLoader()
-                            data, metadata = loader.load_csv(file_buffer=uploaded_file)
+                name = uploaded_file.name
+                existing = st.session_state.files.get(name)
+                if existing is not None:
+                    # #28: a re-upload of an already-known NAME. Distinguish a
+                    # genuine re-pick of the same file (skip silently) from a
+                    # different file that happens to share the name (warn).
+                    new_sig = _content_signature(uploaded_file)
+                    outcome = classify_load_outcome(
+                        filename=name,
+                        num_curves=len(existing.get('curves', [])),
+                        existing_signature=existing.get('content_signature', ''),
+                        new_signature=new_sig if new_sig is not None
+                        else existing.get('content_signature', ''),
+                    )
+                    if outcome['status'] == 'warning':
+                        st.warning(outcome['message'])
+                    continue
 
-                            # Validate data
-                            is_valid, issues = validate_thermal_data(data)
+                with st.spinner(f"Loading {name}..."):
+                    try:
+                        # Compute the content signature BEFORE the loader
+                        # consumes the buffer (#28 dedup key).
+                        content_signature = _content_signature(uploaded_file)
 
-                            if is_valid:
-                                # Store file info
-                                st.session_state.files[uploaded_file.name] = {
-                                    'loader': loader,
-                                    'metadata': metadata,
-                                    'curves': loader.get_all_curves()
-                                }
+                        # Load data directly from uploaded file buffer
+                        loader = ThermalProfileLoader()
+                        data, metadata = loader.load_csv(file_buffer=uploaded_file)
 
-                                num_curves = loader.get_curve_count()
-                                if num_curves > 1:
-                                    st.success(f"✅ {uploaded_file.name}: Found {num_curves} baking curves.")
-                                else:
-                                    st.success(f"✅ {uploaded_file.name}: Loaded successfully!")
+                        # Validate data
+                        is_valid, issues = validate_thermal_data(data)
 
-                                new_files_loaded = True
-                            else:
-                                st.error(f"❌ {uploaded_file.name}: Data validation failed:")
-                                for issue in issues:
-                                    st.warning(issue)
-                        except Exception as e:
-                            st.error(f"Error loading {uploaded_file.name}: {str(e)}")
+                        if not is_valid:
+                            st.error(f"❌ {name}: Data validation failed:")
+                            for issue in issues:
+                                st.warning(issue)
+                            continue
+
+                        # #13: branch on the detected curve count. A 0-curve
+                        # file must NOT be stored as a successful load (else the
+                        # welcome screen is left and the name-keyed dedup makes
+                        # it un-reloadable).
+                        outcome = classify_load_outcome(
+                            filename=name,
+                            num_curves=loader.get_curve_count(),
+                        )
+                        if not outcome['store']:
+                            st.warning(outcome['message'])
+                            continue
+
+                        st.session_state.files[name] = {
+                            'loader': loader,
+                            'metadata': metadata,
+                            'curves': loader.get_all_curves(),
+                            'content_signature': content_signature,
+                        }
+                        st.success(outcome['message'])
+                        new_files_loaded = True
+                    except Exception as e:
+                        st.error(f"Error loading {name}: {str(e)}")
 
             # Rebuild all curves list when new files are loaded
             if new_files_loaded or not st.session_state.all_curves:
