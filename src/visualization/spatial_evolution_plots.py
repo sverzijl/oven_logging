@@ -45,6 +45,62 @@ def _isotherm_label(temp_c: float) -> tuple:
     return ISOTHERM_META.get(temp_c, (f"{int(temp_c)} °C", "#7f7f7f"))
 
 
+def isotherm_coverage_warning(assignment) -> Optional[str]:
+    """Explain when no isotherm front actually moves through the probe span.
+
+    A front is *trackable* only if it has >= 2 finite stride positions spanning
+    a real range (i.e. it advances through the probe). When every tracked
+    isotherm is all-NaN (the front never enters the probe) or pinned flat
+    (saturated at the probe tip because every sensor is already hotter), Panel B
+    degenerates to flat lines. That is the full-immersion case — the probe sits
+    entirely inside the crumb (plateauing ~98-100 C from latent-heat boiling),
+    so the 100 C drying front, which lives at the crust, is beyond the sensors'
+    reach. Returns a human explanation in that case, else ``None``.
+    """
+    never, passed, stationary, tracked = [], [], [], []
+    for temp_c in assignment.isotherm_temps_C:
+        arr = np.asarray(assignment.isotherm_positions[temp_c], dtype=float)
+        fin = arr[np.isfinite(arr)]
+        label = f"{int(temp_c)} °C"
+        if fin.size == 0:
+            never.append(label)
+        elif float(fin.max() - fin.min()) <= 1e-6:
+            (passed if float(fin.max()) <= 1e-6 else stationary).append(label)
+        else:
+            tracked.append(label)
+
+    if tracked:
+        return None
+
+    parts = []
+    if passed:
+        parts.append(
+            f"the {', '.join(passed)} front{'s' if len(passed) > 1 else ''} "
+            "already sit at the probe tip (every sensor is hotter than that)"
+        )
+    if stationary:
+        parts.append(
+            f"the {', '.join(stationary)} front{'s' if len(stationary) > 1 else ''} "
+            "do not move"
+        )
+    if never:
+        parts.append(
+            f"the {', '.join(never)} front{'s' if len(never) > 1 else ''} never "
+            "enter the probe (no sensor gets that hot)"
+        )
+    detail = "; ".join(parts)
+    return (
+        "No temperature front moves through the probe span on this bake, so the "
+        f"trajectories below are flat — {detail}.\n\n"
+        "This is the full-immersion case: the probe sits entirely inside the "
+        "crumb (which plateaus near 98-100 °C from latent-heat boiling), so the "
+        "100 °C drying front — which lives at the **crust** — is outside the "
+        "sensors' reach. To capture the moisture front, insert the probe so its "
+        "outer sensors pass through the crust into the oven air (the outer "
+        "channels should read ~120-180 °C, as in the ProbeData_1000BA3C bakes)."
+    )
+
+
 def plot_isothermal_positions(
     assignment,
     sensor_roles: Optional[dict] = None,

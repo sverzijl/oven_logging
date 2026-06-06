@@ -30,6 +30,7 @@ from src.ui.core_confidence_banner import core_confidence_banner_text
 from src.ui.sensor_role_helpers import build_sensor_role_map
 from src.visualization.plots import ThermalPlotter
 from src.visualization.spatial_evolution_plots import (
+    isotherm_coverage_warning,
     plot_fixed_position_temperatures,
     plot_isothermal_positions,
 )
@@ -112,6 +113,9 @@ def render():
 
     # --- Panel B — isotherm fronts (headline) -----------------------------
     st.subheader("Isotherm fronts — 100 °C is the moisture / Stefan front")
+    coverage_warning = isotherm_coverage_warning(assignment)
+    if coverage_warning:
+        st.warning(coverage_warning)
     fig_b = plot_isothermal_positions(assignment, sensor_roles=sensor_roles)
     st.plotly_chart(fig_b, use_container_width=True)
 

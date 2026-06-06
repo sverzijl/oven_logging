@@ -22,6 +22,7 @@ from src.data.spatial_reconstruction.isothermal import (  # noqa: E402
 )
 from src.visualization.spatial_evolution_plots import (  # noqa: E402
     ISOTHERM_META,
+    isotherm_coverage_warning,
     plot_isothermal_positions,
     plot_fixed_position_temperatures,
 )
@@ -99,6 +100,41 @@ class TestPlotIsothermalPositions:
         assignment = _make_assignment(all_nan=True)
         fig = plot_isothermal_positions(assignment)  # must not raise
         assert len(fig.data) == 2 * len(DEFAULT_ISOTHERMS_C)
+
+
+class TestIsothermCoverageWarning:
+
+    def test_moving_fronts_have_no_warning(self):
+        assignment = _make_assignment()  # fronts drift inward -> trackable
+        assert isotherm_coverage_warning(assignment) is None
+
+    def test_all_nan_fronts_warn_about_crust(self):
+        assignment = _make_assignment(all_nan=True)
+        msg = isotherm_coverage_warning(assignment)
+        assert msg is not None
+        assert "crust" in msg.lower()
+        assert "full-immersion" in msg.lower()
+        assert "never enter" in msg.lower()
+
+    def test_flat_at_tip_warns_about_probe_tip(self):
+        # All fronts pinned at x=0 (every sensor hotter than the targets).
+        n = 20
+        t_grid = np.arange(n, dtype=float) * 30.0
+        positions = {T: np.zeros(n, dtype=float) for T in DEFAULT_ISOTHERMS_C}
+        assignment = IsothermalAssignment(
+            t_grid_s=t_grid,
+            isotherm_temps_C=tuple(DEFAULT_ISOTHERMS_C),
+            isotherm_positions=positions,
+            isotherm_positions_raw={T: a.copy() for T, a in positions.items()},
+            fixed_core_x=0.1,
+            fixed_surface_x=0.8,
+            T_at_fixed_core_t=np.full(n, 99.0),
+            T_at_fixed_surface_t=np.full(n, 99.0),
+            classification=None,  # type: ignore[arg-type]
+        )
+        msg = isotherm_coverage_warning(assignment)
+        assert msg is not None
+        assert "probe tip" in msg.lower()
 
 
 class TestPlotFixedPositionTemperatures:
