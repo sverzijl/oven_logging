@@ -204,8 +204,76 @@ class TestInternalSensorFiltering:
         
         loader.data = data
         loader._sensor_overrides[0] = {'surface': 'T4'}
-        
+
         internal_sensors = loader.get_internal_sensors(curve_index=0, data=data)
-        
+
         # T2 should be excluded due to spike exceeding 103°C
         assert set(internal_sensors) == {'T1', 'T3'}
+
+
+class TestInternalSensorCurveZeroResolution:
+    """Finding 3: for curve_index=0 the falsy-zero check must not silently
+    fall through to current_curve_index, and the candidate sensors must be
+    enumerated from the CHOSEN curve's DataFrame, not self.data."""
+
+    @pytest.fixture
+    def loader(self):
+        return ThermalProfileLoader()
+
+    def _curve_df(self, surface_max, t1_max=95.0, t2_max=96.0, t3_max=98.0):
+        n = 360
+        df = pd.DataFrame({
+            'Timestamp': np.arange(n) * 5.0,
+            'TimeMinutes': np.arange(n) * 5.0 / 60,
+            'T1': np.linspace(25, t1_max, n),
+            'T2': np.linspace(25, t2_max, n),
+            'T3': np.linspace(25, t3_max, n),
+            'T4': np.linspace(25, surface_max, n),  # surface
+        })
+        return df
+
+    def test_curve_zero_uses_its_own_df_not_self_data(self, loader):
+        """With no explicit ``data`` arg, curve 0 must resolve via
+        all_curves[0]['data'], and the candidate enumeration must come from
+        that df — even when self.data is a DIFFERENT (wrong-shaped) frame."""
+        curve0 = self._curve_df(surface_max=150.0)
+        # all_curves[0] holds curve 0's df; self.data is a deliberately
+        # different frame missing the lower sensors so that enumerating from
+        # it (the bug) would return the wrong set.
+        loader.all_curves = [{'data': curve0}]
+        loader.current_curve_index = 0
+        loader.data = curve0.drop(columns=['T2', 'T3'])
+        loader._sensor_overrides[0] = {'surface': 'T4'}
+
+        internal = loader.get_internal_sensors(curve_index=0)
+        # Curve 0 has T1, T2, T3 below the T4 surface; all stay <103.
+        assert set(internal) == {'T1', 'T2', 'T3'}
+
+    def test_curve_zero_distinct_from_current_curve_index(self, loader):
+        """curve_index=0 must select curve 0 even when current_curve_index
+        points at a different curve."""
+        curve0 = self._curve_df(surface_max=150.0, t1_max=95.0, t2_max=96.0,
+                                t3_max=98.0)
+        # Curve 1 has T3 above threshold, so a falsy-zero fall-through to
+        # current_curve_index=1 would drop T3 and reveal the bug.
+        curve1 = self._curve_df(surface_max=150.0, t1_max=95.0, t2_max=96.0,
+                                t3_max=110.0)
+        loader.all_curves = [{'data': curve0}, {'data': curve1}]
+        loader.current_curve_index = 1
+        loader.data = curve1
+        loader._sensor_overrides[0] = {'surface': 'T4'}
+        loader._sensor_overrides[1] = {'surface': 'T4'}
+
+        internal0 = loader.get_internal_sensors(curve_index=0)
+        assert set(internal0) == {'T1', 'T2', 'T3'}, (
+            "curve 0's internal sensors must reflect curve 0's data, not "
+            "current_curve_index"
+        )
+
+    def test_guards_when_curve_df_is_none(self, loader):
+        """No KeyError/AttributeError when the chosen curve has no df."""
+        loader.all_curves = [{'data': None}]
+        loader.current_curve_index = 0
+        loader.data = None
+        loader._sensor_overrides[0] = {'surface': 'T4'}
+        assert loader.get_internal_sensors(curve_index=0) == []
