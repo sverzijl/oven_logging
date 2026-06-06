@@ -39,35 +39,83 @@ ISOTHERM_META: dict = {
 # 110 °C crust-onset reference for the surface panel (no S_CURVE benchmark).
 _CRUST_ONSET_C = 110.0
 
+# The 100 °C latent-heat / Stefan boundary is the headline moisture front the
+# tab promises; its absence is worth flagging even when lower isotherms move.
+_MOISTURE_FRONT_C = 100.0
+
 
 def _isotherm_label(temp_c: float) -> tuple:
     """Return (label, colour) for ``temp_c``, falling back gracefully."""
     return ISOTHERM_META.get(temp_c, (f"{int(temp_c)} °C", "#7f7f7f"))
 
 
+def _front_state(arr) -> str:
+    """Classify one isotherm's position track: ``never`` (no finite points),
+    ``passed`` (flat at the probe tip x=0), ``stationary`` (flat elsewhere),
+    or ``tracked`` (advances through a real range)."""
+    fin = np.asarray(arr, dtype=float)
+    fin = fin[np.isfinite(fin)]
+    if fin.size == 0:
+        return "never"
+    if float(fin.max() - fin.min()) <= 1e-6:
+        return "passed" if float(fin.max()) <= 1e-6 else "stationary"
+    return "tracked"
+
+
 def isotherm_coverage_warning(assignment) -> Optional[str]:
-    """Explain when no isotherm front actually moves through the probe span.
+    """Explain when the isotherm fronts don't tell the moisture-front story.
 
     A front is *trackable* only if it has >= 2 finite stride positions spanning
-    a real range (i.e. it advances through the probe). When every tracked
-    isotherm is all-NaN (the front never enters the probe) or pinned flat
-    (saturated at the probe tip because every sensor is already hotter), Panel B
-    degenerates to flat lines. That is the full-immersion case — the probe sits
-    entirely inside the crumb (plateauing ~98-100 C from latent-heat boiling),
-    so the 100 C drying front, which lives at the crust, is beyond the sensors'
-    reach. Returns a human explanation in that case, else ``None``.
+    a real range (i.e. it advances through the probe).
+
+    Two distinct degeneracies are surfaced:
+
+    1. **No front moves at all** — every tracked isotherm is all-NaN (never
+       enters the probe) or pinned flat (saturated at the probe tip). Panel B is
+       all flat lines. That is the full-immersion case (the probe sits entirely
+       inside the crumb plateauing ~98-100 °C from latent-heat boiling), so the
+       crust-side drying front is beyond the sensors' reach.
+
+    2. **The 100 °C moisture / Stefan front specifically is absent/degenerate**
+       even though lower isotherms (60/80 °C) move (WAVE-A FOLLOW-UP a). This is
+       the full-crumb (Wonder) bake: the headline 100 °C front the tab promises
+       never reaches a sensor, so the operator must be told even though Panel B
+       is not entirely flat.
+
+    Returns a human explanation in either case, else ``None``.
     """
-    never, passed, stationary, tracked = [], [], [], []
-    for temp_c in assignment.isotherm_temps_C:
-        arr = np.asarray(assignment.isotherm_positions[temp_c], dtype=float)
-        fin = arr[np.isfinite(arr)]
-        label = f"{int(temp_c)} °C"
-        if fin.size == 0:
-            never.append(label)
-        elif float(fin.max() - fin.min()) <= 1e-6:
-            (passed if float(fin.max()) <= 1e-6 else stationary).append(label)
+    states = {
+        float(temp_c): _front_state(assignment.isotherm_positions[temp_c])
+        for temp_c in assignment.isotherm_temps_C
+    }
+    never = [f"{int(t)} °C" for t, s in states.items() if s == "never"]
+    passed = [f"{int(t)} °C" for t, s in states.items() if s == "passed"]
+    stationary = [f"{int(t)} °C" for t, s in states.items() if s == "stationary"]
+    tracked = [f"{int(t)} °C" for t, s in states.items() if s == "tracked"]
+
+    # Case 2: at least one front moves, but the 100 °C moisture front does not.
+    moisture_state = states.get(_MOISTURE_FRONT_C)
+    if tracked and moisture_state is not None and moisture_state != "tracked":
+        moving = ", ".join(sorted(tracked, key=lambda s: int(s.split()[0])))
+        if moisture_state == "never":
+            why = (
+                "it never enters the probe (no sensor reaches 100 °C — the "
+                "crumb plateaus just below boiling)"
+            )
+        elif moisture_state == "passed":
+            why = "it sits pinned at the probe tip (every sensor is already hotter)"
         else:
-            tracked.append(label)
+            why = "it does not advance through the probe span"
+        return (
+            "The 100 °C moisture / Stefan front — the headline this tab tracks "
+            f"— is not resolved on this bake: {why}. Lower isotherms ({moving}) "
+            "do move, so Panel B is not entirely flat, but the drying front "
+            "itself lives at the **crust**, beyond these sensors. This is the "
+            "full-crumb case (e.g. the Wonder bakes). To capture the moisture "
+            "front, insert the probe so its outer sensors pass through the "
+            "crust into the oven air (the outer channels should read "
+            "~120-180 °C)."
+        )
 
     if tracked:
         return None

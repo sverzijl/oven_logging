@@ -150,7 +150,7 @@ def render() -> None:
     raw_fig = plot_raw_log_with_curves(loader.raw_data, curves)
     raw_select_event = st.plotly_chart(
         raw_fig,
-        use_container_width=True,
+        width="stretch",
         key=f"raw_log_{current_file}",
         on_select="rerun",
         selection_mode="box",
@@ -255,7 +255,7 @@ def _render_detail_panel(
         )
         select_event = st.plotly_chart(
             detail_fig,
-            use_container_width=True,
+            width="stretch",
             key=f"curve_detail_{current_file}_c{curve_number}",
             on_select="rerun",
             selection_mode="box",
@@ -336,7 +336,7 @@ def _render_detail_panel(
         button_clicked = st.button(
             button_label,
             key=button_key,
-            use_container_width=True,
+            width="stretch",
         )
         if button_clicked:
             if is_user_added:

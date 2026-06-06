@@ -1,20 +1,17 @@
 """Zone Analysis tab — extracted from app.py's original tab3 block."""
 import streamlit as st
 
-from src.analysis.zone_analysis import ZoneAnalyzer
 from src.visualization.plots import ThermalPlotter
 from src.visualization.zone_cards import create_zone_summary_dashboard
+from tabs._shared import get_zone_analyzer
 
 
 def render():
     st.header("Temperature Zone Analysis")
 
-    # Zone analysis
-    zone_analyzer = ZoneAnalyzer(
-        st.session_state.data,
-        st.session_state.metadata['sample_period_s'],
-        st.session_state.loader
-    )
+    # Zone analysis — deduped per (file, curve) so Recommendations doesn't
+    # rebuild the same ZoneAnalyzer on the same rerun (#20).
+    zone_analyzer = get_zone_analyzer()
     zone_analysis = st.session_state.analyzer.analyze_temperature_zones()
 
     # Create beautiful zone dashboard
@@ -24,7 +21,7 @@ def render():
     plotter = ThermalPlotter()
     st.markdown("### Zone Duration Timeline")
     fig_zones = plotter.plot_zone_duration_chart(zone_analysis)
-    st.plotly_chart(fig_zones, use_container_width=True)
+    st.plotly_chart(fig_zones, width="stretch")
 
     # Zone transitions
     st.markdown("### Zone Transitions")

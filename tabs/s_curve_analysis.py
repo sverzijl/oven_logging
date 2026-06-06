@@ -4,6 +4,7 @@ import streamlit as st
 
 from src.ui.core_confidence_banner import core_confidence_banner_text
 from src.visualization.plots import ThermalPlotter
+from tabs._shared import get_s_curve_report
 
 
 def render():
@@ -20,8 +21,8 @@ def render():
     elif _level == "caption":
         st.caption(_msg)
 
-    # Calculate S-curve analysis
-    s_curve_report = st.session_state.s_curve_analyzer.generate_optimization_report()
+    # Product-aware (#8) S-curve report, deduped per selection (#20).
+    s_curve_report = get_s_curve_report()
     landmarks = s_curve_report['landmarks']
     zones = s_curve_report['zone_analysis']
 
@@ -40,7 +41,7 @@ def render():
         show_targets=True,
         internal_sensors=internal_sensors
     )
-    st.plotly_chart(fig_s_curve, use_container_width=True)
+    st.plotly_chart(fig_s_curve, width="stretch")
 
     # Landmark summary
     st.subheader("S-Curve Landmarks")
@@ -69,7 +70,7 @@ def render():
             'Percentage': f"{zone_info['percentage_of_bake']:.1f}%",
             'Max Temp': f"{zone_info.get('max_temp_reached', 0):.1f}°C"
         })
-    st.dataframe(pd.DataFrame(zone_data), use_container_width=True)
+    st.dataframe(pd.DataFrame(zone_data), width="stretch")
 
     # Overall score
     score = s_curve_report['overall_score']

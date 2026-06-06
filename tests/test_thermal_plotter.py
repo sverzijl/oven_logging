@@ -146,6 +146,56 @@ class TestThermalPlotter:
         assert range_trace.fill == 'tonexty'
         assert range_trace.fillcolor == 'rgba(70, 130, 180, 0.2)'
     
+    def test_plot_s_curve_benchmark_lines_from_config(self, plotter, sample_data):
+        """#19: the S-curve reference hlines must be driven by
+        config.constants.S_CURVE_BENCHMARKS, not hardcoded 56/82/93.
+
+        Empirically verified by perturbing a benchmark temperature: the
+        rendered hline must track the config value, not a hardcoded literal.
+        """
+        from unittest.mock import patch
+
+        import src.visualization.plots as plots_mod
+
+        landmarks = {
+            'yeast_kill': SCurveLandmark(
+                name='yeast_kill', time_minutes=5.0, time_percentage=16.7,
+                temperature=56.0, target_percentage_range=(10, 20),
+                is_within_target=False,
+            )
+        }
+        zones = {'zone1': {'duration': 10, 'average_temp': 50}}
+
+        # Perturbed benchmark set with NON-default temperatures so a hardcoded
+        # 56/82/93 implementation would FAIL this test.
+        perturbed = {
+            "YEAST_KILL": {"temperature": 50, "target_percentage": (45, 55), "critical": True},
+            "STARCH_COMPLETE": {"temperature": 77, "target_percentage": (55, 65), "critical": True},
+            "ARRIVAL_TEMP": {"temperature": 88, "target_percentage": (80, 90), "critical": True},
+        }
+        with patch.object(plots_mod, "S_CURVE_BENCHMARKS", perturbed):
+            fig = plotter.plot_s_curve(sample_data, landmarks, zones)
+
+        hline_ys = {
+            round(float(s.y0), 3)
+            for s in fig.layout.shapes
+            if getattr(s, 'y0', None) is not None
+            and getattr(s, 'y1', None) is not None
+            and float(s.y0) == float(s.y1)
+        }
+        expected = {50.0, 77.0, 88.0}
+        assert expected.issubset(hline_ys), (
+            f"benchmark hlines must track S_CURVE_BENCHMARKS; expected "
+            f"{expected} but got {hline_ys} (hardcoded literals suspected)"
+        )
+        annotation_blob = " ".join(
+            str(a.text) for a in fig.layout.annotations if a.text
+        )
+        for t in (50, 77, 88):
+            assert str(t) in annotation_blob, (
+                f"perturbed benchmark {t}°C must appear in an annotation"
+            )
+
     def test_plot_s_curve_comparison_with_internal_sensors(self, plotter, sample_data):
         """Test that plot_s_curve_comparison correctly includes shading for multiple curves."""
         # Prepare data for two curves

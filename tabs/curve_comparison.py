@@ -15,6 +15,29 @@ from src.analysis.curve_comparison import (
 from src.analysis.s_curve_analysis import SCurveAnalyzer
 from src.visualization.plots import ThermalPlotter
 
+_SYNCED_ACTIVE_KEY = "_curve_check_synced_active"
+
+
+def sync_curve_checkbox_state(global_indices, keys, active_index):
+    """Seed the per-curve checkbox session-state keys for the active curve (#37).
+
+    Streamlit only honours a widget's ``value=`` on its FIRST instantiation;
+    thereafter ``st.session_state[key]`` is authoritative. The old code passed
+    ``value=global_idx == global_curve_index`` every render, so once the
+    checkboxes existed a sidebar curve switch could not move the checked box.
+
+    This helper, called BEFORE the checkboxes instantiate, (re)writes the keys
+    only when the *active curve changed since the last sync* (or on first
+    render). When the active curve is unchanged we leave the keys alone so the
+    operator's manual multi-curve selection survives reruns.
+    """
+    last_synced = st.session_state.get(_SYNCED_ACTIVE_KEY)
+    if last_synced == active_index:
+        return
+    for gi, key in zip(global_indices, keys):
+        st.session_state[key] = (gi == active_index)
+    st.session_state[_SYNCED_ACTIVE_KEY] = active_index
+
 
 def render():
     st.header("Curve Comparison")
@@ -33,6 +56,19 @@ def render():
             files_dict[filename] = []
         files_dict[filename].append((i, curve))
 
+    # #37: drive the checkboxes from session_state. Seed the keys for the
+    # currently-active curve BEFORE the widgets instantiate, re-seeding only
+    # when the active curve changed since the last render (so manual multi-
+    # curve selections survive reruns). Passing value= here would be ignored
+    # by Streamlit after the first render.
+    all_global_indices = [gi for gi, _ in (
+        (gi, ci) for curves in files_dict.values() for gi, ci in curves
+    )]
+    all_keys = [f"curve_check_{gi}" for gi in all_global_indices]
+    sync_curve_checkbox_state(
+        all_global_indices, all_keys, st.session_state.global_curve_index
+    )
+
     # Create checkboxes grouped by file
     curve_checkboxes = {}
     for filename, curves in files_dict.items():
@@ -49,8 +85,7 @@ def render():
 
             checked = st.checkbox(
                 label,
-                value=global_idx == st.session_state.global_curve_index,
-                key=f"curve_check_{global_idx}"
+                key=f"curve_check_{global_idx}",
             )
             curve_checkboxes[global_idx] = checked
         st.write("")  # Add space between files
@@ -152,23 +187,23 @@ def render():
             # Core temperature comparison
             st.markdown("### Core Temperature")
             fig_core = plotter.plot_role_based_comparison(role_data, 'core', show_zones)
-            st.plotly_chart(fig_core, use_container_width=True)
+            st.plotly_chart(fig_core, width="stretch")
 
             # Ambient temperature comparison
             st.markdown("### Ambient Temperature")
             fig_ambient = plotter.plot_role_based_comparison(role_data, 'ambient', False)
-            st.plotly_chart(fig_ambient, use_container_width=True)
+            st.plotly_chart(fig_ambient, width="stretch")
 
         with col2:
             # Surface temperature comparison
             st.markdown("### Surface Temperature")
             fig_surface = plotter.plot_role_based_comparison(role_data, 'surface', show_zones)
-            st.plotly_chart(fig_surface, use_container_width=True)
+            st.plotly_chart(fig_surface, width="stretch")
 
             # Internal temperature comparison
             st.markdown("### Internal Temperature Range")
             fig_internal = plotter.plot_role_based_comparison(role_data, 'internal', False)
-            st.plotly_chart(fig_internal, use_container_width=True)
+            st.plotly_chart(fig_internal, width="stretch")
 
     # Zone Analysis Comparison
     with comp_tab2:
@@ -179,11 +214,11 @@ def render():
 
         # Display zone comparison chart
         fig_zones = plotter.plot_zone_duration_comparison(zone_comparison)
-        st.plotly_chart(fig_zones, use_container_width=True)
+        st.plotly_chart(fig_zones, width="stretch")
 
         # Display zone comparison table
         st.markdown("### Zone Duration Details")
-        st.dataframe(zone_comparison, use_container_width=True)
+        st.dataframe(zone_comparison, width="stretch")
 
     # S-Curve Analysis Comparison
     with comp_tab3:
@@ -224,11 +259,11 @@ def render():
 
         # Plot S-curve comparison
         fig_s_curve = plotter.plot_s_curve_comparison(s_curve_data)
-        st.plotly_chart(fig_s_curve, use_container_width=True)
+        st.plotly_chart(fig_s_curve, width="stretch")
 
         # Display landmark comparison table
         st.markdown("### Landmark Comparison")
-        st.dataframe(landmark_comparison, use_container_width=True)
+        st.dataframe(landmark_comparison, width="stretch")
 
     # Heating Rate Comparison
     with comp_tab4:
@@ -239,7 +274,7 @@ def render():
 
         # Plot heating rate comparison
         fig_heating = plotter.plot_heating_rate_comparison(heating_data)
-        st.plotly_chart(fig_heating, use_container_width=True)
+        st.plotly_chart(fig_heating, width="stretch")
 
         # Display consistency scores
         if heating_data['consistency_scores']:
@@ -264,7 +299,7 @@ def render():
         quality_metrics = comparison.compare_quality_metrics()
 
         # Display metrics table
-        st.dataframe(quality_metrics, use_container_width=True)
+        st.dataframe(quality_metrics, width="stretch")
 
         # Create visual metrics dashboard
         st.markdown("### Quality Score Overview")
@@ -303,4 +338,4 @@ def render():
                 showlegend=False
             )
 
-            st.plotly_chart(fig_quality, use_container_width=True)
+            st.plotly_chart(fig_quality, width="stretch")

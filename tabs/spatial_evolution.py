@@ -109,7 +109,7 @@ def render():
         show_zones=st.session_state.get("show_zones", True),
         sensor_roles=sensor_roles,
     )
-    st.plotly_chart(fig_a, use_container_width=True)
+    st.plotly_chart(fig_a, width="stretch")
 
     # --- Panel B — isotherm fronts (headline) -----------------------------
     st.subheader("Isotherm fronts — 100 °C is the moisture / Stefan front")
@@ -117,12 +117,12 @@ def render():
     if coverage_warning:
         st.warning(coverage_warning)
     fig_b = plot_isothermal_positions(assignment, sensor_roles=sensor_roles)
-    st.plotly_chart(fig_b, use_container_width=True)
+    st.plotly_chart(fig_b, width="stretch")
 
     # --- Panel C — fixed-position temperatures ----------------------------
     st.subheader("Temperature at the fixed core / surface positions")
     fig_c = plot_fixed_position_temperatures(assignment)
-    st.plotly_chart(fig_c, use_container_width=True)
+    st.plotly_chart(fig_c, width="stretch")
 
     # --- Footer -----------------------------------------------------------
     footer = (

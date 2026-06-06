@@ -33,7 +33,7 @@ def render():
     # Heating rate plots
     plotter = ThermalPlotter()
     fig_rates = plotter.plot_heating_rates(rates)
-    st.plotly_chart(fig_rates, use_container_width=True)
+    st.plotly_chart(fig_rates, width="stretch")
 
     # Temperature gradients
     st.subheader("Temperature Gradients")
@@ -65,7 +65,7 @@ def render():
         ),
         hovermode='x unified'
     )
-    st.plotly_chart(fig_gradient, use_container_width=True)
+    st.plotly_chart(fig_gradient, width="stretch")
 
     col1, col2, col3 = st.columns(3)
     with col1:

@@ -57,11 +57,11 @@ def render():
         sensors=selected_sensors,
         sensor_roles=sensor_roles,
     )
-    st.plotly_chart(fig_temp, use_container_width=True)
+    st.plotly_chart(fig_temp, width="stretch")
 
     st.subheader("Temperature Distribution Heatmap")
     fig_heatmap = plotter.plot_temperature_gradient_heatmap(
         st.session_state.data,
         sensor_roles=sensor_roles,
     )
-    st.plotly_chart(fig_heatmap, use_container_width=True)
+    st.plotly_chart(fig_heatmap, width="stretch")
