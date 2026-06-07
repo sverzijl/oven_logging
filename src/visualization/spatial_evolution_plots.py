@@ -42,6 +42,14 @@ _CRUST_ONSET_C = 110.0
 # The 100 °C latent-heat / Stefan boundary is the headline moisture front the
 # tab promises; its absence is worth flagging even when lower isotherms move.
 _MOISTURE_FRONT_C = 100.0
+# For the 100 °C front to count as a *real* advancing moisture front (rather
+# than a handful of transient points grazing the probe tip — e.g. the ~5
+# near-x=0 points the full-crumb Wonder bakes produce), it must have at least
+# this many finite stride positions AND sweep at least this fraction of the
+# probe length. Below either threshold it is treated as not-resolved so the
+# operator still gets the "moisture front not in the probe" guidance.
+_MOISTURE_FRONT_MIN_POINTS = 3
+_MOISTURE_FRONT_MIN_SPAN = 0.1
 
 
 def _isotherm_label(temp_c: float) -> tuple:
@@ -60,6 +68,19 @@ def _front_state(arr) -> str:
     if float(fin.max() - fin.min()) <= 1e-6:
         return "passed" if float(fin.max()) <= 1e-6 else "stationary"
     return "tracked"
+
+
+def _moisture_front_meaningful(arr) -> bool:
+    """True iff the 100 °C front is a *real* advancing front, not a few
+    transient points grazing the probe tip. Requires enough finite samples AND
+    a real spatial span — a front spanning < ``_MOISTURE_FRONT_MIN_SPAN`` of the
+    probe (e.g. the ~5 near-x=0 points a full-crumb bake yields) does not
+    count, even though ``_front_state`` would label it ``tracked``."""
+    fin = np.asarray(arr, dtype=float)
+    fin = fin[np.isfinite(fin)]
+    if fin.size < _MOISTURE_FRONT_MIN_POINTS:
+        return False
+    return float(fin.max() - fin.min()) >= _MOISTURE_FRONT_MIN_SPAN
 
 
 def isotherm_coverage_warning(assignment) -> Optional[str]:
@@ -93,10 +114,19 @@ def isotherm_coverage_warning(assignment) -> Optional[str]:
     stationary = [f"{int(t)} °C" for t, s in states.items() if s == "stationary"]
     tracked = [f"{int(t)} °C" for t, s in states.items() if s == "tracked"]
 
-    # Case 2: at least one front moves, but the 100 °C moisture front does not.
+    # The 100 °C front is the headline. If it is meaningfully resolved, the tab
+    # is telling its story — no warning, regardless of the other isotherms.
+    moisture_arr = assignment.isotherm_positions.get(_MOISTURE_FRONT_C)
+    if moisture_arr is not None and _moisture_front_meaningful(moisture_arr):
+        return None
+
     moisture_state = states.get(_MOISTURE_FRONT_C)
-    if tracked and moisture_state is not None and moisture_state != "tracked":
-        moving = ", ".join(sorted(tracked, key=lambda s: int(s.split()[0])))
+    # Case 2: some OTHER front genuinely moves, but the 100 °C moisture front is
+    # not meaningfully resolved (absent, pinned at the tip, or only a few
+    # transient near-tip points). Panel B is not flat, but the headline is missing.
+    other_tracked = [t for t in tracked if t != f"{int(_MOISTURE_FRONT_C)} °C"]
+    if other_tracked:
+        moving = ", ".join(sorted(other_tracked, key=lambda s: int(s.split()[0])))
         if moisture_state == "never":
             why = (
                 "it never enters the probe (no sensor reaches 100 °C — the "
@@ -104,6 +134,11 @@ def isotherm_coverage_warning(assignment) -> Optional[str]:
             )
         elif moisture_state == "passed":
             why = "it sits pinned at the probe tip (every sensor is already hotter)"
+        elif moisture_state == "tracked":
+            why = (
+                "it only grazes the probe tip as a few transient points, never "
+                "sweeping a sustained front through the probe"
+            )
         else:
             why = "it does not advance through the probe span"
         return (
@@ -117,8 +152,7 @@ def isotherm_coverage_warning(assignment) -> Optional[str]:
             "~120-180 °C)."
         )
 
-    if tracked:
-        return None
+    # Otherwise nothing meaningful moves at all -> the all-flat case below.
 
     parts = []
     if passed:

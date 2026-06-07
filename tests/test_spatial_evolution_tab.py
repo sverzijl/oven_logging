@@ -152,6 +152,41 @@ class TestIsothermCoverageWarning:
         assert "100" in low
         assert "moisture" in low or "stefan" in low
 
+    def test_trivial_100c_front_grazing_tip_warns(self):
+        """Nuance follow-up: on the real Wonder bake the 100 °C front is a few
+        transient points hugging the probe tip (n~5, span ~0.02) that
+        ``_front_state`` calls 'tracked' on a >1e-6 range — but it is not a real
+        moisture front. With 60/80 °C genuinely moving, the warning must still
+        fire (span < _MOISTURE_FRONT_MIN_SPAN ⇒ not meaningfully resolved)."""
+        n = 20
+        t_grid = np.arange(n, dtype=float) * 30.0
+        positions = {}
+        for T in DEFAULT_ISOTHERMS_C:
+            if T in (60.0, 80.0):
+                positions[T] = np.clip(0.85 - np.linspace(0.0, 0.4, n), 0.0, 1.0)
+            elif T == 100.0:
+                # 5 transient near-tip points (span ~0.02), then NaN — the Wonder shape.
+                arr = np.full(n, np.nan, dtype=float)
+                arr[:5] = [0.022, 0.018, 0.012, 0.006, 0.000]
+                positions[T] = arr
+            else:  # 110 never enters
+                positions[T] = np.full(n, np.nan, dtype=float)
+        assignment = IsothermalAssignment(
+            t_grid_s=t_grid,
+            isotherm_temps_C=tuple(DEFAULT_ISOTHERMS_C),
+            isotherm_positions=positions,
+            isotherm_positions_raw={T: a.copy() for T, a in positions.items()},
+            fixed_core_x=0.1, fixed_surface_x=0.8,
+            T_at_fixed_core_t=np.linspace(25.0, 96.0, n),
+            T_at_fixed_surface_t=np.linspace(25.0, 99.0, n),
+            classification=None,  # type: ignore[arg-type]
+        )
+        msg = isotherm_coverage_warning(assignment)
+        assert msg is not None, "a 100 °C front that only grazes the tip must warn"
+        low = msg.lower()
+        assert "100" in low and ("moisture" in low or "stefan" in low)
+        assert "graze" in low or "transient" in low
+
     def test_100c_front_present_no_warning(self):
         """Sanity: when the 100 °C front DOES move, no warning fires even if a
         higher isotherm (110 °C) is absent."""
