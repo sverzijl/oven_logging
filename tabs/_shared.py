@@ -29,13 +29,49 @@ _S_CURVE_REPORT_CACHE = "_s_curve_report_cache"
 _ZONE_ANALYZER_CACHE = "_zone_analyzer_cache"
 
 
+def _curve_data_signature() -> tuple:
+    """``(start_idx, end_idx, samples)`` for the current curve, or ``()``.
+
+    Appended to :func:`_selection_key` so a boundary edit that changes the slice at
+    a FIXED curve index still busts the derived caches (the index-only key missed
+    it). Int-guarded so a MagicMock loader in unit tests degrades to ``()`` and the
+    legacy 3-tuple key is preserved.
+    """
+    loader = st.session_state.get("loader")
+    idx = st.session_state.get("current_curve_index", 0)
+    try:
+        curve = loader.all_curves[idx]
+        start, end, samples = (
+            curve.get("start_idx"),
+            curve.get("end_idx"),
+            curve.get("samples"),
+        )
+        if all(isinstance(v, int) for v in (start, end, samples)):
+            return (start, end, samples)
+    except Exception:  # noqa: BLE001 — signature must never crash a render
+        pass
+    return ()
+
+
 def _selection_key() -> tuple:
-    """Hashable identity of the current (file, curve, product) selection."""
+    """Hashable identity of the current (file, curve, product) selection, plus a
+    per-curve data signature so a same-index boundary change invalidates caches."""
     return (
         st.session_state.get("current_file"),
         st.session_state.get("current_curve_index"),
         st.session_state.get("product_type", "white_pan"),
-    )
+    ) + _curve_data_signature()
+
+
+def invalidate_derived_caches() -> None:
+    """Drop the memoised S-curve report and ZoneAnalyzer.
+
+    Called by the curve registry when the current curve's content signature changes
+    (boundary edit, sensor override, or bake-metadata change) so these derived
+    objects are rebuilt from the fresh slice on next access.
+    """
+    st.session_state.pop(_S_CURVE_REPORT_CACHE, None)
+    st.session_state.pop(_ZONE_ANALYZER_CACHE, None)
 
 
 def get_s_curve_report() -> dict:

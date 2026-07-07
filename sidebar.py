@@ -12,9 +12,8 @@ import hashlib
 import streamlit as st
 
 from config.constants import BAKEOUT_TARGETS, SENSOR_LIST
-from src.analysis.s_curve_analysis import SCurveAnalyzer
-from src.analysis.thermal_analysis import ThermalAnalyzer
 from src.data.loader import ThermalProfileLoader, validate_thermal_data
+from src.ui import curve_registry
 from src.ui.core_confidence_banner import (
     STATUS_RENDER_KIND,
     bake_metadata_status_line,
@@ -179,29 +178,17 @@ def render():
                     except Exception as e:
                         st.error(f"Error loading {name}: {str(e)}")
 
-            # Rebuild all curves list when new files are loaded
+            # Rebuild the flat curve list + derived view from the live loaders when
+            # new files arrive. On the very first load, target the first curve; on
+            # subsequent loads the registry preserves the existing selection while
+            # picking up the newly-appended curves. (DRY: the curve registry owns
+            # all_curves / analyzer construction — see src/ui/curve_registry.py.)
             if new_files_loaded or not st.session_state.all_curves:
-                st.session_state.all_curves = []
-                for filename, file_info in st.session_state.files.items():
-                    for curve_idx, curve in enumerate(file_info['curves']):
-                        st.session_state.all_curves.append({
-                            'filename': filename,
-                            'file_curve_index': curve_idx,
-                            'curve_data': curve,
-                            'loader': file_info['loader'],
-                            'metadata': file_info['metadata']
-                        })
-
-                # Set initial curve if this is the first load
-                if st.session_state.data is None and st.session_state.all_curves:
-                    first_curve = st.session_state.all_curves[0]
-                    st.session_state.current_file = first_curve['filename']
-                    st.session_state.loader = first_curve['loader']
-                    st.session_state.metadata = first_curve['metadata']
-                    st.session_state.data = first_curve['curve_data']['data']
-                    st.session_state.analyzer = ThermalAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
-                    st.session_state.s_curve_analyzer = SCurveAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
-                    st.session_state.global_curve_index = 0
+                if st.session_state.data is None and st.session_state.files:
+                    first_filename = next(iter(st.session_state.files))
+                    curve_registry.select_curve(first_filename, 0)
+                else:
+                    curve_registry.rebuild_registry()
 
         # File and curve selection
         if st.session_state.all_curves:
@@ -235,25 +222,14 @@ def render():
                 index=st.session_state.global_curve_index
             )
 
-            # Update selection if changed
+            # Update selection if changed. The registry re-targets the analysis by
+            # stable identity and rebuilds data/analyzers/caches in one place.
             new_index = curve_options.index(selected_curve_label)
             if new_index != st.session_state.global_curve_index:
-                st.session_state.global_curve_index = new_index
                 selected_curve = st.session_state.all_curves[new_index]
-
-                # Update session state with selected curve
-                st.session_state.current_file = selected_curve['filename']
-                st.session_state.loader = selected_curve['loader']
-                st.session_state.metadata = selected_curve['metadata']
-                st.session_state.data = selected_curve['curve_data']['data']
-                st.session_state.current_curve_index = selected_curve['file_curve_index']
-
-                # Set curve in loader
-                st.session_state.loader.set_current_curve(selected_curve['file_curve_index'])
-
-                # Recreate analyzers
-                st.session_state.analyzer = ThermalAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
-                st.session_state.s_curve_analyzer = SCurveAnalyzer(st.session_state.data, st.session_state.metadata, st.session_state.loader)
+                curve_registry.select_curve(
+                    selected_curve['filename'], selected_curve['file_curve_index']
+                )
 
             # Display current curve info
             if st.session_state.global_curve_index < len(st.session_state.all_curves):
@@ -317,17 +293,9 @@ def render():
                 st.info("📝 Using manual sensor assignments for this curve")
                 if st.button("Reset to Automatic Detection"):
                     st.session_state.loader.clear_sensor_overrides(st.session_state.current_curve_index)
-                    # Recreate analyzers with new assignments
-                    st.session_state.analyzer = ThermalAnalyzer(
-                        st.session_state.data,
-                        st.session_state.metadata,
-                        st.session_state.loader
-                    )
-                    st.session_state.s_curve_analyzer = SCurveAnalyzer(
-                        st.session_state.data,
-                        st.session_state.metadata,
-                        st.session_state.loader
-                    )
+                    # The rerun re-derives the view; the registry's content signature
+                    # (which folds the sensor picks) detects the change and rebuilds
+                    # analyzers + derived caches.
                     st.rerun()
             else:
                 st.info("🤖 Using automatic sensor detection")
@@ -499,17 +467,8 @@ def render():
                         # Lid override is always applied; None explicitly
                         # clears any prior lid pick.
                         loader.set_sensor_override(curve_idx, 'lid', lid_sensor)
-                        # Recreate analyzers with new assignments
-                        st.session_state.analyzer = ThermalAnalyzer(
-                            st.session_state.data,
-                            st.session_state.metadata,
-                            st.session_state.loader
-                        )
-                        st.session_state.s_curve_analyzer = SCurveAnalyzer(
-                            st.session_state.data,
-                            st.session_state.metadata,
-                            st.session_state.loader
-                        )
+                        # The rerun re-derives the view; the registry rebuilds the
+                        # analyzers when the sensor-pick signature changes.
                         st.rerun()
 
             # ----------------------------------------------------------
@@ -641,19 +600,9 @@ def render():
                         if steam_minutes > 0:
                             new_meta['steam_phase_minutes'] = float(steam_minutes)
                         loader.set_bake_metadata(curve_idx, new_meta)
-                        # Recreate analyzers so the geometric core series
-                        # propagates into downstream analytics on the next
-                        # render pass.
-                        st.session_state.analyzer = ThermalAnalyzer(
-                            st.session_state.data,
-                            st.session_state.metadata,
-                            st.session_state.loader,
-                        )
-                        st.session_state.s_curve_analyzer = SCurveAnalyzer(
-                            st.session_state.data,
-                            st.session_state.metadata,
-                            st.session_state.loader,
-                        )
+                        # The rerun re-derives the view; the registry's signature
+                        # folds bake metadata, so the geometric core series
+                        # propagates into downstream analytics automatically.
                         st.rerun()
                 with col_clear:
                     if st.button(
@@ -661,16 +610,8 @@ def render():
                         key=f"clear_metadata_{file_key}_{curve_idx}",
                     ):
                         loader.clear_bake_metadata(curve_idx)
-                        st.session_state.analyzer = ThermalAnalyzer(
-                            st.session_state.data,
-                            st.session_state.metadata,
-                            st.session_state.loader,
-                        )
-                        st.session_state.s_curve_analyzer = SCurveAnalyzer(
-                            st.session_state.data,
-                            st.session_state.metadata,
-                            st.session_state.loader,
-                        )
+                        # The rerun re-derives the view; the registry rebuilds
+                        # analyzers when the bake-metadata signature changes.
                         st.rerun()
 
                 # Show inferred geometric core when metadata is sufficient.
@@ -733,44 +674,17 @@ def render():
                         if st.button("🗑", key=f"remove_{filename}", help=f"Remove {filename}"):
                             files_to_remove.append(filename)
 
-                # Remove files and rebuild curve list
+                # Remove files, then let the registry re-derive the view. It
+                # rebuilds the flat curve list, resolves the surviving selection by
+                # identity (or clamps to a neighbour / resets to the welcome screen
+                # when nothing remains), and rebuilds analyzers WITH the loader —
+                # which also closes the old file-removal bug that constructed the
+                # analyzers without the loader arg and silently dropped sensor-role
+                # resolution for the surviving curve.
                 if files_to_remove:
                     for filename in files_to_remove:
                         del st.session_state.files[filename]
-
-                    # Rebuild all curves list
-                    st.session_state.all_curves = []
-                    for fname, file_info in st.session_state.files.items():
-                        for curve_idx, curve in enumerate(file_info['curves']):
-                            st.session_state.all_curves.append({
-                                'filename': fname,
-                                'file_curve_index': curve_idx,
-                                'curve_data': curve,
-                                'loader': file_info['loader'],
-                                'metadata': file_info['metadata']
-                            })
-
-                    # Reset to first curve if current curve was removed
-                    if st.session_state.all_curves:
-                        if st.session_state.global_curve_index >= len(st.session_state.all_curves):
-                            st.session_state.global_curve_index = 0
-                        first_curve = st.session_state.all_curves[0]
-                        st.session_state.current_file = first_curve['filename']
-                        st.session_state.loader = first_curve['loader']
-                        st.session_state.metadata = first_curve['metadata']
-                        st.session_state.data = first_curve['curve_data']['data']
-                        st.session_state.analyzer = ThermalAnalyzer(st.session_state.data, st.session_state.metadata)
-                        st.session_state.s_curve_analyzer = SCurveAnalyzer(st.session_state.data, st.session_state.metadata)
-                    else:
-                        # No curves left, reset everything
-                        st.session_state.data = None
-                        st.session_state.metadata = None
-                        st.session_state.analyzer = None
-                        st.session_state.loader = None
-                        st.session_state.current_curve_index = 0
-                        st.session_state.global_curve_index = 0
-                        st.session_state.current_file = None
-
+                    curve_registry.rebuild_registry()
                     st.rerun()
 
     # Expose analysis settings via session state so tab modules can read them

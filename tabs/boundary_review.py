@@ -165,8 +165,15 @@ def render() -> None:
             new_end = time_minutes_to_idx(raw_timestamps, raw_sel_range[1])
             if new_start < new_end:
                 try:
-                    loader.add_manual_curve(new_start, new_end)
+                    new_pos = loader.add_manual_curve(new_start, new_end)
                     st.session_state[consumed_key] = sig
+                    # Keep the operator reviewing the bake they just claimed: the
+                    # add re-sorts/renumbers, so re-seed the review radio to the new
+                    # curve's post-sort "Bake N" label.
+                    if new_pos is not None and new_pos >= 0:
+                        st.session_state[f"boundary_review_select__{current_file}"] = (
+                            f"Bake {new_pos + 1}"
+                        )
                     st.rerun()
                 except (ValueError, RuntimeError) as exc:
                     st.error(f"Could not add curve: {exc}")
@@ -176,13 +183,24 @@ def render() -> None:
         f"Bake {c.get('curve_number', i + 1)}"
         for i, c in enumerate(curves)
     ]
+    # Curves are renumbered on every re-extract (a manual-curve add/remove re-sorts
+    # by start_idx), so a persisted "Bake N" radio value can drop out of the option
+    # list. Streamlit raises if a widget's stored value is not in ``options``; drop a
+    # stale value so the radio falls back to the first bake instead of crashing.
+    radio_key = f"boundary_review_select__{current_file}"
+    if st.session_state.get(radio_key) not in curve_labels:
+        st.session_state.pop(radio_key, None)
     selected_label = st.radio(
         "Select bake to review",
         options=curve_labels,
         horizontal=True,
-        key=f"boundary_review_select__{current_file}",
+        key=radio_key,
     )
-    selected_idx = curve_labels.index(selected_label)
+    selected_idx = (
+        curve_labels.index(selected_label)
+        if selected_label in curve_labels
+        else 0
+    )
     curve = curves[selected_idx]
     curve_number = int(curve.get("curve_number", selected_idx + 1))
 

@@ -8,6 +8,7 @@ import streamlit as st
 
 import sidebar
 from session_state import initialize_session_state
+from src.ui import curve_registry
 from tabs import (
     bakeout_analysis,
     boundary_review,
@@ -53,6 +54,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 initialize_session_state()
+
+# Single source of truth: re-derive the whole session view (flat curve list,
+# current slice, analyzers, derived caches) from the LIVE loaders on every rerun,
+# BEFORE the sidebar or any tab reads it. This is what makes a Curve Boundary Review
+# edit — which mutates the loader and reruns — propagate to every other pane without
+# each mutation site having to remember to resync. See src/ui/curve_registry.py.
+curve_registry.rebuild_registry()
 
 
 def render_tab_safely(render_fn):
