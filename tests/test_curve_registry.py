@@ -28,6 +28,7 @@ Design contract locked here:
 from __future__ import annotations
 
 import pathlib
+import subprocess
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -392,6 +393,82 @@ class TestDryStructuralLock:
             curve_registry.select_curve("f.csv", 0)
             assert ss.analyzer.loader is ld
             assert ss.s_curve_analyzer.loader is ld
+
+
+# ---------------------------------------------------------------------------
+# 13. Import hygiene — curve_registry must NOT reach up into the tabs layer.
+# ---------------------------------------------------------------------------
+
+
+class TestImportHygiene:
+    """Regressions for the Streamlit Cloud cold-start ImportError.
+
+    curve_registry lives in src/ui and is imported during app startup (via
+    sidebar). Importing the tabs layer from here forces tabs (+ its heavy
+    transitive imports) to initialise mid-startup — which failed on Cloud with
+    `ImportError: cannot import name 'invalidate_derived_caches' from
+    'tabs._shared'`. These lock the dependency direction and the cold start.
+    """
+
+    def test_curve_registry_source_does_not_import_tabs(self):
+        src = (PROJECT_ROOT / "src" / "ui" / "curve_registry.py").read_text(
+            encoding="utf-8"
+        )
+        # Ignore prose in docstrings/comments; only guard real import statements.
+        import_lines = [
+            ln.strip()
+            for ln in src.splitlines()
+            if ln.strip().startswith(("import ", "from "))
+        ]
+        offenders = [ln for ln in import_lines if "tabs" in ln]
+        assert not offenders, f"curve_registry must not import tabs: {offenders}"
+
+    def test_importing_curve_registry_does_not_load_tabs(self):
+        # Fresh interpreter: importing curve_registry must not pull in the tabs
+        # package (the exact cold-start failure path on Streamlit Cloud).
+        code = (
+            "import sys; from src.ui import curve_registry; "
+            "print(any(m == 'tabs' or m.startswith('tabs.') for m in sys.modules))"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stderr[-2000:]
+        assert result.stdout.strip() == "False", result.stdout
+
+    def test_shared_cache_keys_stay_in_sync(self):
+        # curve_registry duplicates the _shared cache key strings (to avoid the
+        # import); this locks them together so they cannot silently drift.
+        assert curve_registry._SHARED_DERIVED_CACHE_KEYS == (
+            _shared._S_CURVE_REPORT_CACHE,
+            _shared._ZONE_ANALYZER_CACHE,
+        )
+
+    def test_invalidate_pops_both_shared_caches(self):
+        ss = _DictState()
+        ss[_shared._S_CURVE_REPORT_CACHE] = ("k", "stale-report")
+        ss[_shared._ZONE_ANALYZER_CACHE] = ("k", "stale-zone")
+        with patch.object(st, "session_state", ss):
+            curve_registry._invalidate_derived_caches()
+        assert _shared._S_CURVE_REPORT_CACHE not in ss
+        assert _shared._ZONE_ANALYZER_CACHE not in ss
+
+    def test_app_module_imports_clean_in_fresh_interpreter(self):
+        # The definitive cold-start regression: a fresh `import app` (as Streamlit
+        # Cloud does on first page load) must not raise. app.py runs module-level
+        # Streamlit calls in bare mode (warnings only), so a clean import exits 0.
+        result = subprocess.run(
+            [sys.executable, "-c", "import app"],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        assert result.returncode == 0, result.stderr[-3000:]
 
 
 if __name__ == "__main__":  # pragma: no cover

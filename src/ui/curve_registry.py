@@ -48,7 +48,6 @@ import streamlit as st
 
 from src.analysis.s_curve_analysis import SCurveAnalyzer
 from src.analysis.thermal_analysis import ThermalAnalyzer
-from tabs._shared import invalidate_derived_caches
 
 # Persisted selection identity: ``(filename, stable_key)`` where ``stable_key`` is
 # ``loader._curve_stable_key(within_file_idx)`` — a value that survives the
@@ -56,6 +55,15 @@ from tabs._shared import invalidate_derived_caches
 SELECTED_KEY = "selected_curve_key"
 # Last-built derived signature, so analyzers are recreated only on a real change.
 _SIG_KEY = "_registry_derived_sig"
+
+# Session-state keys of the per-selection derived caches owned by ``tabs/_shared``.
+# They are referenced here as bare strings ON PURPOSE: this module lives in the
+# ``src/ui`` layer and is imported during ``app.py`` startup (via ``sidebar``), so it
+# must NOT import ``tabs`` — doing so forces the whole tabs layer (and its heavy
+# transitive imports) to initialise mid-startup, which broke the Streamlit Cloud
+# cold start with an ImportError. ``test_curve_registry`` asserts these stay in sync
+# with the canonical constants in ``tabs/_shared``.
+_SHARED_DERIVED_CACHE_KEYS = ("_s_curve_report_cache", "_zone_analyzer_cache")
 
 
 # ---------------------------------------------------------------------------
@@ -133,13 +141,21 @@ def rebuild_registry() -> None:
         st.session_state.s_curve_analyzer = SCurveAnalyzer(
             st.session_state.data, metadata, loader
         )
-        invalidate_derived_caches()
+        _invalidate_derived_caches()
         st.session_state[_SIG_KEY] = sig
 
 
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
+
+
+def _invalidate_derived_caches() -> None:
+    """Drop the memoised S-curve report + ZoneAnalyzer so they rebuild from the
+    fresh slice on next access. Pops the ``tabs/_shared`` cache keys directly to
+    avoid importing the tabs layer from here (see ``_SHARED_DERIVED_CACHE_KEYS``)."""
+    for key in _SHARED_DERIVED_CACHE_KEYS:
+        st.session_state.pop(key, None)
 
 
 def _stable_key(loader: Any, within_idx: int) -> Optional[tuple]:
@@ -251,4 +267,4 @@ def _reset_to_empty() -> None:
     st.session_state.all_curves = []
     st.session_state[SELECTED_KEY] = None
     st.session_state[_SIG_KEY] = None
-    invalidate_derived_caches()
+    _invalidate_derived_caches()
