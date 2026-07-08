@@ -17,9 +17,16 @@ History:
   M7 HMS Inspector — baseline snapshot + diff readout.
   M8 HMS Mercury — single range slider for manual override.
   M9 HMS Lookout — drag-to-box-select on the detail plot.
-  M10 HMS Vanguard — strip the redundant entry widgets (hint
-    number_input, manual slider, Apply button) since box-select is
-    now the sole input mechanism.  Loader hint API is untouched.
+  M10 HMS Vanguard — strip the earlier entry widgets (hint
+    number_input, manual slider, Apply button); at that point box-select
+    was the sole input mechanism.  Loader hint API is untouched.
+  M11 HMS Endeavour — drag-box on the raw log claims a user-added curve.
+  M12 — re-add a per-curve "Actual bake time (min)" number_input + Apply
+    button (detector curves only) that drives loader.set_expected_durations;
+    box-select is now one of two input mechanisms alongside it.
+
+Two input mechanisms coexist: drag-box (a hard pin / manual claim) and the
+Actual-bake-time hint (steers auto-detection; box-pin wins over it).
 """
 
 from __future__ import annotations
@@ -29,6 +36,12 @@ from typing import Any
 import numpy as np
 import streamlit as st
 
+from config.constants import CURVE_DETECTION_CONFIG
+from src.data.sigmoid_refinement import band_half_width
+from src.ui.expected_duration_widgets import (
+    minutes_to_seconds,
+    seconds_to_minutes,
+)
 from src.visualization.boundary_review_plots import (
     plot_curve_detail,
     plot_raw_log_with_curves,
@@ -42,16 +55,101 @@ from src.visualization.boundary_review_plots import (
 
 def boundary_state_label(curve: dict[str, Any]) -> str:
     """One-word UI badge for a curve: ``override``, ``user_added``,
-    or ``auto``.
+    ``snapped``, or ``auto``.
 
     M11 HMS Endeavour added the ``user_added`` state.
+    M12 added ``snapped`` (end placed at the operator's stated bake time).
     """
     kind = curve.get("exit_candidate_kind")
     if kind == "manual_override":
         return "override"
     if kind == "user_added":
         return "user_added"
+    if kind == "expected_time_snap":
+        return "snapped"
     return "auto"
+
+
+def describe_hint_outcome(
+    curve: dict[str, Any], applied_hint_s: float | None
+) -> str:
+    """Classify how the actual-bake-time hint (if any) shaped this curve's end.
+
+    Returns one of:
+      * ``"override"``       — a manual box-pin is in force (the hint is inert).
+      * ``"truncated_snap"`` — end snapped to the stated time but ran past the
+        end of the log (curve truncated).
+      * ``"snapped"``        — end snapped to the stated time (no natural exit
+        in tolerance).
+      * ``"matched_exit"``   — a hint is applied and the resulting duration is
+        within tolerance of the stated time (a real oven-exit was used).
+      * ``"hint_out_of_range"`` — a hint is applied but the stated time was
+        outside the bake's hot region, so the detector kept its real end.
+      * ``"hint_ineffective"`` — a hint is applied to a bake with no confirmed
+        exit (truncated), so there was nothing to anchor it to.
+      * ``"no_hint"``        — no hint applied (or a user-added curve).
+
+    Pure + unit-tested so the tab stays declarative.  The match-vs-out-of-range
+    split is derived from the achieved duration (the detector does not tag a
+    fallback separately from a genuine in-band match).
+    """
+    kind = curve.get("exit_candidate_kind")
+    if kind == "manual_override":
+        return "override"
+    if kind == "expected_time_snap":
+        return "truncated_snap" if curve.get("truncated") else "snapped"
+    if applied_hint_s is not None and kind is None:
+        # Detector found no exit candidate to anchor the stated time (a
+        # truncated bake with no confirmed end); the hint had no effect.
+        return "hint_ineffective"
+    if applied_hint_s is not None and kind not in (None, "user_added"):
+        achieved_s = float(curve.get("end_time", 0.0)) - float(
+            curve.get("start_time", 0.0)
+        )
+        band = band_half_width(applied_hint_s, CURVE_DETECTION_CONFIG)
+        if abs(achieved_s - applied_hint_s) <= band:
+            return "matched_exit"
+        return "hint_out_of_range"
+    return "no_hint"
+
+
+def bake_time_session_key(filename: str, stable_kind: str, stable_key) -> str:
+    """Session/widget key for the actual-bake-time input, scoped by the curve's
+    STABLE identity (``loader._curve_stable_key``) rather than the volatile
+    ``curve_number`` — so a stated time follows the physical bake across the
+    re-sort/renumber that an add/remove of a manual curve triggers."""
+    return f"expected_bake_minutes__{filename}__{stable_kind}{stable_key}"
+
+
+def build_detector_hint_list(loader, filename: str, session_store) -> list | None:
+    """Assemble ``expected_durations_s`` in the DETECTOR's coordinate system from
+    the per-curve bake-time widgets.
+
+    The detector consumes ``expected_durations_s`` POSITIONALLY against its
+    DETECTED curves (user-added curves are appended AFTER detection and are
+    invisible to it), so the hint list must be indexed by detector position, not
+    by ``all_curves`` position — otherwise a user-added curve interleaved ahead
+    of a hinted bake shifts every subsequent hint onto the wrong physical bake.
+    Returns ``None`` when no detector curve carries a hint (byte-identical
+    no-hint behaviour downstream).
+    """
+    detected = []  # (detector_pos, all_curves_index)
+    for i in range(len(loader.all_curves or [])):
+        stable_kind, stable_key = loader._curve_stable_key(i)
+        if stable_kind == "detector":
+            detected.append((int(stable_key), i))
+    if not detected:
+        return None
+    hints = [None] * (max(pos for pos, _ in detected) + 1)
+    any_hint = False
+    for pos, _i in detected:
+        secs = minutes_to_seconds(
+            session_store.get(bake_time_session_key(filename, "detector", pos))
+        )
+        hints[pos] = secs
+        if secs is not None:
+            any_hint = True
+    return hints if any_hint else None
 
 
 def extract_x_range_from_selection(
@@ -92,6 +190,27 @@ def extract_x_range_from_selection(
     if hi <= lo:
         return None
     return (lo, hi)
+
+
+def consume_box_selection(
+    select_event: Any, consumed_key: str, session_state
+) -> tuple[float, float] | None:
+    """Return a drag-box's ``(lo, hi)`` x-range (minutes) the FIRST time a given
+    selection is seen, else ``None``.
+
+    Records a rounded signature under ``consumed_key`` so the same box is not
+    re-applied on reruns triggered by other widgets.  Single source of truth for
+    the raw-log-claim and detail-pin box paths (they differ only in what they do
+    with the returned range).
+    """
+    sel_range = extract_x_range_from_selection(select_event)
+    if sel_range is None:
+        return None
+    sig = (round(sel_range[0], 4), round(sel_range[1], 4))
+    if session_state.get(consumed_key) == sig:
+        return None
+    session_state[consumed_key] = sig
+    return sel_range
 
 
 def time_minutes_to_idx(timestamps_s, target_minutes: float) -> int:
@@ -155,28 +274,26 @@ def render() -> None:
         on_select="rerun",
         selection_mode="box",
     )
-    raw_sel_range = extract_x_range_from_selection(raw_select_event)
+    raw_sel_range = consume_box_selection(
+        raw_select_event, f"raw_box_consumed__{current_file}", st.session_state
+    )
     if raw_sel_range is not None:
-        consumed_key = f"raw_box_consumed__{current_file}"
-        sig = (round(raw_sel_range[0], 4), round(raw_sel_range[1], 4))
-        if st.session_state.get(consumed_key) != sig:
-            raw_timestamps = loader.raw_data["Timestamp"].to_numpy(dtype=float)
-            new_start = time_minutes_to_idx(raw_timestamps, raw_sel_range[0])
-            new_end = time_minutes_to_idx(raw_timestamps, raw_sel_range[1])
-            if new_start < new_end:
-                try:
-                    new_pos = loader.add_manual_curve(new_start, new_end)
-                    st.session_state[consumed_key] = sig
-                    # Keep the operator reviewing the bake they just claimed: the
-                    # add re-sorts/renumbers, so re-seed the review radio to the new
-                    # curve's post-sort "Bake N" label.
-                    if new_pos is not None and new_pos >= 0:
-                        st.session_state[f"boundary_review_select__{current_file}"] = (
-                            f"Bake {new_pos + 1}"
-                        )
-                    st.rerun()
-                except (ValueError, RuntimeError) as exc:
-                    st.error(f"Could not add curve: {exc}")
+        raw_timestamps = loader.raw_data["Timestamp"].to_numpy(dtype=float)
+        new_start = time_minutes_to_idx(raw_timestamps, raw_sel_range[0])
+        new_end = time_minutes_to_idx(raw_timestamps, raw_sel_range[1])
+        if new_start < new_end:
+            try:
+                new_pos = loader.add_manual_curve(new_start, new_end)
+                # Keep the operator reviewing the bake they just claimed: the
+                # add re-sorts/renumbers, so re-seed the review radio to the new
+                # curve's post-sort "Bake N" label.
+                if new_pos is not None and new_pos >= 0:
+                    st.session_state[f"boundary_review_select__{current_file}"] = (
+                        f"Bake {new_pos + 1}"
+                    )
+                st.rerun()
+            except (ValueError, RuntimeError) as exc:
+                st.error(f"Could not add curve: {exc}")
 
     # Curve selector.
     curve_labels = [
@@ -218,6 +335,7 @@ def _render_detail_panel(
     badge_colour = {
         "override": "🟧",
         "user_added": "🟪",
+        "snapped": "🟩",
         "auto": "🟦",
     }.get(state_label, "🟦")
 
@@ -279,27 +397,21 @@ def _render_detail_panel(
             selection_mode="box",
         )
         # Convert a NEW box selection into a pinned boundary.  The
-        # consumed-signature gate prevents re-applying the same box
+        # consume_box_selection gate prevents re-applying the same box
         # across reruns triggered by other widgets.
-        sel_range = extract_x_range_from_selection(select_event)
+        sel_range = consume_box_selection(
+            select_event,
+            f"detail_box_consumed__{current_file}__c{curve_number}",
+            st.session_state,
+        )
         if sel_range is not None:
-            consumed_key = (
-                f"detail_box_consumed__{current_file}__c{curve_number}"
-            )
-            sig = (round(sel_range[0], 4), round(sel_range[1], 4))
-            if st.session_state.get(consumed_key) != sig:
-                box_start_idx = time_minutes_to_idx(
-                    raw_timestamps, sel_range[0]
+            box_start_idx = time_minutes_to_idx(raw_timestamps, sel_range[0])
+            box_end_idx = time_minutes_to_idx(raw_timestamps, sel_range[1])
+            if box_start_idx < box_end_idx:
+                loader.set_curve_boundaries(
+                    curve_index, box_start_idx, box_end_idx
                 )
-                box_end_idx = time_minutes_to_idx(
-                    raw_timestamps, sel_range[1]
-                )
-                if box_start_idx < box_end_idx:
-                    loader.set_curve_boundaries(
-                        curve_index, box_start_idx, box_end_idx
-                    )
-                    st.session_state[consumed_key] = sig
-                    st.rerun()
+                st.rerun()
 
     with ctrl_col:
         st.markdown("**Detected**")
@@ -310,6 +422,88 @@ def _render_detail_panel(
             f"Peak: {curve.get('max_temp', 0.0):.1f} °C\n"
             f"Kind: {curve.get('exit_candidate_kind') or '—'}"
         )
+
+        # --- Actual bake time hint (M12) ------------------------------------
+        # Tell auto-select how long this bake took (measured from the detected
+        # start); it snaps the end very close to that time, preferring a real
+        # oven-exit within tolerance.  The bake-time hint only steers AUTO
+        # detection, so it is offered for detector curves only — a user-added
+        # curve was already placed by hand (adjust it by box-select).  Both the
+        # widget key and the loader hint list are keyed by the curve's STABLE
+        # detector position, so a stated time always follows/reaches the correct
+        # physical bake even after an add/remove re-sorts the curves.
+        stable_kind, stable_key = loader._curve_stable_key(curve_index)
+        if stable_kind == "detector":
+            detector_pos = int(stable_key)
+            durations = getattr(loader, "expected_durations_s", None)
+            applied_hint_s = (
+                durations[detector_pos]
+                if durations is not None and detector_pos < len(durations)
+                else None
+            )
+            bake_time_key = bake_time_session_key(
+                current_file, "detector", detector_pos
+            )
+            # Seed from a hint the loader already carries, but only on first
+            # render for this curve so an operator edit is never clobbered.
+            if bake_time_key not in st.session_state:
+                st.session_state[bake_time_key] = (
+                    seconds_to_minutes(applied_hint_s) if applied_hint_s else None
+                )
+            st.number_input(
+                "Actual bake time (min)",
+                min_value=0.0,
+                step=0.5,
+                key=bake_time_key,
+                help=(
+                    "How long this bake actually took, from the detected start. "
+                    "Auto-select snaps the end very close to it (preferring a real "
+                    "oven-exit within tolerance). Leave blank for pure auto-detection."
+                ),
+            )
+            if st.button(
+                "Apply bake time",
+                key=f"apply_bake_time__{current_file}__d{detector_pos}",
+                width="stretch",
+            ):
+                loader.set_expected_durations(
+                    build_detector_hint_list(loader, current_file, st.session_state)
+                )
+                # A re-detection can move this curve's window, so clear the stale
+                # detail box-select signature — the next drag then pins fresh.
+                st.session_state.pop(
+                    f"detail_box_consumed__{current_file}__c{curve_number}", None
+                )
+                st.rerun()
+
+            # Hint outcome — tell the operator how their stated time was applied.
+            outcome = describe_hint_outcome(curve, applied_hint_s)
+            if outcome == "snapped":
+                st.info(
+                    "Boundary snapped to your stated bake time "
+                    "(no natural oven-exit within tolerance)."
+                )
+            elif outcome == "matched_exit":
+                st.success(
+                    "Matched a real oven-exit within tolerance of your stated time."
+                )
+            elif outcome == "truncated_snap":
+                st.warning(
+                    "Stated bake time runs past the end of this log — boundary "
+                    "clamped to the last sample (truncated)."
+                )
+            elif outcome == "hint_out_of_range":
+                st.warning(
+                    "Stated bake time is outside this bake's hot region — kept the "
+                    "detector's end. Adjust the time, or pin the boundary by "
+                    "dragging a box on the plot."
+                )
+            elif outcome == "hint_ineffective":
+                st.warning(
+                    "This bake has no detected oven-exit to anchor a stated time "
+                    "(the log looks truncated). Pin the boundary by dragging a box "
+                    "on the plot instead."
+                )
 
         # Outcome readout — three states surfaced for operator clarity:
         #   - boundary shifted → show Δ vs the no-hint, no-override baseline
@@ -331,7 +525,9 @@ def _render_detail_panel(
             )
         elif state_label == "override":
             st.info(
-                "Manual override pinned the boundary; detector input ignored."
+                "Manual box-pin is in force; detector input — including the "
+                "Actual bake time — is ignored. Reset to auto to let the bake "
+                "time drive the boundary."
             )
         elif state_label == "user_added":
             st.info(

@@ -17,6 +17,15 @@ def get_core_temperature_column(df: pd.DataFrame) -> str:
     Present-wins: if both ``CoreTemperature`` and ``CoreAverage`` are present,
     ``CoreTemperature`` takes precedence to preserve physics corrections and
     manual overrides that the legacy averaged column does not track.
+
+    DELIBERATELY different precedence from :func:`resolve_core_temperature_series`
+    — do NOT "unify" the two.  This helper serves the **analysis / visualization**
+    stage, which reads the *standardised* ``CoreTemperature`` column produced
+    AFTER sensor-role classification + manual overrides, so it must prefer it.
+    :func:`resolve_core_temperature_series` serves the **detection** stage, which
+    runs on the *raw firmware* ``VirtualCoreTemperature`` channel BEFORE any
+    role identification exists, so it prefers that.  They are two correct answers
+    for two different pipeline stages.
     """
     if 'CoreTemperature' in df.columns:
         return 'CoreTemperature'
@@ -34,6 +43,14 @@ def resolve_core_temperature_series(df: pd.DataFrame) -> pd.Series:
     → mean of ``T1``..``T4``.  Raises :class:`KeyError` when no fallback is
     available.  Centralises the pattern that was previously inlined at several
     call sites in ``loader.py``.
+
+    DELIBERATELY prefers the raw firmware ``VirtualCoreTemperature`` channel —
+    this is the **detection**-stage resolver (curve-boundary detector +
+    ``build_curve_descriptor``), which must read the raw channel BEFORE
+    sensor-role classification / overrides exist.  Contrast
+    :func:`get_core_temperature_column`, the analysis-stage helper that prefers
+    the standardised ``CoreTemperature``.  Do NOT "unify" their precedence — see
+    that function's docstring.
     """
     if 'VirtualCoreTemperature' in df.columns:
         return df['VirtualCoreTemperature']

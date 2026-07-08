@@ -207,3 +207,42 @@ class TestLengthMismatchWarning:
         assert len(curves) == 3
         msgs = " ".join(r.getMessage() for r in caplog.records)
         assert msgs, "expected a warning on length mismatch"
+
+
+# ---------------------------------------------------------------------------
+# Tests: authoritative snap does not destabilise the loader (M12, A5)
+# ---------------------------------------------------------------------------
+
+from pathlib import Path as _Path  # noqa: E402
+
+_A5_REPO_ROOT = _Path(__file__).resolve().parent.parent
+_A5_BA3C_1759_CSV = _A5_REPO_ROOT / "ProbeData_1000BA3C_2025-05-30 17_59_37.csv"
+
+
+def _a5_loaded() -> ThermalProfileLoader:
+    loader = ThermalProfileLoader()
+    loader.load_csv(file_path=str(_A5_BA3C_1759_CSV))
+    return loader
+
+
+class TestHintCountStability:
+    """A hostile bake-time hint must not change the detected bake count
+    (bounded snap prevents swallowing a neighbouring bake)."""
+
+    def test_hostile_bake1_hint_preserves_curve_count(self):
+        loader = _a5_loaded()
+        assert len(loader.all_curves) == 3  # sanity: 3-bake CSV
+        loader.set_expected_durations([5400.0, None, None])  # 90 min on bake 1
+        assert len(loader.all_curves) == 3
+
+    def test_hint_apply_preserves_existing_pin(self):
+        loader = _a5_loaded()
+        s = int(loader.all_curves[0]["start_idx"])
+        e = int(loader.all_curves[0]["end_idx"])
+        loader.set_curve_boundaries(0, s + 5, e - 5)
+        assert loader.all_curves[0]["exit_candidate_kind"] == "manual_override"
+        # Applying a bake-time hint must not clobber the manual pin.
+        loader.set_expected_durations([600.0, None, None])
+        assert loader.all_curves[0]["exit_candidate_kind"] == "manual_override"
+        assert int(loader.all_curves[0]["start_idx"]) == s + 5
+        assert int(loader.all_curves[0]["end_idx"]) == e - 5

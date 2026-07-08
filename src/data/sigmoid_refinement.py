@@ -143,6 +143,21 @@ def fit_logistic(t: np.ndarray, T: np.ndarray) -> LogisticFit:
 # ---------------------------------------------------------------------------
 
 
+def band_half_width(expected_duration_s: float, config: dict[str, Any]) -> float:
+    """Half-width of the expected-duration tolerance band: a fraction of the
+    duration, floored at an absolute minimum.
+
+    Single source of truth for the tolerance-band formula, shared by the
+    detector's end/start hint arbitration (``CurveBoundaryDetector._band_width``)
+    and the Boundary Review tab's matched-vs-out-of-range outcome classifier, so
+    the two can never numerically diverge.
+    """
+    return max(
+        expected_duration_s * float(config.get("EXPECTED_DURATION_TOLERANCE_FRAC", 0.15)),
+        float(config.get("EXPECTED_DURATION_MIN_TOLERANCE_SECONDS", 60.0)),
+    )
+
+
 def _proximity_score(
     actual_duration_s: float, expected_duration_s: float, tolerance_frac: float
 ) -> float:

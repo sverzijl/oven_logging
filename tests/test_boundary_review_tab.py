@@ -25,7 +25,11 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tabs.boundary_review import (
+    bake_time_session_key,
     boundary_state_label,
+    build_detector_hint_list,
+    consume_box_selection,
+    describe_hint_outcome,
     extract_x_range_from_selection,
     time_minutes_to_idx,
 )
@@ -56,6 +60,113 @@ class TestBoundaryStateLabel:
 
     def test_unknown_kind_returns_auto(self):
         assert boundary_state_label(self._curve(None)) == "auto"
+
+    def test_expected_time_snap_kind_returns_snapped(self):
+        assert boundary_state_label(self._curve("expected_time_snap")) == "snapped"
+
+
+# ---------------------------------------------------------------------------
+# Tests: consume_box_selection (dedup gate shared by both box paths)
+# ---------------------------------------------------------------------------
+
+
+class TestConsumeBoxSelection:
+    """The stateful record-then-suppress gate that stops the same drag-box from
+    re-applying on unrelated reruns (would otherwise spawn duplicate curves)."""
+
+    def _event(self, lo, hi):
+        return {"selection": {"box": [{"x": [lo, hi]}], "lasso": [], "points": []}}
+
+    def test_first_call_returns_range_and_records_signature(self):
+        store = {}
+        assert consume_box_selection(self._event(1.0, 5.0), "k", store) == (1.0, 5.0)
+        assert "k" in store  # signature recorded
+
+    def test_repeat_same_box_returns_none(self):
+        store = {}
+        consume_box_selection(self._event(1.0, 5.0), "k", store)
+        assert consume_box_selection(self._event(1.0, 5.0), "k", store) is None
+
+    def test_different_box_after_first_returns_new_range(self):
+        store = {}
+        consume_box_selection(self._event(1.0, 5.0), "k", store)
+        assert consume_box_selection(self._event(2.0, 6.0), "k", store) == (2.0, 6.0)
+
+    def test_none_event_returns_none_without_mutation(self):
+        store = {}
+        assert consume_box_selection(None, "k", store) is None
+        assert store == {}
+
+
+# ---------------------------------------------------------------------------
+# Tests: describe_hint_outcome
+# ---------------------------------------------------------------------------
+
+
+class TestDescribeHintOutcome:
+    """Classifies how the actual-bake-time hint shaped a curve's end, driving
+    the outcome message shown to the operator."""
+
+    def _curve(
+        self,
+        kind,
+        truncated: bool = False,
+        start_time: float = 0.0,
+        end_time: float = 0.0,
+    ) -> dict:
+        return {
+            "exit_candidate_kind": kind,
+            "truncated": truncated,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
+
+    def test_override_wins_regardless_of_hint(self):
+        assert describe_hint_outcome(self._curve("manual_override"), 1500.0) == "override"
+
+    def test_snapped(self):
+        assert describe_hint_outcome(self._curve("expected_time_snap"), 1500.0) == "snapped"
+
+    def test_truncated_snap(self):
+        assert (
+            describe_hint_outcome(self._curve("expected_time_snap", truncated=True), 9999.0)
+            == "truncated_snap"
+        )
+
+    def test_matched_exit_when_duration_within_tolerance(self):
+        # Achieved 1490 s vs a 1500 s hint → inside the tolerance band.
+        curve = self._curve("probe_pull_cliff", start_time=0.0, end_time=1490.0)
+        assert describe_hint_outcome(curve, 1500.0) == "matched_exit"
+
+    def test_hint_out_of_range_when_duration_far_from_hint(self):
+        # Real end at 1500 s but the stated time was 6000 s → detector reverted.
+        curve = self._curve("probe_pull_cliff", start_time=0.0, end_time=1500.0)
+        assert describe_hint_outcome(curve, 6000.0) == "hint_out_of_range"
+
+    def test_matched_exit_at_band_edge_is_inclusive(self):
+        # band = max(1500*0.15, 60) = 225; achieved exactly at hint+band → matched.
+        curve = self._curve("probe_pull_cliff", start_time=0.0, end_time=1725.0)
+        assert describe_hint_outcome(curve, 1500.0) == "matched_exit"
+
+    def test_out_of_range_just_beyond_band_edge(self):
+        curve = self._curve("probe_pull_cliff", start_time=0.0, end_time=1726.0)
+        assert describe_hint_outcome(curve, 1500.0) == "hint_out_of_range"
+
+    def test_small_hint_floor_dominates_band(self):
+        # hint=120 s → band floored at 60 s; achieved 175 s (diff 55) → matched.
+        curve = self._curve("probe_pull_cliff", start_time=0.0, end_time=175.0)
+        assert describe_hint_outcome(curve, 120.0) == "matched_exit"
+
+    def test_hint_ineffective_when_no_exit_to_anchor(self):
+        # kind=None (truncated bake, no confirmed exit) + a hint → ineffective.
+        curve = self._curve(None, truncated=True, start_time=0.0, end_time=1200.0)
+        assert describe_hint_outcome(curve, 1800.0) == "hint_ineffective"
+
+    def test_no_hint_when_hint_absent(self):
+        assert describe_hint_outcome(self._curve("probe_pull_cliff"), None) == "no_hint"
+
+    def test_user_added_is_not_matched_exit(self):
+        assert describe_hint_outcome(self._curve("user_added"), 1500.0) == "no_hint"
 
 
 # ---------------------------------------------------------------------------
@@ -169,3 +280,51 @@ class TestExtractXRangeFromSelection:
             }
         }
         assert extract_x_range_from_selection(event) is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: build_detector_hint_list — hints map to the correct physical bake
+# ---------------------------------------------------------------------------
+
+
+class TestBuildDetectorHintList:
+    """build_detector_hint_list must index hints by DETECTOR position (excluding
+    user-added curves) so a stated bake time reaches the correct physical bake
+    even when a user-added curve sorts ahead of the detected bakes."""
+
+    def _loader(self):
+        from pathlib import Path
+
+        from src.data.loader import ThermalProfileLoader
+
+        csv = (
+            Path(__file__).resolve().parent.parent
+            / "ProbeData_1000BA3C_2025-05-30 17_59_37.csv"
+        )
+        ldr = ThermalProfileLoader()
+        ldr.load_csv(file_path=str(csv))
+        return ldr
+
+    def test_hint_maps_to_correct_detected_bake_with_user_added_ahead(self):
+        ldr = self._loader()
+        assert [c["start_idx"] for c in ldr.all_curves] == [13, 651, 5888]
+        ldr.add_manual_curve(350, 620)  # sorts to position 1, pushing detected to 2/3/4
+
+        idx651 = next(i for i, c in enumerate(ldr.all_curves) if c["start_idx"] == 651)
+        kind, key = ldr._curve_stable_key(idx651)
+        assert kind == "detector"
+        session = {bake_time_session_key("f", kind, key): 20.0}
+
+        hints = build_detector_hint_list(ldr, "f", session)
+        # Detector-position indexed, length == 3 detected curves; the 20-min
+        # (1200 s) hint sits at detector position 1 (the physical start-651 bake).
+        assert hints == [None, 1200.0, None]
+
+        ldr.set_expected_durations(hints)
+        assert len(ldr.all_curves) == 4  # no bake dropped, no length mismatch
+        d3 = next(c for c in ldr.all_curves if c["start_idx"] == 5888)
+        assert d3["end_idx"] == 6185  # the start-5888 bake is untouched (old bug moved it)
+
+    def test_no_hint_returns_none(self):
+        ldr = self._loader()
+        assert build_detector_hint_list(ldr, "f", {}) is None

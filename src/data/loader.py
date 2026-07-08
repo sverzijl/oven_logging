@@ -19,7 +19,10 @@ from src.data.column_helpers import (
     get_core_temperature_column,
     resolve_core_temperature_series,
 )
-from src.data.curve_boundary_detector import CurveBoundaryDetector
+from src.data.curve_boundary_detector import (
+    CurveBoundaryDetector,
+    build_curve_descriptor,
+)
 from src.data.spatial_reconstruction import classify, lookup_geometry
 
 
@@ -1577,34 +1580,21 @@ class ThermalProfileLoader:
         ``self._boundary_overrides``.  Curves without an override are
         returned unchanged.  Introduced by M1 HMS Ardent.
         """
-        timestamps_full = df["Timestamp"].to_numpy(dtype=float)
         for curve_index, (start_idx, end_idx) in self._boundary_overrides.items():
             if curve_index < 0 or curve_index >= len(curves):
                 # Stale override (curve count changed since override was set).
                 continue
-            curve_data = df.iloc[start_idx : end_idx + 1].copy()
-            curve_data["Timestamp"] = (
-                curve_data["Timestamp"] - curve_data["Timestamp"].iloc[0]
+            # Rebuild every derived field from the pinned slice (via the shared
+            # factory) so downstream analytics see a consistent view and the
+            # pinned curve's peak is read from the same channel as detection.
+            curves[curve_index] = build_curve_descriptor(
+                df,
+                start_idx,
+                end_idx,
+                curve_number=curve_index + 1,
+                exit_candidate_kind="manual_override",
+                truncated=False,
             )
-            curve_data["TimeMinutes"] = curve_data["Timestamp"] / 60.0
-            curve_data = curve_data.reset_index(drop=True)
-            # Rebuild every derived field from the pinned slice so
-            # downstream analytics see a consistent view.
-            core_col = "CoreTemperature" if "CoreTemperature" in curve_data.columns else "VirtualCoreTemperature"
-            peak_temp = float(curve_data[core_col].max()) if core_col in curve_data.columns else 0.0
-            curves[curve_index] = {
-                "data": curve_data,
-                "start_idx": int(start_idx),
-                "end_idx": int(end_idx),
-                "start_time": float(timestamps_full[start_idx]),
-                "end_time": float(timestamps_full[end_idx]),
-                "duration": float(curve_data["TimeMinutes"].max()),
-                "max_temp": peak_temp,
-                "curve_number": curve_index + 1,
-                "samples": len(curve_data),
-                "truncated": False,
-                "exit_candidate_kind": "manual_override",
-            }
         return curves
 
     def _build_user_added_curve_dict(
@@ -1617,37 +1607,16 @@ class ThermalProfileLoader:
         distinctly and ``set_curve_boundaries`` can dispatch updates
         back into ``self._added_curves``.
         """
-        timestamps_full = df["Timestamp"].to_numpy(dtype=float)
-        curve_data = df.iloc[start_idx : end_idx + 1].copy()
-        curve_data["Timestamp"] = (
-            curve_data["Timestamp"] - curve_data["Timestamp"].iloc[0]
+        curve = build_curve_descriptor(
+            df,
+            start_idx,
+            end_idx,
+            curve_number=-1,  # filled in by the sort + renumber loop
+            exit_candidate_kind="user_added",
+            truncated=False,
         )
-        curve_data["TimeMinutes"] = curve_data["Timestamp"] / 60.0
-        curve_data = curve_data.reset_index(drop=True)
-        core_col = (
-            "CoreTemperature"
-            if "CoreTemperature" in curve_data.columns
-            else "VirtualCoreTemperature"
-        )
-        peak_temp = (
-            float(curve_data[core_col].max())
-            if core_col in curve_data.columns
-            else 0.0
-        )
-        return {
-            "data": curve_data,
-            "start_idx": int(start_idx),
-            "end_idx": int(end_idx),
-            "start_time": float(timestamps_full[start_idx]),
-            "end_time": float(timestamps_full[end_idx]),
-            "duration": float(curve_data["TimeMinutes"].max()),
-            "max_temp": peak_temp,
-            "curve_number": -1,  # filled in by the sort + renumber loop
-            "samples": len(curve_data),
-            "truncated": False,
-            "exit_candidate_kind": "user_added",
-            "_user_added_idx": int(added_idx),
-        }
+        curve["_user_added_idx"] = int(added_idx)
+        return curve
 
     def _refine_user_added_region(
         self, df: pd.DataFrame, start_idx: int, end_idx: int

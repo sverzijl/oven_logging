@@ -50,6 +50,9 @@ _KIND_FILLCOLOR: dict[str, str] = {
     # User-claimed curves (M11 HMS Endeavour) — purple to be visually
     # distinct from detector kinds AND from manual_override.
     "user_added": "rgba(168, 85, 247, 0.35)",
+    # End snapped to the operator's stated bake time (M12) — green, saturated
+    # like the other operator-driven origins (override / user_added).
+    "expected_time_snap": "rgba(34, 197, 94, 0.35)",
 }
 _KIND_FALLBACK_FILLCOLOR = "rgba(150, 150, 150, 0.20)"
 

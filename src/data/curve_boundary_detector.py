@@ -21,7 +21,11 @@ import pandas as pd
 from config.constants import SENSOR_LIST
 from src.data._drop_rate_detection import find_confirmed_drop_start
 from src.data.column_helpers import resolve_core_temperature_series
-from src.data.sigmoid_refinement import fit_logistic, score_end_candidate
+from src.data.sigmoid_refinement import (
+    band_half_width,
+    fit_logistic,
+    score_end_candidate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +48,59 @@ def _resolve_max_sensor_series(df: pd.DataFrame, fallback: np.ndarray) -> np.nda
     if all(col in df.columns for col in SENSOR_LIST):
         return df.loc[:, list(SENSOR_LIST)].to_numpy(dtype=float, copy=True).max(axis=1)
     return fallback
+
+
+def build_curve_descriptor(
+    raw_df: pd.DataFrame,
+    start_idx: int,
+    end_idx: int,
+    *,
+    curve_number: int,
+    exit_candidate_kind: str | None,
+    truncated: bool,
+) -> dict[str, Any]:
+    """Build the canonical curve-descriptor dict from a raw-log slice.
+
+    Single source of truth for the curve-dict shape emitted by the detector
+    (:meth:`CurveBoundaryDetector.extract_curves`) AND the loader's
+    boundary-override / user-added builders.  ``max_temp`` is resolved via
+    :func:`resolve_core_temperature_series` (``VirtualCoreTemperature``-first),
+    so every curve's peak is read from the same channel the detector used for
+    detection, whatever the curve's origin — the loader builders previously
+    inlined a ``CoreTemperature``-first ternary that could diverge.
+
+    ``start_time``/``end_time`` are taken from the ORIGINAL (pre-rezero)
+    timestamps; the returned ``data`` slice has ``Timestamp`` rebased to 0 and a
+    ``TimeMinutes`` column added.  The input frame is not mutated.
+
+    Raises ``ValueError`` on a reversed/empty range so a mis-call fails loudly at
+    the factory rather than with an opaque IndexError on the slice rebase.
+    """
+    if end_idx < start_idx:
+        raise ValueError(
+            f"build_curve_descriptor: end_idx ({end_idx}) < start_idx ({start_idx})"
+        )
+    timestamps_full = raw_df["Timestamp"].to_numpy(dtype=float)
+    curve_data = raw_df.iloc[start_idx : end_idx + 1].copy()
+    curve_data["Timestamp"] = (
+        curve_data["Timestamp"] - curve_data["Timestamp"].iloc[0]
+    )
+    curve_data["TimeMinutes"] = curve_data["Timestamp"] / 60.0
+    curve_data = curve_data.reset_index(drop=True)
+    max_temp = float(resolve_core_temperature_series(curve_data).max())
+    return {
+        "data": curve_data,
+        "start_idx": int(start_idx),
+        "end_idx": int(end_idx),
+        "start_time": float(timestamps_full[start_idx]),
+        "end_time": float(timestamps_full[end_idx]),
+        "duration": float(curve_data["TimeMinutes"].max()),
+        "max_temp": max_temp,
+        "curve_number": int(curve_number),
+        "samples": len(curve_data),
+        "truncated": bool(truncated),
+        "exit_candidate_kind": exit_candidate_kind,
+    }
 
 
 class CurveBoundaryDetector:
@@ -86,6 +143,17 @@ class CurveBoundaryDetector:
         # Upper bound on start-refinement shifts (M4 HMS Hood).
         self._duration_max_start_shift_s = float(
             config.get("EXPECTED_DURATION_MAX_START_SHIFT_SECONDS", 30.0)
+        )
+        # Authoritative "actual bake time" snap (M12).  When a hint is supplied
+        # but no natural exit candidate lands in the band, snap the end to the
+        # sample nearest start+hint (bounded to the bake's hot envelope) instead
+        # of reverting to the earliest-wins baseline.
+        self._snap_to_hint = bool(
+            config.get("EXPECTED_DURATION_SNAP_TO_HINT", True)
+        )
+        # Quiescent window (seconds) for the continuously-inserted cool gate.
+        self._continuous_cool_quiescent_s = float(
+            config.get("CONTINUOUS_COOKING_QUIESCENT_SECONDS", 3600.0)
         )
 
     # ------------------------------------------------------------------
@@ -199,27 +267,15 @@ class CurveBoundaryDetector:
             # only when we observed a full start-through-exit sequence.
             duration_ok = truncated or duration_s >= self._min_duration_s
             if duration_ok and peak_temp >= self._min_peak_temp:
-                curve_data = df.iloc[start_idx : end_idx + 1].copy()
-                curve_data["Timestamp"] = (
-                    curve_data["Timestamp"] - curve_data["Timestamp"].iloc[0]
-                )
-                curve_data["TimeMinutes"] = curve_data["Timestamp"] / 60.0
-                curve_data = curve_data.reset_index(drop=True)
-
                 curves.append(
-                    {
-                        "data": curve_data,
-                        "start_idx": int(start_idx),
-                        "end_idx": int(end_idx),
-                        "start_time": float(timestamps[start_idx]),
-                        "end_time": float(timestamps[end_idx]),
-                        "duration": float(curve_data["TimeMinutes"].max()),
-                        "max_temp": peak_temp,
-                        "curve_number": len(curves) + 1,
-                        "samples": len(curve_data),
-                        "truncated": bool(truncated),
-                        "exit_candidate_kind": exit_kind,
-                    }
+                    build_curve_descriptor(
+                        df,
+                        start_idx,
+                        end_idx,
+                        curve_number=len(curves) + 1,
+                        exit_candidate_kind=exit_kind,
+                        truncated=truncated,
+                    )
                 )
 
             search_from = end_idx + 1
@@ -240,6 +296,16 @@ class CurveBoundaryDetector:
             # still-warm post-cliff tail as a new bake.
             elif cliff_fired:
                 search_from = self._skip_probe_pull_tail(max_sensor, search_from)
+            # When the end was snapped to the operator's stated bake time, it can
+            # land while the loaf is still hot (e.g. mid-plateau).  Skip the
+            # residual hot tail so the start detector does not spawn a phantom
+            # next curve from it (same hazard as the plateau/cliff tails) — but
+            # cap the skip at this bake's hot-envelope end so it cannot swallow a
+            # following back-to-back bake.
+            elif exit_kind == "expected_time_snap":
+                search_from = self._skip_snap_tail(
+                    temps, search_from, self._hot_envelope_end(temps, peak_idx)
+                )
 
         return curves
 
@@ -337,6 +403,19 @@ class CurveBoundaryDetector:
             return search_from
         if peak_temp - self._bake_active_c < 10.0:
             return search_from
+        return self._advance_past_bake_active_tail(temps, search_from)
+
+    def _advance_past_bake_active_tail(
+        self, temps: np.ndarray, search_from: int
+    ) -> int:
+        """Advance ``search_from`` past a still-hot tail: skip while the core is
+        ≥ ``bake_active_c``, then require a ``_confirm_n`` confirmed
+        sub-bake-active run so a single noisy dip does not release the skip.
+
+        Shared by :meth:`_skip_plateau_tail` (after its peak-magnitude gate) and
+        :meth:`_skip_snap_tail`.
+        """
+        n = len(temps)
         # Advance while the core is still "in bake" — only stop when it cools
         # below bake-active or the log ends.
         j = search_from
@@ -352,6 +431,31 @@ class CurveBoundaryDetector:
             else:
                 break
         return j
+
+    def _skip_snap_tail(
+        self, temps: np.ndarray, search_from: int, envelope_end: int
+    ) -> int:
+        """Advance ``search_from`` past the still-hot tail after an
+        ``expected_time_snap`` exit, but NEVER past ``envelope_end``.
+
+        A snap can legitimately land while the loaf is still ≥ ``bake_active_c``
+        (e.g. mid-plateau, when the operator's stated time falls inside the hot
+        bake).  Without a tail-skip the residual hot samples would let
+        ``_detect_start`` Method 2b re-fire and spawn a phantom next curve — the
+        same hazard the plateau/cliff tail-skips solve.  Unlike
+        :meth:`_skip_plateau_tail` there is no peak-magnitude early-out, since a
+        snap has no plateau precondition.
+
+        Capping at ``envelope_end`` (the end of THIS bake's hot region — the
+        earlier of its cooldown onset and the next-bake dip-and-rerise) is what
+        stops the skip from walking straight through a *following* back-to-back
+        bake whose inter-bake dip never cools below ``bake_active_c``; without
+        the cap ``_advance_past_bake_active_tail`` would swallow that next bake.
+        """
+        if search_from >= len(temps):
+            return search_from
+        advanced = self._advance_past_bake_active_tail(temps, search_from)
+        return min(advanced, envelope_end + 1)
 
     # ------------------------------------------------------------------
     # Timestamp validation
@@ -573,12 +677,12 @@ class CurveBoundaryDetector:
             baseline,
             expected_duration_s,
         )
-        r_idx, r_kind, r_plateau, r_cliff = refined
+        r_idx, r_kind, r_plateau, r_cliff, r_truncated = refined
 
         # Re-derive peak within the refined [start_idx, r_idx] range.
-        # If the hint extends the end beyond the baseline firing, the
-        # running-max peak computed during stage 1 may pre-date a later
-        # true peak and leak a below-MIN_PEAK_TEMP value into the outer
+        # If the hint extends the end beyond the baseline firing (or snaps it
+        # forward), the running-max peak computed during stage 1 may pre-date a
+        # later true peak and leak a below-MIN_PEAK_TEMP value into the outer
         # acceptance gate (red-cell A1, HMS Red Cell 2026-04-25, probe
         # reproduced on real_1000BA3C_1759 σ=0.5 seed 7: baseline peak
         # idx 5894 @ 36.6 °C would cause the merged curve to be dropped
@@ -589,7 +693,7 @@ class CurveBoundaryDetector:
         return (
             r_idx,
             refined_peak_idx,
-            False,
+            r_truncated,
             r_plateau,
             r_cliff,
             r_kind or None,
@@ -630,10 +734,11 @@ class CurveBoundaryDetector:
         the probe is continuously inserted.
 
         See _probe_cooking_continuous for calibration caveats — this value
-        (3 600 s) is anchored to real_1000BA3C_1759's 40-min inter-bake quiescent
-        period and may produce wrong splits on future CSVs.
+        (``CONTINUOUS_COOKING_QUIESCENT_SECONDS``, default 3 600 s) is anchored
+        to real_1000BA3C_1759's 40-min inter-bake quiescent period and may
+        produce wrong splits on future CSVs.
         """
-        long_cool_s = 3600.0  # ~1 hour of sustained sub-bake-active
+        long_cool_s = self._continuous_cool_quiescent_s  # sustained sub-bake-active
         if len(timestamps) < 2:
             return max(self._confirm_n, 1)
         dt = float(np.median(np.diff(timestamps)))
@@ -721,6 +826,54 @@ class CurveBoundaryDetector:
     # Hint-driven refinement (M3 HMS Agincourt)
     # ------------------------------------------------------------------
 
+    def _band_width(self, expected_duration_s: float) -> float:
+        """Tolerance half-width around an expected duration (shared single
+        source of truth with the UI outcome classifier)."""
+        return band_half_width(expected_duration_s, self._config)
+
+    @staticmethod
+    def _nearest_sample_idx(timestamps: np.ndarray, t_target: float) -> int:
+        """Return the index of the sample whose timestamp is closest to
+        ``t_target`` (ties → the earlier index)."""
+        n = len(timestamps)
+        pos = int(np.searchsorted(timestamps, t_target, side="left"))
+        if pos <= 0:
+            return 0
+        if pos >= n:
+            return n - 1
+        before = float(timestamps[pos - 1])
+        after = float(timestamps[pos])
+        # <= keeps the earlier index on a tie.
+        return pos - 1 if (t_target - before) <= (after - t_target) else pos
+
+    def _hot_envelope_end(self, temps: np.ndarray, peak_idx: int) -> int:
+        """Return the last index of THIS bake's hot region after ``peak_idx``.
+
+        Bounds a hint-snap (and the post-snap tail-skip) so it can neither land
+        in cold post-probe-pull data nor cross into a *following* bake.  The
+        boundary is the EARLIER of two next-bake signals:
+
+          * ``_candidate_cool_to_ambient`` — the first ``_confirm_n`` confirmed
+            cool-below-``bake_active_c`` run (a following bake re-rises after it);
+          * ``_candidate_dip_with_rerise`` — the inter-bake trough of two
+            back-to-back bakes whose dip never cools below ``bake_active_c`` (so
+            ``cool_to_ambient`` would otherwise span BOTH bakes).
+
+        Returns ``n-1`` when neither fires (the bake runs hot to the log's end).
+        """
+        bounds: list[int] = []
+        cooled = self._candidate_cool_to_ambient(
+            temps, peak_idx + 1, self._confirm_n
+        )
+        if cooled is not None:
+            bounds.append(int(cooled))
+        dip = self._candidate_dip_with_rerise(
+            temps, peak_idx, float(temps[peak_idx])
+        )
+        if dip is not None:
+            bounds.append(int(dip))
+        return min(bounds) if bounds else (len(temps) - 1)
+
     def _refine_end_with_hint(
         self,
         temps: np.ndarray,
@@ -730,26 +883,36 @@ class CurveBoundaryDetector:
         cool_window: int,
         baseline: tuple[int, str, bool, bool],
         expected_duration_s: float,
-    ) -> tuple[int, str, bool, bool]:
-        """Re-rank all confirmed candidates by composite sigmoid score
-        within the tolerance band around ``start + expected_duration_s``.
+    ) -> tuple[int, str, bool, bool, bool]:
+        """Choose the curve end given an ``expected_duration_s`` hint.
 
-        Falls back to ``baseline`` (earliest-wins) and emits a structured
-        warning when no confirmed candidate sits in the band — the
-        decision is NEVER silently moved to a non-candidate index.
+        When a confirmed exit candidate sits inside the tolerance band around
+        ``start + hint``, the highest composite-scored one wins (a real
+        oven-exit near the stated time is preferred).  When none does, behaviour
+        depends on ``EXPECTED_DURATION_SNAP_TO_HINT`` — see
+        :meth:`_snap_end_to_hint`.
+
+        Returns ``(end_idx, kind, plateau_fired, cliff_fired, truncated)``.
         """
-        band_width = max(
-            expected_duration_s * self._duration_tolerance_frac,
-            self._duration_min_tolerance_s,
-        )
+        band_width = self._band_width(expected_duration_s)
         t_start = float(timestamps[start_idx])
         t_expected_end = t_start + expected_duration_s
         t_lo = t_expected_end - band_width
         t_hi = t_expected_end + band_width
 
-        candidates = self._collect_all_candidates(
-            temps, timestamps, peak_idx, cool_window, baseline
-        )
+        # Bound arbitration to THIS bake's hot thermal envelope.  Candidates
+        # fire over the whole array, so with a wide band a later bake's cooldown
+        # candidate could otherwise win this bake's end and swallow the bake(s)
+        # between — an anti-swallow guard shared by the in-band and snap paths.
+        envelope_end = self._hot_envelope_end(temps, peak_idx)
+
+        candidates = [
+            (idx, kind)
+            for idx, kind in self._collect_all_candidates(
+                temps, timestamps, peak_idx, cool_window, baseline
+            )
+            if idx <= envelope_end
+        ]
 
         in_band = [
             (idx, kind)
@@ -758,21 +921,16 @@ class CurveBoundaryDetector:
         ]
 
         if not in_band:
-            b_idx, b_kind, b_plateau, b_cliff = baseline
-            logger.warning(
-                "expected_duration_s hint produced no candidate in tolerance "
-                "band [%.1fs, %.1fs] (expected_end=%.1fs, start=%.1fs, "
-                "hint=%.1fs); falling back to earliest-wins baseline "
-                "kind=%s end_idx=%d",
+            return self._snap_end_to_hint(
+                temps,
+                timestamps,
+                peak_idx,
+                envelope_end,
+                t_expected_end,
                 t_lo,
                 t_hi,
-                t_expected_end,
-                t_start,
-                expected_duration_s,
-                b_kind,
-                b_idx,
+                baseline,
             )
-            return baseline
 
         # Score each in-band candidate; ties broken by earlier idx, then
         # by kind lexical order for determinism.
@@ -792,7 +950,82 @@ class CurveBoundaryDetector:
         _best_score, best_idx, best_kind = scored[0]
         plateau_fired = best_kind == "core_peak_plateau"
         cliff_fired = best_kind == "probe_pull_cliff"
-        return best_idx, best_kind, plateau_fired, cliff_fired
+        return best_idx, best_kind, plateau_fired, cliff_fired, False
+
+    def _snap_end_to_hint(
+        self,
+        temps: np.ndarray,
+        timestamps: np.ndarray,
+        peak_idx: int,
+        envelope_end: int,
+        t_expected_end: float,
+        t_lo: float,
+        t_hi: float,
+        baseline: tuple[int, str, bool, bool],
+    ) -> tuple[int, str, bool, bool, bool]:
+        """Bounded snap of the end toward ``t_expected_end`` when no natural
+        exit candidate landed in the tolerance band.
+
+        The end is snapped ONLY when the target lands inside the bake's hot
+        thermal envelope — after the peak and at/before the cooldown boundary
+        (``peak_idx < target ≤ hot-envelope end``).  Then:
+          * requested end past the recorded data (still hot at log end) →
+            snap to the last sample, ``truncated=True``.
+          * otherwise → snap to the target sample, ``truncated=False``.
+
+        Any other case keeps the detector's real end + WARNING: snap disabled,
+        or a physically-implausible time (shorter than the time-to-peak, or past
+        the cooldown / into a following bake).  This honours the user's "keep
+        the detector's real end + warn" choice and, critically, leaves the end
+        stable so the subsequent start-refinement (which reconciles a
+        mis-detected late start against a longer hint) can still do its job.
+        """
+        b_idx, b_kind, b_plateau, b_cliff = baseline
+
+        def _fallback_with_warning() -> tuple[int, str, bool, bool, bool]:
+            logger.warning(
+                "expected_duration_s hint produced no candidate in tolerance "
+                "band [%.1fs, %.1fs] (expected_end=%.1fs) inside the bake's hot "
+                "envelope; falling back to earliest-wins baseline "
+                "kind=%s end_idx=%d",
+                t_lo,
+                t_hi,
+                t_expected_end,
+                b_kind,
+                b_idx,
+            )
+            return b_idx, b_kind, b_plateau, b_cliff, False
+
+        # Snap disabled — preserve the pre-snap contract exactly.
+        if not self._snap_to_hint:
+            return _fallback_with_warning()
+
+        target_idx = self._nearest_sample_idx(timestamps, t_expected_end)
+
+        # Snap only inside the hot envelope.  A target at/before the peak or
+        # beyond the cooldown (probe already out / a following bake) is
+        # physically implausible → keep the detector's real end.
+        if not (peak_idx < target_idx <= envelope_end):
+            return _fallback_with_warning()
+
+        # A stated end beyond the recorded data means the bake did not finish
+        # within the log (still hot at EOF, so ``target_idx == n-1``): snap to
+        # the last sample and mark the curve truncated.
+        truncated = t_expected_end > float(timestamps[-1])
+        if truncated:
+            logger.info(
+                "expected_duration_s hint runs past the end of the log while "
+                "the loaf is still hot; snapping-and-truncating at idx %d.",
+                target_idx,
+            )
+        else:
+            logger.info(
+                "no natural oven-exit within tolerance of the stated bake "
+                "time; snapping end to the target sample (idx %d, %.1fs).",
+                target_idx,
+                float(timestamps[target_idx]),
+            )
+        return target_idx, "expected_time_snap", False, False, truncated
 
     def _collect_all_candidates(
         self,
@@ -901,10 +1134,7 @@ class CurveBoundaryDetector:
         if dt <= 0:
             return start_idx, peak_idx
 
-        band_width = max(
-            expected_duration_s * self._duration_tolerance_frac,
-            self._duration_min_tolerance_s,
-        )
+        band_width = self._band_width(expected_duration_s)
         t_end = float(timestamps[end_idx])
         t_start_center = t_end - expected_duration_s
         t_start_lo = t_start_center - band_width
@@ -1017,14 +1247,6 @@ class CurveBoundaryDetector:
             r2,
         )
         return shifted, refined_peak_idx
-
-    @staticmethod
-    def _min_opt(a: int | None, b: int | None) -> int | None:
-        if a is None:
-            return b
-        if b is None:
-            return a
-        return min(a, b)
 
     def _candidate_drop_rate(
         self,
@@ -1265,6 +1487,14 @@ class CurveBoundaryDetector:
         if n < 2:
             return None
 
+        # NOTE (S6, deferred): a probe-pull cliff whose start falls in the last
+        # ``confirm_n`` samples of the FULL log is missed and the curve wrongly
+        # truncated.  A partial-confirmation fix was attempted and reverted: this
+        # candidate is also invoked with truncated arrays (``temps[:upto]``)
+        # during the causal incremental scan in ``_evaluate_exit_candidates``, so
+        # relaxing the confirmation at the array end lets a cliff confirm early
+        # mid-log — a detector-wide behaviour change.  A correct fix must pass a
+        # "this is the true end of the log" flag from the full-array callers.
         for j in range(first_scan, n - confirm_n - 1):
             # Cliff must start from a baking-temperature sample; drops from
             # already-ambient temps are cascade noise from an earlier event.
