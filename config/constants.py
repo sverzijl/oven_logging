@@ -310,6 +310,22 @@ CURVE_DETECTION_CONFIG = {
     # and NC-1/NC-2 coupling with _skip_probe_pull_tail from being
     # disturbed by a long-shift hint.
     "EXPECTED_DURATION_MAX_START_SHIFT_SECONDS": 30.0,
+    # Master switch for the authoritative "actual bake time" behaviour.  When a
+    # per-curve hint is supplied but NO natural exit candidate lands in the
+    # tolerance band, the end is SNAPPED to the sample nearest ``start + hint``
+    # — bounded to the bake's hot thermal envelope (never before the peak, never
+    # past the cooldown / into a following bake; a target past the log clamps +
+    # truncates).  When False, the empty-band path is byte-identical to the
+    # pre-snap contract (revert to earliest-wins baseline + warning).  Consumed
+    # only when a hint is present (hint=None → no-hint path is unchanged).
+    "EXPECTED_DURATION_SNAP_TO_HINT": True,
+    # Quiescent window (seconds) that defines "continuously inserted" cooldown
+    # for _long_cool_window_samples.  CALIBRATION CAVEAT: anchored to
+    # real_1000BA3C_1759's ~40-min inter-bake sub-40 °C interlude (see
+    # _probe_cooking_continuous); recalibrating needs cross-CSV data this repo
+    # does not yet have.  Promoted from a buried literal to a named key so it is
+    # tunable without editing code, NOT a behaviour change.
+    "CONTINUOUS_COOKING_QUIESCENT_SECONDS": 3600.0,
 }
 
 # Combined-rank core helper still used by curve-boundary detection's

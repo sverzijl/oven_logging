@@ -45,6 +45,7 @@ _VALID_KINDS = {
     "dip_with_rerise",
     "core_peak_plateau",
     "probe_pull_cliff",
+    "expected_time_snap",
 }
 
 
@@ -142,7 +143,16 @@ class TestHintOnRealFixtures:
     def test_hint_far_outside_any_candidate_falls_back_with_warning(
         self, caplog
     ):
-        """Wildly wrong hint → fallback to earliest-wins AND warning logged."""
+        """Wildly wrong hint (past the hot bake envelope) → keep the detector's
+        real end AND warn.
+
+        With the authoritative-snap behaviour (M12), a hint with no in-band
+        candidate snaps to the stated time only when the target sits inside the
+        bake's hot thermal envelope.  6000 s (~100 min) on this ~25-min bake
+        puts the target ~75 min past the probe-out cooldown, i.e. *beyond* the
+        envelope, so the detector falls back to the earliest-wins baseline and
+        warns — this test pins that safety-valve branch.
+        """
         case = next(c for c in CASES if c["name"] == "real_100098DE_1351")
         detector = _fresh_detector()
         native = detector.extract_curves(case["df"].copy())
@@ -507,3 +517,246 @@ class TestNoiseRobustness:
             f"σ={sigma}: hint increased end-idx variance "
             f"(no_hint={var_no:.2f}, with_hint={var_hi:.2f})"
         )
+
+
+# ---------------------------------------------------------------------------
+# Tests: authoritative "actual bake time" snap (M12)
+# ---------------------------------------------------------------------------
+
+
+def _build_two_exits_wide_gap() -> pd.DataFrame:
+    """Rise -> gentle approach -> LONG 97 C plateau -> cliff -> cooldown.
+
+    The natural exits (plateau-onset early, cliff/cool late) are ~10 min
+    apart, so a hint pointing mid-plateau has NO candidate in its +/-15 %
+    band and must snap to the stated time.  A hint pointing at the cliff
+    still matches the real cliff.
+
+    Layout (samples @ 5 s): pre 0..9 . rise 10..49 (22->89) . approach
+    50..61 (90->97, ~8 C/60 s so the plateau guard passes) . plateau
+    62..241 (97) . cliff 242 (78) . post-cliff 243..247 . post 248..267.
+    """
+    pre = np.full(10, 22.0)
+    rise = np.linspace(22.0, 89.0, 40)
+    approach = np.linspace(90.0, 97.0, 12)
+    plateau = np.full(180, 97.0)
+    cliff = np.array([78.0])
+    post_cliff = np.array([70.0, 60.0, 50.0, 40.0, 30.0])
+    post = np.full(20, 22.0)
+    vct = np.concatenate([pre, rise, approach, plateau, cliff, post_cliff, post])
+    ts = np.arange(len(vct), dtype=float) * 5.0
+    return pd.DataFrame(
+        {"Timestamp": ts, "VirtualCoreTemperature": vct, "CoreTemperature": vct}
+    )
+
+
+def _build_still_hot_at_eof() -> pd.DataFrame:
+    """Rise -> plateau that runs to the end of the log (no cooldown / cliff),
+    so the loaf is still hot at EOF and a too-long hint must snap-and-truncate.
+    """
+    pre = np.full(10, 22.0)
+    rise = np.linspace(22.0, 89.0, 40)
+    approach = np.linspace(90.0, 97.0, 12)
+    plateau = np.full(60, 97.0)
+    vct = np.concatenate([pre, rise, approach, plateau])
+    ts = np.arange(len(vct), dtype=float) * 5.0
+    return pd.DataFrame(
+        {"Timestamp": ts, "VirtualCoreTemperature": vct, "CoreTemperature": vct}
+    )
+
+
+def _build_back_to_back_hot_dip() -> pd.DataFrame:
+    """Two back-to-back bakes separated by a dip that NEVER cools below
+    BAKE_ACTIVE_THRESHOLD_C (dips to 55 C).  cool_to_ambient therefore spans
+    BOTH bakes, so the snap's hot-envelope bound must fall back on the
+    dip_with_rerise inflection to avoid merging / swallowing bake 2.
+    """
+    pre = np.full(20, 22.0)
+    rise1 = np.linspace(22.0, 97.0, 30)
+    plat1 = np.full(100, 97.0)
+    dip = np.concatenate([np.linspace(97.0, 55.0, 6), np.linspace(55.0, 97.0, 6)])
+    plat2 = np.full(100, 97.0)
+    cliff = np.array([78.0])
+    post_cliff = np.array([70.0, 60.0, 50.0, 40.0, 30.0])
+    post = np.full(15, 22.0)
+    vct = np.concatenate([pre, rise1, plat1, dip, plat2, cliff, post_cliff, post])
+    ts = np.arange(len(vct), dtype=float) * 5.0
+    return pd.DataFrame(
+        {"Timestamp": ts, "VirtualCoreTemperature": vct, "CoreTemperature": vct}
+    )
+
+
+class TestExpectedTimeSnap:
+
+    def test_hint_in_gap_snaps_to_target(self):
+        """Hint in a candidate gap -> end snaps within one sample of start+hint.
+
+        This is the primary "pick a boundary very close to N minutes" guarantee.
+        """
+        df = _build_two_exits_wide_gap()
+        detector = _fresh_detector()
+        native = detector.extract_curves(df.copy())
+        start_idx = native[0]["start_idx"]
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        sample_period = float(np.median(np.diff(ts)))
+        target_idx = 150  # mid-plateau, outside any band around either exit
+        hint_s = float(ts[target_idx] - ts[start_idx])
+
+        hinted = detector.extract_curves(df.copy(), expected_durations_s=[hint_s])
+        assert len(hinted) == 1
+        assert hinted[0]["exit_candidate_kind"] == "expected_time_snap"
+        assert not hinted[0]["truncated"]
+        landed = hinted[0]["end_time"]
+        assert abs(landed - (float(ts[start_idx]) + hint_s)) <= sample_period
+
+    def test_real_exit_in_band_still_preferred_over_snap(self):
+        """A real oven-exit within tolerance of the stated time wins (no snap)."""
+        df = _build_two_exits_wide_gap()
+        detector = _fresh_detector()
+        native = detector.extract_curves(df.copy())
+        start_idx = native[0]["start_idx"]
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        cliff_idx = 242
+        hint_s = float(ts[cliff_idx] - ts[start_idx])
+
+        hinted = detector.extract_curves(df.copy(), expected_durations_s=[hint_s])
+        assert hinted[0]["exit_candidate_kind"] == "probe_pull_cliff"
+
+    def test_snap_beyond_log_clamps_and_truncates(self):
+        """A hint past the log while the loaf is still hot -> snap to the last
+        sample, truncated."""
+        df = _build_still_hot_at_eof()
+        detector = _fresh_detector()
+        native = detector.extract_curves(df.copy())
+        start_idx = native[0]["start_idx"]
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        n = len(df)
+        hint_s = float(ts[-1] - ts[start_idx]) + 100 * 5.0
+
+        hinted = detector.extract_curves(df.copy(), expected_durations_s=[hint_s])
+        assert len(hinted) == 1
+        assert hinted[0]["end_idx"] == n - 1
+        assert hinted[0]["truncated"] is True
+        assert hinted[0]["exit_candidate_kind"] == "expected_time_snap"
+
+    def test_snap_ceiling_prevents_swallowing_next_bake(self, caplog):
+        """A too-long hint on bake 1 of a 3-bake log must not swallow bakes 2/3.
+
+        90 min on real_1000BA3C_1759's bake 1 points past its cooldown; the end
+        reverts to the detector's baseline and bakes 2 & 3 survive."""
+        case = next(c for c in CASES if c["name"] == "real_1000BA3C_1759")
+        detector = _fresh_detector()
+        native = detector.extract_curves(case["df"].copy())
+        assert len(native) == 3  # sanity
+
+        with caplog.at_level(
+            logging.WARNING, logger="src.data.curve_boundary_detector"
+        ):
+            hinted = detector.extract_curves(
+                case["df"].copy(), expected_durations_s=[5400.0, None, None]
+            )
+        assert len(hinted) == 3, (
+            f"bake count changed under a hostile bake-1 hint: {len(hinted)}"
+        )
+        assert hinted[0]["end_idx"] == native[0]["end_idx"]
+        assert hinted[1]["start_idx"] == native[1]["start_idx"]
+        assert hinted[2]["start_idx"] == native[2]["start_idx"]
+        assert " ".join(r.getMessage() for r in caplog.records)
+
+    def test_under_estimate_does_not_delete_bake(self):
+        """A hint shorter than the time-to-peak must not drop the bake."""
+        case = next(c for c in CASES if c["name"] == "real_100098DE_1351")
+        detector = _fresh_detector()
+        hinted = detector.extract_curves(
+            case["df"].copy(), expected_durations_s=[120.0]
+        )
+        assert len(hinted) == 1
+        assert hinted[0]["max_temp"] >= 80.0
+
+    def test_snap_does_not_spawn_phantom_curve(self):
+        """A snap landing mid-plateau must not spawn a phantom second curve
+        (the _skip_snap_tail coupling)."""
+        df = _build_two_exits_wide_gap()
+        detector = _fresh_detector()
+        start_idx = detector.extract_curves(df.copy())[0]["start_idx"]
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        hint_s = float(ts[150] - ts[start_idx])
+        hinted = detector.extract_curves(df.copy(), expected_durations_s=[hint_s])
+        assert len(hinted) == 1
+
+    def test_snap_rederives_peak_over_snapped_range(self):
+        """max_temp reflects the true peak inside the snapped [start, end]."""
+        df = _build_two_exits_wide_gap()
+        detector = _fresh_detector()
+        start_idx = detector.extract_curves(df.copy())[0]["start_idx"]
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        hint_s = float(ts[150] - ts[start_idx])
+        hinted = detector.extract_curves(df.copy(), expected_durations_s=[hint_s])
+        assert hinted[0]["max_temp"] >= 96.0
+
+    def test_snap_is_idempotent(self):
+        """Re-running detection on a snapped result is a fixed point (guards the
+        end-snap -> start-refine order coupling)."""
+        df = _build_two_exits_wide_gap()
+        detector = _fresh_detector()
+        start_idx = detector.extract_curves(df.copy())[0]["start_idx"]
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        hint_s = float(ts[150] - ts[start_idx])
+        first = detector.extract_curves(df.copy(), expected_durations_s=[hint_s])
+        second = detector.extract_curves(df.copy(), expected_durations_s=[hint_s])
+        assert first[0]["start_idx"] == second[0]["start_idx"]
+        assert first[0]["end_idx"] == second[0]["end_idx"]
+
+    def test_snap_disabled_reverts_to_baseline(self, caplog):
+        """With EXPECTED_DURATION_SNAP_TO_HINT=False the empty-band path reverts
+        to the earliest-wins baseline + warning (pre-snap contract)."""
+        df = _build_two_exits_wide_gap()
+        detector_on = _fresh_detector()
+        native = detector_on.extract_curves(df.copy())
+        start_idx = native[0]["start_idx"]
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        hint_s = float(ts[150] - ts[start_idx])
+
+        detector_off = CurveBoundaryDetector(
+            {**CURVE_DETECTION_CONFIG, "EXPECTED_DURATION_SNAP_TO_HINT": False}
+        )
+        with caplog.at_level(
+            logging.WARNING, logger="src.data.curve_boundary_detector"
+        ):
+            hinted = detector_off.extract_curves(
+                df.copy(), expected_durations_s=[hint_s]
+            )
+        assert hinted[0]["end_idx"] == native[0]["end_idx"]
+        assert hinted[0]["exit_candidate_kind"] == native[0]["exit_candidate_kind"]
+        assert " ".join(r.getMessage() for r in caplog.records)
+
+    def test_mid_gap_snap_does_not_merge_back_to_back_bakes(self):
+        """A mid-plateau-1 snap on bake 1 must NOT swallow/merge bake 2 when the
+        inter-bake dip stays above BAKE_ACTIVE_THRESHOLD_C (the dip_with_rerise
+        envelope bound)."""
+        df = _build_back_to_back_hot_dip()
+        detector = _fresh_detector()
+        native = detector.extract_curves(df.copy())
+        assert len(native) == 2  # sanity: two back-to-back bakes
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        start_idx = native[0]["start_idx"]
+        # Target mid-plateau-1 (a candidate gap short of bake 1's real end).
+        hint_s = float(ts[110] - ts[start_idx])
+        hinted = detector.extract_curves(df.copy(), expected_durations_s=[hint_s, None])
+        assert len(hinted) == 2, f"snap merged/swallowed bake 2: got {len(hinted)}"
+        assert hinted[0]["exit_candidate_kind"] == "expected_time_snap"
+        assert hinted[1]["start_idx"] == native[1]["start_idx"]
+
+    def test_too_long_hint_reverts_without_merging_back_to_back_bakes(self):
+        """A hint pointing into bake 2's plateau is beyond bake 1's hot envelope
+        (dip bound) -> revert to baseline, bake 2 preserved (no merge)."""
+        df = _build_back_to_back_hot_dip()
+        detector = _fresh_detector()
+        native = detector.extract_curves(df.copy())
+        ts = df["Timestamp"].to_numpy(dtype=float)
+        start_idx = native[0]["start_idx"]
+        hint_s = float(ts[170] - ts[start_idx])  # into plateau-2
+        hinted = detector.extract_curves(df.copy(), expected_durations_s=[hint_s, None])
+        assert len(hinted) == 2
+        assert hinted[0]["end_idx"] == native[0]["end_idx"]
+        assert hinted[1]["start_idx"] == native[1]["start_idx"]
